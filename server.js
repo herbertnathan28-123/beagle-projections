@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════════════════
+ // ═══════════════════════════════════════════════════════════════════════════
 // BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v23
 // Deploy: node server.js
 // Env vars: PROJECTIONS_SECRET, PORT
@@ -148,6 +148,9 @@ const PERIOD_OPTS=[
   {label:'50Y', days:18250, group:'YEARS'},
   {label:'MAX', days:null,  group:'AUTO'},
 ];
+// Detail panel month→days lookup
+const MTD_MAP={1:30.4,3:91.3,6:182.6,12:365};
+
 function getXTicks(days){
   if(days<=182.6)return[30.4,91.3,182.6].filter(d=>d<=days);
   if(days<=365)return[91.3,182.6,365].filter(d=>d<=days);
@@ -322,7 +325,7 @@ function App(){
 
   const resetZoom=()=>{setYZoom(1);setYPan(0);};
 
-  const detailProj=selA?[1,3,6,12].map(mo=>({mo,sv:selA.sv+(selA.pace||0)*MTD[mo],rank:projRanking(all,beagle,MTD[mo]).findIndex(a=>a.isBeagle)+1})):[];
+  const detailProj=selA?[1,3,6,12].map(mo=>({mo,sv:selA.sv+(selA.pace||0)*MTD_MAP[mo],rank:projRanking(all,beagle,MTD_MAP[mo]).findIndex(a=>a.isBeagle)+1})):[];
 
   const bb={borderRadius:3,fontSize:13,fontWeight:700,cursor:"pointer",letterSpacing:1,fontFamily:"inherit",padding:"5px 12px"};
   const btn=active=>({...bb,background:active?"#C4920A":"transparent",border:"1px solid "+(active?"#C4920A":"#162030"),color:active?"#030B17":"#6A9AB5"});
@@ -539,7 +542,7 @@ function App(){
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:8}}>
         <div>
           <span style={{fontSize:12,color:"#8AAABB",letterSpacing:1}}>PROJECTED RANKING AT </span>
-          <span style={{fontSize:12,color:"#E8B84B",fontWeight:700,letterSpacing:1}}>{period} MONTH{period>1?"S":""}</span>
+          <span style={{fontSize:12,color:"#E8B84B",fontWeight:700,letterSpacing:1}}>{periodKey}</span>
           <span style={{fontSize:11,color:"#4A7090",marginLeft:10}}>— click any row to inspect</span>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
@@ -594,7 +597,7 @@ function App(){
         </div>)}
       </div>
       <div style={{display:"flex",gap:5,marginBottom:8}}>
-        {detailProj.map(({mo,sv,rank})=>{const ahead=sv-(B_SV+B_PACE*MTD[mo]),c=ahead<=0?"#00E676":ahead<100?"#69F0AE":"#3A6090";return(<div key={mo} style={{flex:1,background:"#030B17",borderRadius:4,padding:"6px 5px",textAlign:"center",border:"1px solid #0A1E30"}}>
+        {detailProj.map(({mo,sv,rank})=>{const ahead=sv-(B_SV+B_PACE*MTD_MAP[mo]),c=ahead<=0?"#00E676":ahead<100?"#69F0AE":"#3A6090";return(<div key={mo} style={{flex:1,background:"#030B17",borderRadius:4,padding:"6px 5px",textAlign:"center",border:"1px solid #0A1E30"}}>
           <div style={{fontSize:11,color:"#8AAABB",fontWeight:600,letterSpacing:1,marginBottom:2}}>{mo}MO</div>
           <div style={{fontSize:13,fontWeight:700,color:"#C0CCD8"}}>{"$"+sv.toFixed(0)+"M"}</div>
           <div style={{fontSize:11,color:c,marginTop:2,fontWeight:600}}>{ahead<=0?"✓ BEHIND":"+$"+ahead.toFixed(0)+"M"}</div>
