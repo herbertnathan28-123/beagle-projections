@@ -1,4 +1,4 @@
-// ═══════════════════════════════════════════════════════════════════════════
+ // ═══════════════════════════════════════════════════════════════════════════
 // BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE
 // Deploy as new Render web service: beagle-projections
 // Start command: node server.js
@@ -72,27 +72,19 @@ const HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=1800"/>
+<meta name="viewport" content="width=device-width,initial-scale=0.6,maximum-scale=5.0,user-scalable=yes"/>
 <title>Beagle Global — Alliance Projections</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;zoom:0.55}
+body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif}
 button{font-family:inherit}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:#040C18}
 ::-webkit-scrollbar-thumb{background:#1E3A5F;border-radius:2px}
-@media(max-width:768px){
-  .rank-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important}
-  .stat-row{flex-wrap:wrap !important;gap:10px !important}
-  .legend-row{display:none !important}
-  .header-right{text-align:left !important}
-}
-@media(max-width:480px){
-  .ctrl-btn{padding:4px 8px !important;font-size:12px !important}
-}
+
 </style>
 </head>
 <body>
@@ -180,7 +172,7 @@ function App(){
   const beagleRank=ranking.find(a=>a.isBeagle);
   const rankChange=beagle.rank?(beagle.rank-(beagleRank?.projRank??beagle.rank)):0;
 
-  const W=860,H=isMobile?240:320,ml=isMobile?58:70,mr=14,mt=24,mb=isMobile?34:40,cw=W-ml-mr,ch=H-mt-mb;
+  const W=1200,H=280,ml=70,mr=10,mt=20,mb=36,cw=W-ml-mr,ch=H-mt-mb;
   const allAtEnd=[...pool,beagle].map(a=>a.sv+(a.pace||0)*days);
   // Y axis — clamp to alliances within 2500M of Beagle so far ones don't blow scale
   const _visPool=pool.filter(a=>Math.abs(a.gap)<2500);
@@ -249,8 +241,8 @@ function App(){
       </div>
     </div>
 
-    <div style={{padding:"2px 6px 0",height:"340px",overflow:"hidden",flexShrink:0}}>
-      <svg viewBox={"0 0 "+W+" "+H} style={{width:"100%",height:"340px",display:"block"}}>
+    <div style={{padding:"2px 6px 0",flexShrink:0}}>
+      <svg viewBox={"0 0 "+W+" "+H} style={{width:"100%",display:"block"}}>
         <defs>
           <filter id="fg"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
           <filter id="fl"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
