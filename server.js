@@ -84,6 +84,15 @@ button{font-family:inherit}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:#040C18}
 ::-webkit-scrollbar-thumb{background:#1E3A5F;border-radius:2px}
+@media(max-width:768px){
+  .rank-grid{grid-template-columns:1fr !important}
+  .stat-row{flex-wrap:wrap !important;gap:10px !important}
+  .legend-row{display:none !important}
+  .header-right{text-align:left !important}
+}
+@media(max-width:480px){
+  .ctrl-btn{padding:4px 8px !important;font-size:12px !important}
+}
 </style>
 </head>
 <body>
@@ -153,6 +162,15 @@ function App(){
     return buildAlliances(apiData);
   },[apiData]);
 
+  const[winW,setWinW]=useState(typeof window!=='undefined'?window.innerWidth:1200);
+  useEffect(()=>{
+    const onResize=()=>setWinW(window.innerWidth);
+    window.addEventListener('resize',onResize);
+    return ()=>window.removeEventListener('resize',onResize);
+  },[]);
+  const isMobile=winW<768;
+  const isTablet=winW<1024;
+
   const days=MTD[period];
   const CLOSE=all.filter(a=>!a.isBeagle&&(a.passed||a.gap<800));
   const FAR=all.filter(a=>!a.isBeagle&&!a.passed&&a.gap>=800);
@@ -162,7 +180,7 @@ function App(){
   const beagleRank=ranking.find(a=>a.isBeagle);
   const rankChange=beagle.rank?(beagle.rank-(beagleRank?.projRank??beagle.rank)):0;
 
-  const W=860,H=380,ml=68,mr=10,mt=28,mb=40,cw=W-ml-mr,ch=H-mt-mb;
+  const W=860,H=isMobile?300:380,ml=isMobile?55:68,mr=10,mt=24,mb=isMobile?36:40,cw=W-ml-mr,ch=H-mt-mb;
   const allAtEnd=[...pool,beagle].map(a=>a.sv+(a.pace||0)*days);
   const _rawMin=pool.length?Math.min(...pool.map(a=>a.sv),B_SV):2500;
   const _rawMax=allAtEnd.length?Math.max(...allAtEnd):5000;
@@ -199,7 +217,7 @@ function App(){
   };
 
   return(<div style={{background:"#030B17",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
-    <div style={{background:"linear-gradient(90deg,#04101E,#0A1C32)",borderBottom:"2px solid #C4920A",padding:"10px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+    <div style={{background:"linear-gradient(90deg,#04101E,#0A1C32)",borderBottom:"2px solid #C4920A",padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:6}}>
       <div>
         <div style={{fontSize:25,fontWeight:700,color:"#E8B84B",letterSpacing:2}}>◈ BEAGLE GLOBAL — ALLIANCE PROJECTIONS</div>
         <div style={{fontSize:20,color:"#2C4A68",marginTop:2,letterSpacing:1}}>
@@ -220,7 +238,7 @@ function App(){
       <div style={{width:1,height:20,background:"#162030",margin:"0 4px"}}/>
       <button onClick={()=>setFullField(f=>!f)} style={btn2(fullField)}>{fullField?"CLOSE PACK":"FULL FIELD"}</button>
       <button onClick={()=>setShowRank(r=>!r)} style={{...bb,background:showRank?"#0D2240":"transparent",border:"1px solid #162030",color:showRank?"#7FAACC":"#2C4A68"}}>{showRank?"HIDE RANKING":"SHOW RANKING"}</button>
-      <div style={{marginLeft:"auto",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+      <div className="legend-row" style={{marginLeft:"auto",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
         {[["#E8B84B","Beagle"],["#00E676","< 100d"],["#69F0AE","catching"],["#3A6090","away"],["#E74C3C","passed"]].map(([c,l])=>(
           <span key={l} style={{display:"flex",alignItems:"center",gap:4}}>
             <span style={{width:l==="Beagle"?20:16,height:l==="Beagle"?3:2,background:c,display:"inline-block",borderRadius:2}}/>
@@ -303,7 +321,7 @@ function App(){
           })()}
         </div>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <div className="rank-grid" style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:"0 14px"}}>
         <div><div style={{fontSize:18,color:"#182838",fontWeight:600,letterSpacing:1,padding:"0 6px 4px"}}>1 — 10</div>{ranking.slice(0,10).map(renderRow)}</div>
         <div><div style={{fontSize:18,color:"#182838",fontWeight:600,letterSpacing:1,padding:"0 6px 4px"}}>11 — 20</div>{ranking.slice(10,20).map(renderRow)}</div>
       </div>
@@ -335,7 +353,7 @@ function App(){
           <div style={{fontSize:18,color:"#182838",marginTop:1}}>Beagle #{rank}</div>
         </div>);})}
       </div>
-      <div style={{display:"flex",alignItems:"center",gap:20,borderTop:"1px solid #0A1E30",paddingTop:8}}>
+      <div className="stat-row" style={{display:"flex",alignItems:"center",gap:20,borderTop:"1px solid #0A1E30",paddingTop:8,flexWrap:"wrap"}}>
         <div><div style={{fontSize:19,color:"#182838",letterSpacing:1}}>DAILY CLOSURE</div><div style={{fontSize:22,fontWeight:700,color:selA.catchable?col(selA):"#3A6090"}}>{selA.closure!=null?(selA.closure>0?"+":"")+"$"+selA.closure.toFixed(3)+"M/day":"unknown"}</div></div>
         <div><div style={{fontSize:19,color:"#182838",letterSpacing:1}}>THEIR PACE</div><div style={{fontSize:22,fontWeight:700,color:"#E2EAF4"}}>{selA.pace?.toFixed(3)??"—"} $M/day</div></div>
         <div><div style={{fontSize:19,color:"#182838",letterSpacing:1}}>BEAGLE PACE</div><div style={{fontSize:22,fontWeight:700,color:"#E8B84B"}}>{B_PACE.toFixed(3)} $M/day</div></div>
@@ -343,7 +361,7 @@ function App(){
       </div>
     </div>)}
 
-    <div style={{padding:"5px 10px 16px",overflowY:"auto",maxHeight:280}}>
+    <div style={{padding:"5px 10px 16px",overflowY:"auto",maxHeight:isMobile?220:280}}>
       <div style={{fontSize:19,color:"#162030",letterSpacing:1,marginBottom:6,paddingLeft:2}}>{fullField?"ALL ALLIANCES":"CLOSE PACK"}{!fullField&&<span style={{color:"#1E3A55"}}> · {FAR.length} far alliances hidden</span>}</div>
       {[...(fullField?[...CLOSE,...FAR]:CLOSE)].sort((a,b)=>a.rank-b.rank).map(a=>{
         const c=col(a),isSel=selected===a.name,projR=ranking.find(r=>r.name===a.name)?.projRank,rChg=a.rank-(projR??a.rank);
