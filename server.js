@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v35
+// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v36
 // Deploy: node server.js
 // Env vars: PROJECTIONS_SECRET, PORT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -97,7 +97,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-<title>Beagle Global \u2014 Alliance Projections v35</title>
+<title>Beagle Global \u2014 Alliance Projections v36</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -413,8 +413,7 @@ function App(){
 
   const nameTag=(name,c)=>name.length>18?name.slice(0,17)+'\u2026':name;
 
-  const wh=typeof window!=='undefined'?window.innerHeight:800;
-  return(<div style={{background:'#030B17',height:wh,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+  return(<div style={{background:'#030B17',height:'100dvh',minHeight:'-webkit-fill-available',display:'flex',flexDirection:'column'}}>
 
     {/* HEADER */}
     <div style={{background:'linear-gradient(90deg,#04101E,#0A1C32)',borderBottom:'2px solid #C4920A',padding:'10px 16px',display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:4}}>
@@ -455,7 +454,7 @@ function App(){
       ))}
       <div style={{width:1,height:18,background:'#162030',margin:'0 3px',flexShrink:0}}/>
       <button onClick={()=>setShowR(r=>!r)} style={{...BB,background:showR?'#0D2240':'transparent',border:'1px solid #162030',color:showR?'#7FAACC':'#4A7090'}}>{showR?'HIDE RANKING':'SHOW RANKING'}</button>
-      <div style={{display:'flex',alignItems:'center',gap:3,marginLeft:4}}>
+      <div style={{display:'flex',alignItems:'center',gap:3,marginLeft:'auto'}}>
         {/* Zoom */}
         <button onClick={()=>{setYZ(z=>Math.min(30,z*1.25));setXZ(z=>Math.min(30,z*1.25));}} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:16,fontWeight:700}} title="Zoom in">+</button>
         <span style={{fontSize:12,color:zoomed?'#E8B84B':'#3A6080',minWidth:36,textAlign:'center'}}>{zoomed?('x'+Math.max(yZ,xZ).toFixed(1)):'1x'}</span>
