@@ -150,7 +150,7 @@ function App(){
   const[loading,setLoading]=useState(true);
   const[period,setPeriod]=useState(6);
   const[selected,setSelected]=useState(null);
-  const[fullField,setFullField]=useState(false);
+  const[fullField,setFullField]=useState(true);
   const[showRank,setShowRank]=useState(true);
 
   useEffect(()=>{
