@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v34
+// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v35
 // Deploy: node server.js
 // Env vars: PROJECTIONS_SECRET, PORT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -97,7 +97,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-<title>Beagle Global \u2014 Alliance Projections v34</title>
+<title>Beagle Global \u2014 Alliance Projections v35</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -202,6 +202,15 @@ function App(){
   const[pk,setPk]=useState('6MO');
   const[mode,setMode]=useState('SV');
   const[act,setAct]=useState(new Set());
+  // iOS orientation fix — force re-render after rotate so layout recalculates
+  const[,forceLayout]=useState(0);
+  useEffect(()=>{
+    let t;
+    const onResize=()=>{clearTimeout(t);t=setTimeout(()=>forceLayout(n=>n+1),200);};
+    window.addEventListener('resize',onResize);
+    window.addEventListener('orientationchange',onResize);
+    return()=>{clearTimeout(t);window.removeEventListener('resize',onResize);window.removeEventListener('orientationchange',onResize);};
+  },[]);
   const[focus,setFocus]=useState(null);
   const[full,setFull]=useState(true);
   const[showR,setShowR]=useState(true);
@@ -404,7 +413,8 @@ function App(){
 
   const nameTag=(name,c)=>name.length>18?name.slice(0,17)+'\u2026':name;
 
-  return(<div style={{background:'#030B17',minHeight:'100vh',display:'flex',flexDirection:'column'}}>
+  const wh=typeof window!=='undefined'?window.innerHeight:800;
+  return(<div style={{background:'#030B17',height:wh,display:'flex',flexDirection:'column',overflow:'hidden'}}>
 
     {/* HEADER */}
     <div style={{background:'linear-gradient(90deg,#04101E,#0A1C32)',borderBottom:'2px solid #C4920A',padding:'10px 16px',display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:4}}>
@@ -700,5 +710,4 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Beagle Projections live on port ${PORT}`));
-
 
