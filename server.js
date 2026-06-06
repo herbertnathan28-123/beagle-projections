@@ -500,5 +500,6 @@ app.get('*', (req, res) => {
   res.type('html').send(HTML);
 });
 
-app.listen(PORT, () => console.log(\`Beagle Projections live on port \${PORT}\`));
+app.listen(PORT, () => console.log(`Beagle Projections live on port ${PORT}`));
+
 
