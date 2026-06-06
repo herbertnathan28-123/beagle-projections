@@ -15,31 +15,31 @@ app.use(express.json());
 
 // ── DEFAULT DATA (Jun 2026 snapshot · 10-month recent paces) ───────────────
 const DEFAULT_DATA = {
-  timestamp:  null,
-  uploader:   null,
-  beagleSV:   2918.19,
+  timestamp:  '2026-06-06T10:45:00+08:00',
+  uploader:   'atlas.4693',
+  beagleSV:   2925.08,
   beaglePace: 4.627,
   beagleRank: 19,
   alliances: [
-    { rank:1,  name:"Dokdo",            sv:8149.45, pace:null  },
-    { rank:2,  name:"Valiant Air",      sv:7115.43, pace:7.134 },
-    { rank:3,  name:"Grizzly Group",    sv:5538.26, pace:4.218 },
-    { rank:4,  name:"Free Flying",      sv:5533.68, pace:6.924 },
-    { rank:5,  name:"Per Aspera",       sv:5300.80, pace:5.277 },
-    { rank:6,  name:"Indonesia Unity",  sv:4522.98, pace:3.802 },
-    { rank:7,  name:"GERMAN ALLIANCE",  sv:4355.18, pace:3.947 },
-    { rank:8,  name:"Happy Skies 2.0",  sv:3934.48, pace:3.918 },
-    { rank:9,  name:"STARFLEET",        sv:3533.74, pace:3.219 },
-    { rank:10, name:"Russian Wings",    sv:3510.22, pace:2.997 },
-    { rank:11, name:"CODESHARE",        sv:3498.29, pace:3.641 },
-    { rank:12, name:"SpaceX",           sv:3305.14, pace:4.310 },
-    { rank:13, name:"ClearSky Group",   sv:3091.40, pace:2.783 },
-    { rank:14, name:"JetSTAR",          sv:3080.34, pace:2.372 },
-    { rank:15, name:"Mixer World",      sv:3042.93, pace:1.633 },
-    { rank:16, name:"BRASIL GT",        sv:3041.01, pace:3.292 },
-    { rank:17, name:"Sky Wings",        sv:3018.75, pace:3.725 },
-    { rank:18, name:"Alpha Vikings",    sv:2957.58, pace:3.766 },
-    { rank:20, name:"Star Alliance",    sv:2827.37, pace:3.413 },
+    { rank:1,  name:"Dokdo",            sv:8157.92, pace:null  },
+    { rank:2,  name:"Valiant Air",      sv:7126.52, pace:7.134 },
+    { rank:3,  name:"Free Flying",      sv:5544.02, pace:6.924 },
+    { rank:4,  name:"Grizzly Group",    sv:5543.80, pace:4.218 },
+    { rank:5,  name:"Per Aspera",       sv:5306.19, pace:5.277 },
+    { rank:6,  name:"Indonesia Unity",  sv:4527.80, pace:3.802 },
+    { rank:7,  name:"GERMAN ALLIANCE",  sv:4361.05, pace:3.947 },
+    { rank:8,  name:"Happy Skies 2.0",  sv:3939.90, pace:3.918 },
+    { rank:9,  name:"STARFLEET",        sv:3538.11, pace:3.219 },
+    { rank:10, name:"Russian Wings",    sv:3513.81, pace:2.997 },
+    { rank:11, name:"CODESHARE",        sv:3502.37, pace:3.641 },
+    { rank:12, name:"SpaceX",           sv:3309.25, pace:4.310 },
+    { rank:13, name:"ClearSky Group",   sv:3094.99, pace:2.783 },
+    { rank:14, name:"JetSTAR",          sv:3083.44, pace:2.372 },
+    { rank:15, name:"BRASIL GT",        sv:3045.63, pace:3.292 },
+    { rank:16, name:"Mixer World",      sv:3045.00, pace:1.633 },
+    { rank:17, name:"Sky Wings",        sv:3024.46, pace:3.725 },
+    { rank:18, name:"Alpha Vikings",    sv:2962.65, pace:3.766 },
+    { rank:20, name:"Star Alliance",    sv:2831.37, pace:3.413 },
   ]
 };
 
@@ -180,7 +180,7 @@ function App(){
   const beagleRank=ranking.find(a=>a.isBeagle);
   const rankChange=beagle.rank?(beagle.rank-(beagleRank?.projRank??beagle.rank)):0;
 
-  const W=860,H=isMobile?240:300,ml=isMobile?52:65,mr=10,mt=20,mb=isMobile?32:36,cw=W-ml-mr,ch=H-mt-mb;
+  const W=860,H=isMobile?160:200,ml=isMobile?48:60,mr=10,mt=16,mb=isMobile?26:30,cw=W-ml-mr,ch=H-mt-mb;
   const allAtEnd=[...pool,beagle].map(a=>a.sv+(a.pace||0)*days);
   const _rawMin=pool.length?Math.min(...pool.map(a=>a.sv),B_SV):2500;
   const _rawMax=allAtEnd.length?Math.max(...allAtEnd):5000;
@@ -248,7 +248,7 @@ function App(){
       </div>
     </div>
 
-    <div style={{padding:"2px 8px 0",maxHeight:"38vh",overflow:"hidden"}}>
+    <div style={{padding:"2px 8px 0",maxHeight:"20vh",overflow:"hidden"}}>
       <svg viewBox={"0 0 "+W+" "+H} style={{width:"100%",display:"block"}}>
         <defs>
           <filter id="fg"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
