@@ -206,7 +206,7 @@ function App(){
         </div>
       </div>
       <div style={{textAlign:"right"}}>
-        <div style={{fontSize:17,fontWeight:700,color:"#E8B84B"}}>${B_SV.toLocaleString("en",{minimumFractionDigits:2})}M</div>
+        <div style={{fontSize:17,fontWeight:700,color:"#E8B84B"}}>{"$"+B_SV.toLocaleString("en",{minimumFractionDigits:2})+"M"}</div>
         <div style={{fontSize:10,color:"#2C4A68",letterSpacing:1}}>{B_PACE.toFixed(3)} $M/DAY</div>
       </div>
     </div>
@@ -310,7 +310,7 @@ function App(){
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
         <div>
           <div style={{fontSize:14,fontWeight:700,color:"#E2EAF4"}}>#{selA.rank} {selA.name}</div>
-          <div style={{fontSize:10,color:"#2C4A68",marginTop:2}}>SV ${selA.sv.toLocaleString("en",{minimumFractionDigits:2})}M · Pace {selA.pace?.toFixed(3)??"—"}/day · Gap {selA.gap>0?"+":""}{selA.gap.toFixed(0)}M</div>
+          <div style={{fontSize:10,color:"#2C4A68",marginTop:2}}>{"SV $"+selA.sv.toLocaleString("en",{minimumFractionDigits:2})+"M · Pace"} {selA.pace?.toFixed(3)??"—"}/day · Gap {selA.gap>0?"+":""}{selA.gap.toFixed(0)}M</div>
         </div>
         {selA.catchable?(<div style={{background:"#04120A",border:"1px solid "+col(selA),borderRadius:4,padding:"4px 10px",textAlign:"right"}}>
           <div style={{fontSize:9,color:col(selA),letterSpacing:1}}>BEAGLE OVERTAKES</div>
@@ -327,7 +327,7 @@ function App(){
       <div style={{display:"flex",gap:5,marginBottom:8}}>
         {detailProj.map(({mo,sv,rank})=>{const ahead=sv-(B_SV+B_PACE*MTD[mo]),c=ahead<=0?"#00E676":ahead<100?"#69F0AE":"#3A6090";return(<div key={mo} style={{flex:1,background:"#030B17",borderRadius:4,padding:"7px 5px",textAlign:"center",border:"1px solid #0A1E30"}}>
           <div style={{fontSize:9,color:"#182838",fontWeight:600,letterSpacing:1,marginBottom:3}}>{mo}MO</div>
-          <div style={{fontSize:11,fontWeight:700,color:"#C0CCD8"}}>${sv.toFixed(0)}M</div>
+          <div style={{fontSize:11,fontWeight:700,color:"#C0CCD8"}}>{"$"+sv.toFixed(0)+"M"}</div>
           <div style={{fontSize:8.5,color:c,marginTop:2,fontWeight:600}}>{ahead<=0?"✓ BEHIND":"+$"+ahead.toFixed(0)+"M ahead"}</div>
           <div style={{fontSize:8,color:"#182838",marginTop:1}}>Beagle #{rank}</div>
         </div>);})}
@@ -351,7 +351,7 @@ function App(){
             {a.passed&&<span style={{fontSize:9,color:"#00E676",fontWeight:700}}>✓</span>}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:14,fontSize:9}}>
-            <span style={{color:"#2C4A68"}}>${a.sv.toFixed(0)}M</span>
+            <span style={{color:"#2C4A68"}}>{"$"+a.sv.toFixed(0)+"M"}</span>
             <span style={{color:"#2C4A68"}}>{a.gap>0?"+":""}{a.gap.toFixed(0)}M</span>
             <span style={{color:c,fontWeight:600,minWidth:60,textAlign:"right"}}>{a.catchable?(a.daysTo<days?"⬆ "+fmtDate(a.overtakeDate):Math.round(a.daysTo)+"d"):a.passed?"✓ passed":"↑ away"}</span>
             {projR&&<span style={{color:rChg>0?"#00E676":rChg<0?"#E74C3C":"#2C4A68",fontWeight:700,minWidth:32,textAlign:"right"}}>→#{projR}{rChg>0?" ▲"+rChg:rChg<0?" ▼"+Math.abs(rChg):""}</span>}
