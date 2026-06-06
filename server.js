@@ -1,4 +1,4 @@
- // ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
 // BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE
 // Deploy as new Render web service: beagle-projections
 // Start command: node server.js
@@ -72,14 +72,14 @@ const HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=1400"/>
+<meta name="viewport" content="width=1800"/>
 <title>Beagle Global — Alliance Projections</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;zoom:0.75}
+body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;zoom:0.55}
 button{font-family:inherit}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:#040C18}
@@ -322,7 +322,7 @@ function App(){
           })()}
         </div>
       </div>
-      <div className="rank-grid" style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:"0 14px"}}>
+      <div className="rank-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
         <div><div style={{fontSize:13,color:"#182838",fontWeight:600,letterSpacing:1,padding:"0 6px 4px"}}>1 — 10</div>{ranking.slice(0,10).map(renderRow)}</div>
         <div><div style={{fontSize:13,color:"#182838",fontWeight:600,letterSpacing:1,padding:"0 6px 4px"}}>11 — 20</div>{ranking.slice(10,20).map(renderRow)}</div>
       </div>
@@ -362,7 +362,7 @@ function App(){
       </div>
     </div>)}
 
-    <div style={{padding:"5px 10px 16px",overflowY:"auto",maxHeight:isMobile?220:280}}>
+    <div style={{padding:"5px 10px 16px",overflowY:"auto",maxHeight:500}}>
       <div style={{fontSize:14,color:"#162030",letterSpacing:1,marginBottom:6,paddingLeft:2}}>{fullField?"ALL ALLIANCES":"CLOSE PACK"}{!fullField&&<span style={{color:"#1E3A55"}}> · {FAR.length} far alliances hidden</span>}</div>
       {[...(fullField?[...CLOSE,...FAR]:CLOSE)].sort((a,b)=>a.rank-b.rank).map(a=>{
         const c=col(a),isSel=selected===a.name,projR=ranking.find(r=>r.name===a.name)?.projRank,rChg=a.rank-(projR??a.rank);
