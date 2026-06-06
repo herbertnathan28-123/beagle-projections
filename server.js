@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v19
+// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v20
 // Deploy: node server.js
 // Env vars: PROJECTIONS_SECRET, PORT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -70,17 +70,18 @@ app.get('/api/visitors', (req, res) => {
 app.get('/api/data', (req, res) => res.json(liveData));
 
 app.post('/api/update', (req, res) => {
-  const { token, timestamp, uploader, beagleSV, beagleRank, alliances } = req.body;
+  const { token, timestamp, uploader, beagleSV, beagleRank, beaglePace, alliances } = req.body;
   if (token !== SECRET && token !== N8N_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
   const merged = (alliances || []).map(a => {
     const existing = liveData.alliances.find(e =>
       e.name.toLowerCase().trim() === a.name.toLowerCase().trim());
-    return { rank: a.rank, name: a.name, sv: a.sv, pace: existing?.pace ?? null };
+    const incomingPace = (a.pace != null && !isNaN(a.pace)) ? a.pace : null;
+    return { rank: a.rank, name: a.name, sv: a.sv, pace: incomingPace ?? existing?.pace ?? null };
   });
   liveData = {
     timestamp, uploader,
     beagleSV:   beagleSV   ?? liveData.beagleSV,
-    beaglePace: liveData.beaglePace,
+    beaglePace: (beaglePace != null && !isNaN(beaglePace)) ? beaglePace : liveData.beaglePace,
     beagleRank: beagleRank ?? liveData.beagleRank,
     alliances:  merged.length ? merged : liveData.alliances,
   };
@@ -94,7 +95,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=5.0,user-scalable=yes"/>
-<title>Beagle Global — Alliance Projections v19</title>
+<title>Beagle Global — Alliance Projections v20</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -440,12 +441,12 @@ function App(){
         </div>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:"0 20px"}}>
-        <div>
+      <div style={{display:"flex",gap:20,width:"100%"}}>
+        <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:11,color:"#8AAABB",fontWeight:600,letterSpacing:1,padding:"0 6px 4px",borderBottom:"1px solid #0A1E30",marginBottom:2}}>1 — 10</div>
           {ranking.slice(0,10).map(renderRow)}
         </div>
-        <div>
+        <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:11,color:"#8AAABB",fontWeight:600,letterSpacing:1,padding:"0 6px 4px",borderBottom:"1px solid #0A1E30",marginBottom:2}}>11 — 20</div>
           {ranking.slice(10,20).map(renderRow)}
         </div>
@@ -501,5 +502,4 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Beagle Projections live on port ${PORT}`));
-
 
