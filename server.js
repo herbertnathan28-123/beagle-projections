@@ -1,5 +1,6 @@
+
 // ═══════════════════════════════════════════════════════════════════════════
-// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v20
+// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v23
 // Deploy: node server.js
 // Env vars: PROJECTIONS_SECRET, PORT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -95,7 +96,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=5.0,user-scalable=yes"/>
-<title>Beagle Global — Alliance Projections v20</title>
+<title>Beagle Global — Alliance Projections v23</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -106,6 +107,8 @@ button{font-family:inherit}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:#040C18}
 ::-webkit-scrollbar-thumb{background:#1E3A5F;border-radius:2px}
+select option{background:#040C18;color:#E2EAF4}
+select optgroup{background:#030B17;color:#4A7090}
 .svg-chart{cursor:grab;user-select:none}
 .svg-chart.dragging{cursor:grabbing}
 </style>
@@ -114,7 +117,52 @@ button{font-family:inherit}
 <div id="root"></div>
 <script type="text/babel">
 const {useState,useEffect,useMemo,useRef,useCallback}=React;
-const MTD={1:30.4,3:91.3,6:182.6,12:365};
+// Period definitions — label + days
+const PERIOD_OPTS=[
+  {label:'1MO', days:30.4,  group:'MONTHS'},
+  {label:'2MO', days:60.8,  group:'MONTHS'},
+  {label:'3MO', days:91.3,  group:'MONTHS'},
+  {label:'4MO', days:121.7, group:'MONTHS'},
+  {label:'5MO', days:152.1, group:'MONTHS'},
+  {label:'6MO', days:182.6, group:'MONTHS'},
+  {label:'7MO', days:213.0, group:'MONTHS'},
+  {label:'8MO', days:243.3, group:'MONTHS'},
+  {label:'9MO', days:273.9, group:'MONTHS'},
+  {label:'10MO',days:304.3, group:'MONTHS'},
+  {label:'11MO',days:334.6, group:'MONTHS'},
+  {label:'12MO',days:365,   group:'MONTHS'},
+  {label:'15MO',days:456.3, group:'MONTHS'},
+  {label:'18MO',days:547.5, group:'MONTHS'},
+  {label:'21MO',days:638.8, group:'MONTHS'},
+  {label:'24MO',days:730,   group:'MONTHS'},
+  {label:'3Y',  days:1095,  group:'YEARS'},
+  {label:'4Y',  days:1460,  group:'YEARS'},
+  {label:'5Y',  days:1825,  group:'YEARS'},
+  {label:'6Y',  days:2190,  group:'YEARS'},
+  {label:'7Y',  days:2555,  group:'YEARS'},
+  {label:'8Y',  days:2920,  group:'YEARS'},
+  {label:'9Y',  days:3285,  group:'YEARS'},
+  {label:'10Y', days:3650,  group:'YEARS'},
+  {label:'15Y', days:5475,  group:'YEARS'},
+  {label:'20Y', days:7300,  group:'YEARS'},
+  {label:'25Y', days:9125,  group:'YEARS'},
+  {label:'50Y', days:18250, group:'YEARS'},
+  {label:'MAX', days:null,  group:'AUTO'},
+];
+function getXTicks(days){
+  if(days<=182.6)return[30.4,91.3,182.6].filter(d=>d<=days);
+  if(days<=365)return[91.3,182.6,365].filter(d=>d<=days);
+  if(days<=730)return[182.6,365,547.5,730].filter(d=>d<=days);
+  if(days<=1825)return[365,730,1095,1460,1825].filter(d=>d<=days);
+  if(days<=3650)return[365,730,1825,2555,3650].filter(d=>d<=days);
+  const step=Math.ceil(days/5/365)*365;
+  const t=[];for(let d=step;d<=days;d+=step)t.push(d);return t;
+}
+function xTickLabel(d){
+  if(d<365)return Math.round(d/30.4)+'MO';
+  const y=d/365;
+  return(Number.isInteger(y)?y:y.toFixed(1))+'Y';
+}
 
 function lineColor(a){
   if(a.isBeagle)return"#E8B84B";
@@ -162,9 +210,12 @@ function projRanking(all,beagle,days){
 function App(){
   const[apiData,setApiData]=useState(null);
   const[loading,setLoading]=useState(true);
-  const[period,setPeriod]=useState(6);
+  const[periodKey,setPeriodKey]=useState('6MO');
+  const[chartMode,setChartMode]=useState('SV');
   const[selected,setSelected]=useState(null);
-  const[fullField,setFullField]=useState(false);
+  const[hiddenTeams,setHiddenTeams]=useState(new Set());
+  const toggleHide=name=>{setHiddenTeams(prev=>{const n=new Set(prev);n.has(name)?n.delete(name):n.add(name);return n;});};
+  const[fullField,setFullField]=useState(true);
   const[showRank,setShowRank]=useState(true);
 
   // ── Zoom / Pan state ──
@@ -183,10 +234,14 @@ function App(){
     return buildAlliances(apiData);
   },[apiData]);
 
-  const days=MTD[period];
+  const maxCatchDays=all.filter(a=>!a.isBeagle&&a.catchable&&a.daysTo).reduce((mx,a)=>Math.max(mx,a.daysTo),365);
+  const MAX_DAYS=Math.ceil(maxCatchDays*1.2/30)*30;
+  const pOpt=PERIOD_OPTS.find(p=>p.label===periodKey)||PERIOD_OPTS[2];
+  const days=pOpt.days??MAX_DAYS;
   const CLOSE=all.filter(a=>!a.isBeagle&&(a.passed||a.gap<800));
   const FAR=all.filter(a=>!a.isBeagle&&!a.passed&&a.gap>=800);
   const pool=fullField?all.filter(a=>!a.isBeagle):CLOSE;
+  const visPool=pool.filter(a=>!hiddenTeams.has(a.name));
   const selA=selected?all.find(a=>a.name===selected):null;
   const ranking=useMemo(()=>all.length?projRanking(all,beagle,days):[], [all,beagle,days]);
   const beagleRank=ranking.find(a=>a.isBeagle);
@@ -215,8 +270,7 @@ function App(){
   const yStep=yRangeFull>5000?1000:yRangeFull>2000?500:yRangeFull>800?200:100;
   const yTicks=[];
   for(let v=Math.ceil(yMinZ/yStep)*yStep;v<=yMaxZ;v+=yStep)yTicks.push(v);
-  const xTicks=Object.keys(MTD).map(Number).filter(p=>p<=period).map(p=>MTD[p]);
-  const xLabels={30.4:"1MO",91.3:"3MO",182.6:"6MO",365:"12MO"};
+  const xTicks=getXTicks(days);
 
   const crossDay=a=>{
     if(!a.catchable||a.gap<=0||!a.pace||!B_PACE)return null;
@@ -282,16 +336,20 @@ function App(){
   const renderRow=a=>{
     const isB=a.isBeagle,change=a.rank-(a.projRank??a.rank),c=isB?"#E8B84B":col(a);
     const isSel=selected===a.name;
+    const isHidden=hiddenTeams.has(a.name);
     return(<div key={a.name}
-      onClick={()=>!isB&&setSelected(isSel?null:a.name)}
-      style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",
+      style={{display:"flex",alignItems:"center",gap:4,padding:"4px 6px",
         background:isB?"#1A1000":isSel?c+"22":"transparent",
         borderRadius:3,
-        border:isB?"1px solid #C4920A30":isSel?"1px solid "+c+"60":"1px solid transparent",
-        cursor:isB?"default":"pointer",transition:"background 0.1s"}}>
-      <span style={{fontSize:14,fontWeight:700,color:a.noPace?"#4A7090":c,minWidth:28}}>#{a.projRank}</span>
-      <span style={{fontSize:14,color:isB?c:a.noPace?"#4A7090":"#C0CCD8",flex:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{a.name}</span>
-      <span style={{fontSize:13,fontWeight:600,minWidth:20,textAlign:"right",color:a.noPace?"#4A7090":change>0?"#00E676":change<0?"#E74C3C":"#4A7090"}}>{a.noPace?"?":change>0?"▲"+change:change<0?"▼"+Math.abs(change):isB?"★":"—"}</span>
+        border:isB?"1px solid #C4920A30":isSel?"1px solid "+c+"60":"1px solid transparent"}}>
+      <span
+        onClick={()=>!isB&&(isHidden?toggleHide(a.name):setSelected(isSel?null:a.name))}
+        style={{display:"flex",alignItems:"center",gap:4,flex:1,cursor:isB?"default":"pointer",opacity:isHidden?0.35:1,minWidth:0,transition:"opacity 0.1s"}}>
+        <span style={{fontSize:14,fontWeight:700,color:a.noPace?"#4A7090":c,minWidth:26}}>#{a.projRank}</span>
+        <span style={{fontSize:14,color:isB?c:a.noPace?"#4A7090":"#C0CCD8",flex:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{a.name}</span>
+        <span style={{fontSize:13,fontWeight:600,minWidth:20,textAlign:"right",color:a.noPace?"#4A7090":change>0?"#00E676":change<0?"#E74C3C":"#4A7090"}}>{a.noPace?"?":change>0?"▲"+change:change<0?"▼"+Math.abs(change):isB?"★":"—"}</span>
+      </span>
+      {!isB&&<span onClick={()=>toggleHide(a.name)} style={{fontSize:13,color:isHidden?"#3A6090":"#C4920A",cursor:"pointer",padding:"0 2px",flexShrink:0}} title={isHidden?"Show line":"Hide line"}>{isHidden?"◌":"●"}</span>}
     </div>);
   };
 
@@ -316,9 +374,24 @@ function App(){
     {/* ── CONTROLS ── */}
     <div style={{display:"flex",gap:5,padding:"7px 18px",background:"#040C18",borderBottom:"1px solid #0A1E30",alignItems:"center",flexWrap:"wrap"}}>
       <span style={{fontSize:11,color:"#6A9AB5",letterSpacing:1,marginRight:4}}>PERIOD</span>
-      {[1,3,6,12].map(p=><button key={p} onClick={()=>setPeriod(p)} style={btn(period===p)}>{p}MO</button>)}
+      <select value={periodKey} onChange={e=>setPeriodKey(e.target.value)} style={{background:"#040C18",color:"#E8B84B",border:"1px solid #C4920A",borderRadius:3,padding:"4px 8px",fontSize:13,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:"inherit",outline:"none"}}>
+        <optgroup label="── MONTHS ──" style={{color:"#4A7090"}}>
+          {PERIOD_OPTS.filter(p=>p.group==='MONTHS').map(p=><option key={p.label} value={p.label}>{p.label}</option>)}
+        </optgroup>
+        <optgroup label="── YEARS ──" style={{color:"#4A7090"}}>
+          {PERIOD_OPTS.filter(p=>p.group==='YEARS').map(p=><option key={p.label} value={p.label}>{p.label}</option>)}
+        </optgroup>
+        <optgroup label="── AUTO ──" style={{color:"#4A7090"}}>
+          <option value="MAX">MAX — furthest overtake</option>
+        </optgroup>
+      </select>
       <div style={{width:1,height:18,background:"#162030",margin:"0 4px"}}/>
-      <button onClick={()=>setFullField(f=>!f)} style={btn2(fullField)}>{fullField?"CLOSE PACK":"FULL FIELD"}</button>
+      <button onClick={()=>setFullField(f=>!f)} style={btn2(fullField)}>{fullField?"CLOSE PACK":"ALL LINES"}</button>
+      {hiddenTeams.size>0&&<button onClick={()=>setHiddenTeams(new Set())} style={{...bb,background:"#1A0A00",border:"1px solid #C4920A60",color:"#E8B84B",fontSize:11}}>SHOW ALL ({hiddenTeams.size} hidden)</button>}
+      <div style={{width:1,height:18,background:"#162030",margin:"0 4px"}}/>
+      {[['SV','SV LINES'],['GAP','SV GAP'],['RANK','RANK']].map(([mode,label])=>(
+        <button key={mode} onClick={()=>setChartMode(mode)} style={{...bb,background:chartMode===mode?"#1A3050":"transparent",border:"1px solid "+(chartMode===mode?"#4A80B0":"#162030"),color:chartMode===mode?"#E8B84B":"#6A9AB5"}}>{label}</button>
+      ))}
       <button onClick={()=>setShowRank(r=>!r)} style={{...bb,background:showRank?"#0D2240":"transparent",border:"1px solid #162030",color:showRank?"#7FAACC":"#4A7090"}}>{showRank?"HIDE RANKING":"SHOW RANKING"}</button>
       {yZoom>1&&<button onClick={resetZoom} style={{...bb,background:"#1A0A00",border:"1px solid #C4920A60",color:"#E8B84B",fontSize:12}}>RESET ZOOM ×{yZoom.toFixed(1)}</button>}
       <div style={{marginLeft:"auto",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
@@ -358,55 +431,104 @@ function App(){
         {/* X grid + labels */}
         {xTicks.map(d=>(<g key={d}>
           <line x1={xs(d)} x2={xs(d)} y1={mt} y2={mt+ch} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/>
-          <text x={xs(d)} y={mt+ch+18} textAnchor="middle" fill="#4A7090" fontSize="14" fontWeight="600">{xLabels[d]}</text>
+          <text x={xs(d)} y={mt+ch+18} textAnchor="middle" fill="#4A7090" fontSize="14" fontWeight="600">{xTickLabel(d)}</text>
         </g>))}
 
-        <g clipPath="url(#cc)">
-          {/* Dimmed lines when something selected */}
-          {selected&&pool.filter(a=>a.name!==selected).map(a=>(
+        {/* ══ SV LINES MODE ══ */}
+        {chartMode==='SV'&&(<g clipPath="url(#cc)">
+          {selected&&visPool.filter(a=>a.name!==selected).map(a=>(
             <line key={a.name} x1={xs(0)} y1={ys(a.sv)} x2={xs(days)} y2={ys(a.sv+(a.pace||0)*days)} stroke={col(a)} strokeWidth="0.5" opacity="0.1"/>
           ))}
-
-          {/* Normal lines */}
-          {!selected&&pool.map(a=>{
-            const cd=crossDay(a);
-            return(<g key={a.name}>
-              <line x1={xs(0)} y1={ys(a.sv)} x2={xs(days)} y2={ys(a.sv+(a.pace||0)*days)} stroke={col(a)} strokeWidth="1.8" opacity="0.85" strokeLinecap="round" strokeDasharray={!a.catchable&&!a.passed?"4,3":"none"}/>
-              {cd&&<circle cx={xs(cd)} cy={ys(B_SV+B_PACE*cd)} r="3" fill={col(a)} opacity="0.85"/>}
-            </g>);
-          })}
-
-          {/* Selected alliance highlight */}
-          {selA&&!selA.isBeagle&&(()=>{
-            const c=col(selA),cd=crossDay(selA);
-            return(<g>
-              <line x1={xs(0)} y1={ys(selA.sv)} x2={xs(days)} y2={ys(selA.sv+(selA.pace||0)*days)} stroke={c} strokeWidth="7" opacity="0.12" strokeLinecap="round"/>
-              <line x1={xs(0)} y1={ys(selA.sv)} x2={xs(days)} y2={ys(selA.sv+(selA.pace||0)*days)} stroke={c} strokeWidth="3.2" strokeLinecap="round" filter="url(#fl)"/>
-              <circle cx={xs(0)} cy={ys(selA.sv)} r="4" fill={c} opacity="0.9"/>
-              {cd&&(<g>
-                <circle cx={xs(cd)} cy={ys(B_SV+B_PACE*cd)} r="8" fill="none" stroke={c} strokeWidth="1.5" className="pd" filter="url(#fl)"/>
-                <circle cx={xs(cd)} cy={ys(B_SV+B_PACE*cd)} r="3.5" fill={c}/>
-                <line x1={xs(cd)} x2={xs(cd)} y1={ys(B_SV+B_PACE*cd)-42} y2={ys(B_SV+B_PACE*cd)-14} stroke={c} strokeWidth="0.8" strokeDasharray="3,2" opacity="0.4"/>
-                <rect x={xs(cd)-44} y={ys(B_SV+B_PACE*cd)-62} width={88} height={22} fill="#040C18" rx="3" stroke={c} strokeWidth="0.8"/>
-                <text x={xs(cd)} y={ys(B_SV+B_PACE*cd)-47} textAnchor="middle" fill={c} fontSize="14" fontWeight="700">{fmtDate(selA.overtakeDate)}</text>
-              </g>)}
-            </g>);
-          })()}
-
-          {/* Beagle line */}
+          {!selected&&visPool.map(a=>{const cd=crossDay(a);return(<g key={a.name}>
+            <line x1={xs(0)} y1={ys(a.sv)} x2={xs(days)} y2={ys(a.sv+(a.pace||0)*days)} stroke={col(a)} strokeWidth="1.8" opacity="0.85" strokeLinecap="round" strokeDasharray={!a.catchable&&!a.passed?"4,3":"none"}/>
+            {cd&&<circle cx={xs(cd)} cy={ys(B_SV+B_PACE*cd)} r="3" fill={col(a)} opacity="0.85"/>}
+          </g>);})}
+          {selA&&!selA.isBeagle&&(()=>{const c=col(selA),cd=crossDay(selA);return(<g>
+            <line x1={xs(0)} y1={ys(selA.sv)} x2={xs(days)} y2={ys(selA.sv+(selA.pace||0)*days)} stroke={c} strokeWidth="7" opacity="0.12" strokeLinecap="round"/>
+            <line x1={xs(0)} y1={ys(selA.sv)} x2={xs(days)} y2={ys(selA.sv+(selA.pace||0)*days)} stroke={c} strokeWidth="3.2" strokeLinecap="round" filter="url(#fl)"/>
+            <circle cx={xs(0)} cy={ys(selA.sv)} r="4" fill={c} opacity="0.9"/>
+            {cd&&(<g>
+              <circle cx={xs(cd)} cy={ys(B_SV+B_PACE*cd)} r="8" fill="none" stroke={c} strokeWidth="1.5" className="pd" filter="url(#fl)"/>
+              <circle cx={xs(cd)} cy={ys(B_SV+B_PACE*cd)} r="3.5" fill={c}/>
+              <line x1={xs(cd)} x2={xs(cd)} y1={ys(B_SV+B_PACE*cd)-42} y2={ys(B_SV+B_PACE*cd)-14} stroke={c} strokeWidth="0.8" strokeDasharray="3,2" opacity="0.4"/>
+              <rect x={xs(cd)-44} y={ys(B_SV+B_PACE*cd)-62} width={88} height={22} fill="#040C18" rx="3" stroke={c} strokeWidth="0.8"/>
+              <text x={xs(cd)} y={ys(B_SV+B_PACE*cd)-47} textAnchor="middle" fill={c} fontSize="14" fontWeight="700">{fmtDate(selA.overtakeDate)}</text>
+            </g>)}
+          </g>);})()}
           <line x1={xs(0)} y1={ys(B_SV)} x2={xs(days)} y2={ys(B_SV+B_PACE*days)} stroke="#E8B84B" strokeWidth="10" opacity="0.15" strokeLinecap="round"/>
           <line x1={xs(0)} y1={ys(B_SV)} x2={xs(days)} y2={ys(B_SV+B_PACE*days)} stroke="#E8B84B" strokeWidth="3.5" strokeLinecap="round" filter="url(#fg)"/>
           <circle cx={xs(0)} cy={ys(B_SV)} r="5" fill="#E8B84B" filter="url(#fg)"/>
           <circle cx={xs(days)} cy={ys(B_SV+B_PACE*days)} r="4" fill="#E8B84B" opacity="0.7"/>
-        </g>
+        </g>)}
 
-        {/* Beagle rank label */}
-        <text x={ml-6} y={ys(B_SV)+3.5} textAnchor="end" fill="#E8B84B" fontSize="13" fontWeight="700">★{beagle.rank}</text>
+        {/* Beagle rank label (SV mode) */}
+        {chartMode==='SV'&&<text x={ml-6} y={ys(B_SV)+3.5} textAnchor="end" fill="#E8B84B" fontSize="13" fontWeight="700">★{beagle.rank}</text>}
+
+        {/* ══ SV GAP MODE ══ */}
+        {chartMode==='GAP'&&(()=>{
+          const gapMin=Math.min(...visPool.map(a=>a.sv-B_SV+(((a.pace||0)-B_PACE)*days)),-200)*1.05;
+          const gapMax=Math.max(...visPool.map(a=>a.sv-B_SV),200)*1.05;
+          const gRange=gapMax-gapMin;
+          const yg=v=>mt+ch-((v-gapMin)/gRange)*ch;
+          const gStep=gRange>5000?1000:gRange>2000?500:gRange>800?200:100;
+          const gTicks=[];for(let v=Math.ceil(gapMin/gStep)*gStep;v<=gapMax;v+=gStep)gTicks.push(v);
+          return(<g>
+            {gTicks.map(v=>(<g key={v}>
+              <line x1={ml} x2={ml+cw} y1={yg(v)} y2={yg(v)} stroke={v===0?"#E8B84B":"#1E3A5F"} strokeWidth={v===0?1:"0.6"} strokeDasharray={v===0?"none":"4,6"} opacity={v===0?0.6:1}/>
+              <text x={ml-6} y={yg(v)+4} textAnchor="end" fill={v===0?"#E8B84B":"#4A7090"} fontSize="13" fontWeight={v===0?"700":"400"}>{v>=1000?(v/1000).toFixed(1)+"k":v<=-1000?(v/1000).toFixed(1)+"k":v}</text>
+            </g>))}
+            {yg(0)>mt&&yg(0)<mt+ch&&<text x={ml+8} y={yg(0)-6} fill="#E8B84B" fontSize="11" fontWeight="700">BEAGLE</text>}
+            <g clipPath="url(#cc)">
+              {visPool.map(a=>{
+                const g0=a.sv-B_SV;
+                const g1=(a.sv+(a.pace||0)*days)-(B_SV+B_PACE*days);
+                const isSel=selA&&selA.name===a.name;
+                const c=col(a);
+                const crossX=g0!==g1?(-g0/(g1-g0)):null;
+                const crossD=crossX!=null&&crossX>0&&crossX<1?crossX*days:null;
+                return(<g key={a.name} opacity={selected&&!isSel?0.12:0.9}>
+                  <line x1={xs(0)} y1={yg(g0)} x2={xs(days)} y2={yg(g1)} stroke={c} strokeWidth={isSel?3:1.5} strokeLinecap="round"/>
+                  {crossD&&<circle cx={xs(crossD)} cy={yg(0)} r="4" fill={c}/>}
+                  {crossD&&<text x={xs(crossD)} y={yg(0)-10} textAnchor="middle" fill={c} fontSize="11" fontWeight="700">{fmtDate(new Date(Date.now()+crossD*86400000))}</text>}
+                </g>);
+              })}
+            </g>
+            <text x={ml-6} y={yg(0)+4} textAnchor="end" fill="#E8B84B" fontSize="13" fontWeight="700">0</text>
+          </g>);
+        })()}
+
+        {/* ══ RANK MODE ══ */}
+        {chartMode==='RANK'&&(()=>{
+          const yr=v=>mt+((v-1)/(20-1))*ch;
+          const rankTicks=[1,5,10,15,20];
+          return(<g>
+            {rankTicks.map(r=>(<g key={r}>
+              <line x1={ml} x2={ml+cw} y1={yr(r)} y2={yr(r)} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/>
+              <text x={ml-6} y={yr(r)+4} textAnchor="end" fill="#4A7090" fontSize="13">#{r}</text>
+            </g>))}
+            <g clipPath="url(#cc)">
+              {[...visPool,beagle].map(a=>{
+                const isB=a.isBeagle;
+                const c=col(a);
+                const snapDays=[0,days/4,days/2,(3*days)/4,days];
+                const pts=snapDays.map(d=>{
+                  const projected=projRanking(all,beagle,d);
+                  const entry=projected.find(r=>r.name===a.name);
+                  return{d,r:entry?.projRank??a.rank};
+                });
+                const pathD=pts.map((p,i)=>(i===0?'M':'L')+xs(p.d).toFixed(1)+','+yr(p.r).toFixed(1)).join(' ');
+                const isSel=selA&&selA.name===a.name;
+                return(<path key={a.name} d={pathD} stroke={c} strokeWidth={isB?3.5:isSel?2.5:1.2} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={selected&&!isSel&&!isB?0.15:isB?1:0.85} filter={isB?"url(#fg)":undefined}/>);
+              })}
+            </g>
+            <text x={ml-6} y={mt-4} textAnchor="end" fill="#4A7090" fontSize="11">RANK</text>
+          </g>);
+        })()}
 
         {/* Axes */}
         <line x1={ml} y1={mt} x2={ml} y2={mt+ch} stroke="#2C4A6E" strokeWidth="1"/>
         <line x1={ml} y1={mt+ch} x2={ml+cw} y2={mt+ch} stroke="#2C4A6E" strokeWidth="1"/>
-        <text x="10" y={mt+ch/2} textAnchor="middle" fill="#3A6080" fontSize="12" fontWeight="600" letterSpacing="0.8" transform={"rotate(-90,10,"+(mt+ch/2)+")"}>SV ($M)</text>
+        <text x="10" y={mt+ch/2} textAnchor="middle" fill="#3A6080" fontSize="12" fontWeight="600" letterSpacing="0.8" transform={"rotate(-90,10,"+(mt+ch/2)+")"}>{chartMode==='SV'?'Share Value':chartMode==='GAP'?'SV Gap':'Rank'}</text>
 
         {/* Zoom indicator */}
         {yZoom>1&&<text x={ml+cw-4} y={mt+14} textAnchor="end" fill="#E8B84B" fontSize="13" fontWeight="700" opacity="0.7">{"×"+yZoom.toFixed(1)+" zoom"}</text>}
@@ -502,4 +624,6 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Beagle Projections live on port ${PORT}`));
+
+
 
