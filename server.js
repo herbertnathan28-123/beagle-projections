@@ -85,7 +85,7 @@ button{font-family:inherit}
 ::-webkit-scrollbar-track{background:#040C18}
 ::-webkit-scrollbar-thumb{background:#1E3A5F;border-radius:2px}
 @media(max-width:768px){
-  .rank-grid{grid-template-columns:1fr !important}
+  .rank-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important}
   .stat-row{flex-wrap:wrap !important;gap:10px !important}
   .legend-row{display:none !important}
   .header-right{text-align:left !important}
@@ -322,7 +322,7 @@ function App(){
           })()}
         </div>
       </div>
-      <div className="rank-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <div className="rank-grid" style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:"0 14px"}}>
         <div><div style={{fontSize:13,color:"#182838",fontWeight:600,letterSpacing:1,padding:"0 6px 4px"}}>1 — 10</div>{ranking.slice(0,10).map(renderRow)}</div>
         <div><div style={{fontSize:13,color:"#182838",fontWeight:600,letterSpacing:1,padding:"0 6px 4px"}}>11 — 20</div>{ranking.slice(10,20).map(renderRow)}</div>
       </div>
