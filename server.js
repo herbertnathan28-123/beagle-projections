@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v30
+// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v33
 // Deploy: node server.js
 // Env vars: PROJECTIONS_SECRET, PORT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -15,31 +15,33 @@ app.use(express.json());
 
 // ── DEFAULT DATA (Jun 6 2026 · 15:20 AWST snapshot) ──────────────────────
 const DEFAULT_DATA = {
-  timestamp:  '2026-06-06T15:20:00+08:00',
+  timestamp:  '2026-06-06T19:02:00Z',
   uploader:   'atlas.4693',
-  beagleSV:   2925.94,
-  beaglePace: 4.627,
+  beagleSV:   2927.10,
+  beaglePace: 2.379,
   beagleRank: 19,
+  // Pace calculated from 11h 42min window (15:20 AWST → 19:02 UTC Jun 6)
+  // Note: overnight window — daytime pace will be higher once upload pipeline runs
   alliances: [
-    { rank:1,  name:"Dokdo",            sv:8159.61, pace:null  },
-    { rank:2,  name:"Valiant Air",      sv:7128.06, pace:7.134 },
-    { rank:3,  name:"Free Flying",      sv:5545.54, pace:6.924 },
-    { rank:4,  name:"Grizzly Group",    sv:5544.73, pace:4.218 },
-    { rank:5,  name:"Per Aspera",       sv:5307.07, pace:5.277 },
-    { rank:6,  name:"Indonesia Unity",  sv:4528.89, pace:3.802 },
-    { rank:7,  name:"GERMAN ALLIANCE",  sv:4361.71, pace:3.947 },
-    { rank:8,  name:"Happy Skies 2.0",  sv:3940.63, pace:3.918 },
-    { rank:9,  name:"STARFLEET",        sv:3538.79, pace:3.219 },
-    { rank:10, name:"Russian Wings",    sv:3514.17, pace:2.997 },
-    { rank:11, name:"CODESHARE",        sv:3503.27, pace:3.641 },
-    { rank:12, name:"SpaceX",           sv:3310.05, pace:4.310 },
-    { rank:13, name:"ClearSky Group",   sv:3095.65, pace:2.783 },
-    { rank:14, name:"JetSTAR",          sv:3083.87, pace:2.372 },
-    { rank:15, name:"BRASIL GT",        sv:3046.57, pace:3.292 },
-    { rank:16, name:"Mixer World",      sv:3045.30, pace:1.633 },
-    { rank:17, name:"Sky Wings",        sv:3025.06, pace:3.725 },
-    { rank:18, name:"Alpha Vikings",    sv:2963.43, pace:3.766 },
-    { rank:20, name:"Star Alliance",    sv:2831.89, pace:3.413 },
+    { rank:1,  name:"Dokdo",            sv:8160.11, pace:1.026 },
+    { rank:2,  name:"Valiant Air",      sv:7129.29, pace:2.523 },
+    { rank:3,  name:"Free Flying",      sv:5546.77, pace:2.523 },
+    { rank:4,  name:"Grizzly Group",    sv:5545.21, pace:0.985 },
+    { rank:5,  name:"Per Aspera",       sv:5307.48, pace:0.841 },
+    { rank:6,  name:"Indonesia Unity",  sv:4529.28, pace:0.800 },
+    { rank:7,  name:"GERMAN ALLIANCE",  sv:4362.34, pace:1.292 },
+    { rank:8,  name:"Happy Skies 2.0",  sv:3941.12, pace:1.005 },
+    { rank:9,  name:"STARFLEET",        sv:3539.24, pace:0.923 },
+    { rank:10, name:"Russian Wings",    sv:3514.50, pace:0.677 },
+    { rank:11, name:"CODESHARE",        sv:3503.75, pace:0.985 },
+    { rank:12, name:"SpaceX",           sv:3310.67, pace:1.272 },
+    { rank:13, name:"ClearSky Group",   sv:3096.01, pace:0.738 },
+    { rank:14, name:"JetSTAR",          sv:3084.26, pace:0.800 },
+    { rank:15, name:"BRASIL GT",        sv:3046.98, pace:0.841 },
+    { rank:16, name:"Mixer World",      sv:3045.48, pace:0.369 },
+    { rank:17, name:"Sky Wings",        sv:3025.63, pace:1.169 },
+    { rank:18, name:"Alpha Vikings",    sv:2963.95, pace:1.067 },
+    { rank:20, name:"Star Alliance",    sv:2832.15, pace:0.533 },
   ]
 };
 
@@ -94,14 +96,14 @@ const HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=5.0,user-scalable=yes"/>
-<title>Beagle Global \u2014 Alliance Projections v30</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>Beagle Global \u2014 Alliance Projections v33</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;font-size:16px;overflow-x:hidden}
+body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;font-size:16px;overflow-x:hidden;overscroll-behavior:none}
 button{font-family:inherit}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:#040C18}
@@ -268,7 +270,7 @@ function App(){
   },[act,all]);
 
   // Chart geometry
-  const W=1200,H=280,ml=72,mr=20,mt=18,mb=42,cw=W-ml-mr,ch=H-mt-mb;
+  const W=1380,H=280,ml=72,mr=170,mt=18,mb=42,cw=W-ml-mr,ch=H-mt-mb;
   const _vis=pool.filter(a=>Math.abs(a.gap)<2500);
   const _src=_vis.length?_vis:[...pool];
   const yMnB=Math.min(..._src.map(a=>a.sv),BS)*0.97;
@@ -345,8 +347,8 @@ function App(){
       } else if(e.touches.length===2&&pinchDist.current!=null){
         const d=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);
         const f=d/pinchDist.current;
-        setYZ(z=>Math.max(1,Math.min(25,z*f)));
-        setXZ(z=>Math.max(1,Math.min(25,z*f)));
+        setYZ(z=>Math.max(1,Math.min(30,z*f)));
+        setXZ(z=>Math.max(1,Math.min(30,z*f)));
         pinchDist.current=d;
       }
     };
@@ -360,17 +362,19 @@ function App(){
     return()=>{svg.removeEventListener('touchstart',ts);svg.removeEventListener('touchmove',tm);svg.removeEventListener('touchend',te);};
   },[]);
 
-  // WHEEL zoom
+  // WHEEL zoom — window-level so Chrome can't intercept it first
   useEffect(()=>{
-    const svg=svgRef.current;if(!svg)return;
-    const onWheel=e=>{
+    const handler=e=>{
+      const svg=svgRef.current;if(!svg)return;
+      const r=svg.getBoundingClientRect();
+      if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;
       e.preventDefault();
-      const f=e.deltaY<0?1.15:0.87;
-      setYZ(z=>Math.max(1,Math.min(25,z*f)));
-      setXZ(z=>Math.max(1,Math.min(25,z*f)));
+      const f=e.deltaY<0?1.25:0.8;
+      setYZ(z=>Math.max(1,Math.min(30,z*f)));
+      setXZ(z=>Math.max(1,Math.min(30,z*f)));
     };
-    svg.addEventListener('wheel',onWheel,{passive:false});
-    return()=>svg.removeEventListener('wheel',onWheel);
+    window.addEventListener('wheel',handler,{passive:false});
+    return()=>window.removeEventListener('wheel',handler);
   },[]);
 
   const detP=selA?[1,3,6,12].map(mo=>({mo,sv:selA.sv+(selA.pace||0)*MTD[mo],rank:projR(all,beagle,MTD[mo]).findIndex(a=>a.isBeagle)+1})):[];
@@ -398,7 +402,7 @@ function App(){
     </div>);
   };
 
-  const nameTag=(name,c)=>name.length>16?name.slice(0,15)+'\u2026':name;
+  const nameTag=(name,c)=>name.length>18?name.slice(0,17)+'\u2026':name;
 
   return(<div style={{background:'#030B17',minHeight:'100vh',display:'flex',flexDirection:'column'}}>
 
@@ -441,7 +445,12 @@ function App(){
       ))}
       <div style={{width:1,height:18,background:'#162030',margin:'0 3px',flexShrink:0}}/>
       <button onClick={()=>setShowR(r=>!r)} style={{...BB,background:showR?'#0D2240':'transparent',border:'1px solid #162030',color:showR?'#7FAACC':'#4A7090'}}>{showR?'HIDE RANKING':'SHOW RANKING'}</button>
-      {zoomed&&<button onClick={resetZoom} style={{...BB,background:'#1A0A00',border:'1px solid #C4920A60',color:'#E8B84B',fontSize:13}}>RESET ZOOM</button>}
+      <div style={{display:'flex',alignItems:'center',gap:3,marginLeft:4}}>
+        <button onClick={()=>{setYZ(z=>Math.min(30,z*1.25));setXZ(z=>Math.min(30,z*1.25));}} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:16,fontWeight:700}}>+</button>
+        <span style={{fontSize:12,color:zoomed?'#E8B84B':'#3A6080',minWidth:36,textAlign:'center'}}>{zoomed?('x'+Math.max(yZ,xZ).toFixed(1)):'1x'}</span>
+        <button onClick={()=>{setYZ(z=>Math.max(1,z*0.8));setXZ(z=>Math.max(1,z*0.8));}} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:16,fontWeight:700}}>-</button>
+        {zoomed&&<button onClick={resetZoom} style={{...BB,background:'#1A0A00',border:'1px solid #C4920A60',color:'#E8B84B',fontSize:12,marginLeft:2}}>RESET</button>}
+      </div>
       <div style={{marginLeft:'auto',display:'flex',gap:10,alignItems:'center',flexShrink:0}}>
         {[['#E8B84B','Beagle'],['#00E676','<100d'],['#69F0AE','catching'],['#3A6090','away'],['#E74C3C','passed']].map(([c,l])=>(
           <span key={l} style={{display:'flex',alignItems:'center',gap:4,whiteSpace:'nowrap'}}>
@@ -453,7 +462,7 @@ function App(){
     </div>
 
     {/* CHART */}
-    <div style={{padding:'2px 4px 4px',flexShrink:0}}>
+    <div style={{padding:'2px 4px 4px',flexShrink:0,touchAction:'none'}}>
       <svg ref={svgRef} className="svg-chart" viewBox={'0 0 '+W+' '+H} style={{width:'100%',maxHeight:'38vh',display:'block',touchAction:'none'}} onMouseDown={onMouseDown}>
         <defs>
           <filter id="fg"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -508,7 +517,7 @@ function App(){
           {pool.filter(a=>act.has(a.name)).map(a=>{
             const yE=ys(a.sv+(a.pace||0)*days);
             if(yE<mt||yE>mt+ch)return null;
-            return(<text key={a.name+'_l'} x={xs(days)+6} y={yE+5} fill={lc(a)} fontSize="13" fontWeight="700">{nameTag(a.name)}</text>);
+            return(<text key={a.name+'_l'} x={xs(days)+8} y={yE+5} fill={lc(a)} fontSize="14" fontWeight="700">{nameTag(a.name)}</text>);
           })}
           <text x={ml-6} y={ys(BS)+4} textAnchor="end" fill="#E8B84B" fontSize="14" fontWeight="700">\u2605{beagle.rank}</text>
         </g>)}
@@ -539,7 +548,7 @@ function App(){
                   <line x1={xs(0)} y1={yg(g0)} x2={xs(days)} y2={yg(g1)} stroke={c} strokeWidth={isAct?3:1.5} strokeLinecap="round"/>
                   {cD&&<circle cx={xs(cD)} cy={yg(0)} r="4" fill={c}/>}
                   {cD&&<text x={xs(cD)} y={yg(0)-12} textAnchor="middle" fill={c} fontSize="12" fontWeight="700">{fmtD(new Date(Date.now()+cD*86400000))}</text>}
-                  {isAct&&yE>=mt&&yE<=mt+ch&&<text x={xs(days)+6} y={yE+5} fill={c} fontSize="13" fontWeight="700">{nameTag(a.name)}</text>}
+                  {isAct&&yE>=mt&&yE<=mt+ch&&<text x={xs(days)+8} y={yE+5} fill={c} fontSize="14" fontWeight="700">{nameTag(a.name)}</text>}
                 </g>);
               })}
             </g>
@@ -567,7 +576,7 @@ function App(){
                 return(<g key={a.name} onClick={()=>!isB&&toggle(a.name)} style={{cursor:isB?'default':'pointer'}}>
                   <path d={pd} stroke="transparent" strokeWidth="18" fill="none"/>
                   <path d={pd} stroke={c} strokeWidth={isB?3.5:isAct?2.5:1.2} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={dim?0.08:isB?1:0.85} filter={isB?'url(#fg)':undefined}/>
-                  {(isAct||isB)&&yr(ep.r)>=mt&&yr(ep.r)<=mt+ch&&<text x={xs(days)+6} y={yr(ep.r)+5} fill={c} fontSize="13" fontWeight="700">{isB?'Beagle':nameTag(a.name)}</text>}
+                  {(isAct||isB)&&yr(ep.r)>=mt&&yr(ep.r)<=mt+ch&&<text x={xs(days)+8} y={yr(ep.r)+5} fill={c} fontSize="14" fontWeight="700">{isB?'Beagle':nameTag(a.name)}</text>}
                 </g>);
               })}
             </g>
@@ -576,6 +585,7 @@ function App(){
 
         <line x1={ml} y1={mt} x2={ml} y2={mt+ch} stroke="#2C4A6E" strokeWidth="1"/>
         <line x1={ml} y1={mt+ch} x2={ml+cw} y2={mt+ch} stroke="#2C4A6E" strokeWidth="1"/>
+        <line x1={ml+cw} y1={mt} x2={ml+cw} y2={mt+ch} stroke="#1A3050" strokeWidth="1" strokeDasharray="3,4"/>
         <text x="12" y={mt+ch/2} textAnchor="middle" fill="#3A6080" fontSize="13" fontWeight="600" transform={'rotate(-90,12,'+(mt+ch/2)+')'}>{mode==='SV'?'Share Value':mode==='GAP'?'SV Gap':'Rank'}</text>
         {zoomed&&<text x={ml+cw-4} y={mt+16} textAnchor="end" fill="#E8B84B" fontSize="13" fontWeight="700" opacity="0.7">{'x'+Math.max(yZ,xZ).toFixed(1)}</text>}
       </svg>
