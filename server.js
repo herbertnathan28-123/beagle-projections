@@ -271,7 +271,7 @@ function App(){
         <text x={ml-6} y={ys(B_SV)+3.5} textAnchor="end" fill="#E8B84B" fontSize="9" fontWeight="700">★{beagle.rank}</text>
         <line x1={ml} y1={mt} x2={ml} y2={mt+ch} stroke="#162030" strokeWidth="1"/>
         <line x1={ml} y1={mt+ch} x2={ml+cw} y2={mt+ch} stroke="#162030" strokeWidth="1"/>
-        <text x="10" y={mt+ch/2} textAnchor="middle" fill="#162030" fontSize="7.5" fontWeight="600" letterSpacing="0.8" transform={"rotate(-90,10,"+(mt+ch/2)+")"}}>SV ($M)</text>
+        <text x="10" y={mt+ch/2} textAnchor="middle" fill="#162030" fontSize="7.5" fontWeight="600" letterSpacing="0.8" transform={"rotate(-90,10,"+(mt+ch/2)+")"}>SV ($M)</text>
       </svg>
     </div>
 
