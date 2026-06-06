@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v28
+// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v29
 // Deploy: node server.js
 // Env vars: PROJECTIONS_SECRET, PORT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -95,7 +95,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=5.0,user-scalable=yes"/>
-<title>Beagle Global \u2014 Alliance Projections v28</title>
+<title>Beagle Global \u2014 Alliance Projections v29</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -209,10 +209,9 @@ function App(){
   const[xP,setXP]=useState(0);
 
   const svgRef=useRef(null);
-  const ptrs=useRef(new Map()); // active pointer map for Pointer Events
   const pinchDist=useRef(null);
   const drag=useRef({active:false,x:0,y:0,yp:0,xp:0});
-  // Live values ref — always current inside pointer handlers
+  // Live values ref — always current inside event handlers
   const lv=useRef({yP:0,xP:0,days:182.6,yRZ:0,xZ:1});
 
   const toggle=useCallback(name=>{
@@ -296,10 +295,72 @@ function App(){
   const resetZoom=()=>{setYZ(1);setYP(0);setXZ(1);setXP(0);};
   const zoomed=yZ>1||xZ>1;
 
-  // Keep lv ref current for use inside pointer handlers
+  // Keep lv ref current — safe to use inside addEventListener callbacks
   useEffect(()=>{lv.current={yP,xP,days,yRZ,xZ};},[yP,xP,days,yRZ,xZ]);
 
-  // Wheel zoom (desktop scroll)
+  // MOUSE drag — window-level for reliable tracking
+  const onMouseDown=useCallback(e=>{
+    drag.current={active:true,x:e.clientX,y:e.clientY,yp:lv.current.yP,xp:lv.current.xP};
+    svgRef.current?.classList.add('dragging');
+  },[]);
+  useEffect(()=>{
+    const mm=e=>{
+      if(!drag.current.active)return;
+      const rect=svgRef.current?.getBoundingClientRect();
+      const svgH=rect?.height||280,svgW=rect?.width||1200;
+      const dy=e.clientY-drag.current.y,dx=e.clientX-drag.current.x;
+      // CORRECT direction: drag down → lines move down (negative dy flips pan)
+      setYP(drag.current.yp-(dy/svgH)*lv.current.yRZ);
+      const xd=lv.current.days/lv.current.xZ;
+      setXP(Math.max(0,Math.min(drag.current.xp-(dx/svgW)*xd,lv.current.days-xd)));
+    };
+    const mu=()=>{drag.current.active=false;svgRef.current?.classList.remove('dragging');};
+    window.addEventListener('mousemove',mm);
+    window.addEventListener('mouseup',mu);
+    return()=>{window.removeEventListener('mousemove',mm);window.removeEventListener('mouseup',mu);};
+  },[]);
+
+  // TOUCH — pinch zoom + single-finger pan
+  useEffect(()=>{
+    const svg=svgRef.current;if(!svg)return;
+    const ts=e=>{
+      e.preventDefault();
+      if(e.touches.length===1){
+        drag.current={active:true,x:e.touches[0].clientX,y:e.touches[0].clientY,yp:lv.current.yP,xp:lv.current.xP};
+      } else if(e.touches.length===2){
+        drag.current.active=false;
+        pinchDist.current=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);
+      }
+    };
+    const tm=e=>{
+      e.preventDefault();
+      const rect=svg.getBoundingClientRect();
+      const svgH=rect.height||280,svgW=rect.width||1200;
+      if(e.touches.length===1&&drag.current.active){
+        const dx=e.touches[0].clientX-drag.current.x;
+        const dy=e.touches[0].clientY-drag.current.y;
+        setYP(drag.current.yp-(dy/svgH)*lv.current.yRZ);
+        const xd=lv.current.days/lv.current.xZ;
+        setXP(Math.max(0,Math.min(drag.current.xp-(dx/svgW)*xd,lv.current.days-xd)));
+      } else if(e.touches.length===2&&pinchDist.current!=null){
+        const d=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);
+        const f=d/pinchDist.current;
+        setYZ(z=>Math.max(1,Math.min(25,z*f)));
+        setXZ(z=>Math.max(1,Math.min(25,z*f)));
+        pinchDist.current=d;
+      }
+    };
+    const te=e=>{
+      if(e.touches.length===0)drag.current.active=false;
+      if(e.touches.length<2)pinchDist.current=null;
+    };
+    svg.addEventListener('touchstart',ts,{passive:false});
+    svg.addEventListener('touchmove',tm,{passive:false});
+    svg.addEventListener('touchend',te);
+    return()=>{svg.removeEventListener('touchstart',ts);svg.removeEventListener('touchmove',tm);svg.removeEventListener('touchend',te);};
+  },[]);
+
+  // WHEEL zoom
   useEffect(()=>{
     const svg=svgRef.current;if(!svg)return;
     const onWheel=e=>{
@@ -310,49 +371,6 @@ function App(){
     };
     svg.addEventListener('wheel',onWheel,{passive:false});
     return()=>svg.removeEventListener('wheel',onWheel);
-  },[]);
-
-  // Pointer Events — handles mouse, touch, stylus uniformly
-  const onPD=useCallback(e=>{
-    e.preventDefault();
-    svgRef.current?.setPointerCapture(e.pointerId);
-    ptrs.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
-    if(ptrs.current.size===1){
-      drag.current={active:true,x:e.clientX,y:e.clientY,yp:lv.current.yP,xp:lv.current.xP};
-      svgRef.current?.classList.add('dragging');
-    } else if(ptrs.current.size===2){
-      drag.current.active=false;
-      const pts=[...ptrs.current.values()];
-      pinchDist.current=Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y);
-    }
-  },[]);
-
-  const onPM=useCallback(e=>{
-    if(!ptrs.current.has(e.pointerId))return;
-    ptrs.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
-    const rect=svgRef.current?.getBoundingClientRect();
-    const svgH=rect?.height||320,svgW=rect?.width||1200;
-    if(ptrs.current.size===2&&pinchDist.current!=null){
-      // Pinch zoom
-      const pts=[...ptrs.current.values()];
-      const d=Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y);
-      const f=d/pinchDist.current;
-      setYZ(z=>Math.max(1,Math.min(25,z*f)));
-      setXZ(z=>Math.max(1,Math.min(25,z*f)));
-      pinchDist.current=d;
-    } else if(ptrs.current.size===1&&drag.current.active){
-      // Drag pan
-      const dy=e.clientY-drag.current.y,dx=e.clientX-drag.current.x;
-      setYP(drag.current.yp+(dy/svgH)*lv.current.yRZ);
-      const xd=lv.current.days/lv.current.xZ;
-      setXP(Math.max(0,Math.min(drag.current.xp-(dx/svgW)*xd,lv.current.days-xd)));
-    }
-  },[]);
-
-  const onPU=useCallback(e=>{
-    ptrs.current.delete(e.pointerId);
-    if(ptrs.current.size<2)pinchDist.current=null;
-    if(ptrs.current.size===0){drag.current.active=false;svgRef.current?.classList.remove('dragging');}
   },[]);
 
   const detP=selA?[1,3,6,12].map(mo=>({mo,sv:selA.sv+(selA.pace||0)*MTD[mo],rank:projR(all,beagle,MTD[mo]).findIndex(a=>a.isBeagle)+1})):[];
@@ -435,7 +453,7 @@ function App(){
 
     {/* CHART */}
     <div style={{padding:'2px 4px 4px',flexShrink:0}}>
-      <svg ref={svgRef} className="svg-chart" viewBox={'0 0 '+W+' '+H} style={{width:'100%',maxHeight:'38vh',display:'block',touchAction:'none'}} onPointerDown={onPD} onPointerMove={onPM} onPointerUp={onPU} onPointerLeave={onPU} onPointerCancel={onPU}>
+      <svg ref={svgRef} className="svg-chart" viewBox={'0 0 '+W+' '+H} style={{width:'100%',maxHeight:'38vh',display:'block',touchAction:'none'}} onMouseDown={onMouseDown}>
         <defs>
           <filter id="fg"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
           <filter id="fl"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
