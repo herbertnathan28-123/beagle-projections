@@ -1,5 +1,5 @@
- // ═══════════════════════════════════════════════════════════════════════════
-// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE
+// ═══════════════════════════════════════════════════════════════════════════
+// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v16
 // Deploy as new Render web service: beagle-projections
 // Start command: node server.js
 // Env vars needed: PROJECTIONS_SECRET, PORT (auto-set by Render)
@@ -73,7 +73,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=0.6,maximum-scale=5.0,user-scalable=yes"/>
-<title>Beagle Global — Alliance Projections</title>
+<title>Beagle Global — Alliance Projections v16</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -384,5 +384,4 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 app.get('*', (req, res) => res.type('html').send(HTML));
 
 app.listen(PORT, () => console.log(`Beagle Projections live on port ${PORT}`));
-
 
