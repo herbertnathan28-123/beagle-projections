@@ -180,13 +180,13 @@ function App(){
   const beagleRank=ranking.find(a=>a.isBeagle);
   const rankChange=beagle.rank?(beagle.rank-(beagleRank?.projRank??beagle.rank)):0;
 
-  const W=860,H=isMobile?300:380,ml=isMobile?55:68,mr=10,mt=24,mb=isMobile?36:40,cw=W-ml-mr,ch=H-mt-mb;
+  const W=860,H=isMobile?240:300,ml=isMobile?52:65,mr=10,mt=20,mb=isMobile?32:36,cw=W-ml-mr,ch=H-mt-mb;
   const allAtEnd=[...pool,beagle].map(a=>a.sv+(a.pace||0)*days);
   const _rawMin=pool.length?Math.min(...pool.map(a=>a.sv),B_SV):2500;
   const _rawMax=allAtEnd.length?Math.max(...allAtEnd):5000;
-  const _range=Math.max(_rawMax-_rawMin, 5000);
-  const yMin=_rawMin - _range*0.25;
-  const yMax=_rawMax + _range*0.12;
+  const _range=_rawMax-_rawMin;
+  const yMin=_rawMin - _range*0.08;
+  const yMax=_rawMax + _range*0.08;
   const ys=v=>mt+ch-((v-yMin)/(yMax-yMin))*ch;
   const xs=d=>ml+(d/days)*cw;
   const yRange=yMax-yMin;
@@ -248,7 +248,7 @@ function App(){
       </div>
     </div>
 
-    <div style={{padding:"2px 8px 0"}}>
+    <div style={{padding:"2px 8px 0",maxHeight:"38vh",overflow:"hidden"}}>
       <svg viewBox={"0 0 "+W+" "+H} style={{width:"100%",display:"block"}}>
         <defs>
           <filter id="fg"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
