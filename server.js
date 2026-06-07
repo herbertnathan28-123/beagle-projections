@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v38
+// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v39
 // Deploy: node server.js
 // Env vars: PROJECTIONS_SECRET, PORT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -97,7 +97,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-<title>Beagle Global \u2014 Alliance Projections v38</title>
+<title>Beagle Global \u2014 Alliance Projections v39</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -407,7 +407,7 @@ function App(){
         cursor:isB?'default':'pointer',transition:'all 0.1s'}}>
       <span style={{fontSize:20,fontWeight:700,color:a.noPace?'#4A7090':c,minWidth:36}}>#{a.projRank}</span>
       <span style={{fontSize:20,color:isB?c:isAct?'#E2EAF4':a.noPace?'#4A7090':'#9AAABB',flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',fontWeight:isAct?600:400}}>{a.name}</span>
-      <span style={{fontSize:14,color:isB?'#C4920A':a.noPace?'#2C4A68':'#5A8AAB',minWidth:52,textAlign:'right',whiteSpace:'nowrap',marginRight:4}}>{a.pace!=null?'$'+a.pace.toFixed(2)+'M':''}</span>
+      <span style={{fontSize:14,color:isB?'#C4920A':a.noPace?'#2C4A68':'#5A8AAB',minWidth:52,textAlign:'right',whiteSpace:'nowrap',marginRight:4}}>{a.pace!=null?'$'+a.pace.toFixed(2):''}</span>
       <span style={{fontSize:18,fontWeight:600,minWidth:30,textAlign:'right',color:a.noPace?'#4A7090':chg>0?'#00E676':chg<0?'#E74C3C':'#4A7090'}}>{a.noPace?'?':chg>0?'\u25b2'+chg:chg<0?'\u25bc'+Math.abs(chg):isB?'\u2605':'\u2014'}</span>
     </div>);
   };
@@ -428,7 +428,7 @@ function App(){
       </div>
       <div style={{textAlign:'right'}}>
         <div style={{fontSize:28,fontWeight:700,color:'#E8B84B'}}>{'$'+BS.toLocaleString('en',{minimumFractionDigits:2})+'M'}</div>
-        <div style={{fontSize:15,color:'#8AAABB',letterSpacing:1}}>{BP.toFixed(3)} $M/DAY</div>
+        <div style={{fontSize:15,color:'#8AAABB',letterSpacing:1}}>{BP.toFixed(3)}/DAY</div>
       </div>
     </div>
 
