@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v40
+// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v41
 // Deploy: node server.js
 // Env vars: PROJECTIONS_SECRET, PORT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -274,9 +274,9 @@ function App(){
             <div style={{fontSize:15,fontWeight:600,color:p.lastContrib===0?'#5A3A3A':p.lastContrib<40000?'#9A8A40':'#E2EAF4',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</div>
             <ContribBar pct={pct} color={c}/>
           </div>
-          <div style={{fontSize:14,fontWeight:700,color:c,paddingTop:2}}>${fmt(p.lastContrib)}</div>
-          <div style={{fontSize:13,color:'#5A8AAB',paddingTop:2}}>${p.sv.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-          <div style={{fontSize:13,color:'#4A7090',paddingTop:2}}>${fmt(p.allianceContrib)}</div>
+          <div style={{fontSize:14,fontWeight:700,color:c,paddingTop:2}}>{'$'+fmt(p.lastContrib)}</div>
+          <div style={{fontSize:13,color:'#5A8AAB',paddingTop:2}}>{'$'+p.sv.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+          <div style={{fontSize:13,color:'#4A7090',paddingTop:2}}>{'$'+fmt(p.allianceContrib)}</div>
           <div style={{fontSize:13,color:activeColor(p.lastSeenMins),paddingTop:2}}>{p.lastSeenStr}</div>
         </div>);
       })}
@@ -387,7 +387,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-<title>Beagle Global \u2014 Alliance Projections v40</title>
+<title>Beagle Global \u2014 Alliance Projections v41</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
