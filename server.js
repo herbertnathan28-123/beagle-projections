@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v39
+// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v40
 // Deploy: node server.js
 // Env vars: PROJECTIONS_SECRET, PORT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -46,6 +46,296 @@ const DEFAULT_DATA = {
 };
 
 let liveData = { ...DEFAULT_DATA };
+
+// ─── BEAGLE HQ ───────────────────────────────────────────────────────────────
+// ============================================================
+// BEAGLE HQ — /hq route
+// Parser for pace upload format:
+// PlayerName $SV $TotalRevenue $AllianceContrib X years/months/days/hours ago Flights X hours/mins ago $LastContrib
+// ============================================================
+
+// In-memory store for HQ data
+let hqData = {
+  timestamp: null,
+  uploader: null,
+  alliancePace: null,
+  airlines: 0,
+  players: [],
+  history: [] // [{timestamp, alliancePace, airlines}]
+};
+
+// Parse a single player line
+function parsePaceLine(line) {
+  // Last value is $LastContrib (e.g. $597 or $0)
+  // Second-to-last group: "X hours/mins ago"
+  // Before that: flights number
+  // Pattern: Name $SV $Revenue $Contrib X (years|months|days|hours) ago Flights X (hours|mins|secs) ago $LastContrib
+  const contrib = line.match(/\$(\d[\d,]*)\s*$/);
+  if (!contrib) return null;
+  const lastContrib = parseInt(contrib[1].replace(/,/g, ''));
+
+  // Last seen: "X hours ago" / "X mins ago" / "X secs ago"
+  const lastSeen = line.match(/(\d+)\s+(hours?|mins?|secs?)\s+ago\s+\$[\d,]+\s*$/);
+  let lastSeenStr = '?';
+  let lastSeenMins = 9999;
+  if (lastSeen) {
+    const n = parseInt(lastSeen[1]);
+    const u = lastSeen[2];
+    if (u.startsWith('sec')) { lastSeenStr = n+'s ago'; lastSeenMins = n/60; }
+    else if (u.startsWith('min')) { lastSeenStr = n+'m ago'; lastSeenMins = n; }
+    else { lastSeenStr = n+'h ago'; lastSeenMins = n*60; }
+  }
+
+  // Flights
+  const flightsMatch = line.match(/(\d[\d,]*)\s+\d+\s+(hours?|mins?|secs?)\s+ago\s+\$/);
+  const flights = flightsMatch ? parseInt(flightsMatch[1].replace(/,/g, '')) : 0;
+
+  // Alliance contrib (3rd dollar amount)
+  const dollars = [...line.matchAll(/\$\s*([\d,]+(?:\.\d+)?)/g)].map(m => parseFloat(m[1].replace(/,/g,'')));
+  const sv = dollars[0] || 0;
+  const allianceContrib = dollars[2] || 0;
+
+  // Name: everything before the first $
+  const name = line.split('$')[0].trim().replace(/\s+$/, '');
+
+  return { name, sv, allianceContrib, lastContrib, lastSeenStr, lastSeenMins, flights };
+}
+
+function parsePaceUpload(rawText) {
+  const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const players = [];
+  for (const line of lines) {
+    if (!line.includes('$')) continue;
+    if (line === '!' || line.startsWith('!')) continue;
+    const p = parsePaceLine(line);
+    if (p && p.name && p.name.length > 0 && p.name.length < 60) players.push(p);
+  }
+  return players;
+}
+
+const HQ_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>Beagle HQ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html{height:-webkit-fill-available}
+body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;min-height:100vh;min-height:-webkit-fill-available}
+::-webkit-scrollbar{width:4px;background:#040C18}
+::-webkit-scrollbar-thumb{background:#1A3050;border-radius:2px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useEffect,useRef}=React;
+
+function ContribBar({pct,color}){
+  return(<div style={{width:'100%',height:4,background:'#0A1E30',borderRadius:2,marginTop:3}}>
+    <div style={{width:pct+'%',height:'100%',background:color,borderRadius:2,transition:'width 0.4s'}}/>
+  </div>);
+}
+
+function App(){
+  const[data,setData]=useState(null);
+  const[sort,setSort]=useState('contrib'); // contrib|sv|lastseen|name
+  const[filter,setFilter]=useState('all'); // all|active|low|zero
+  const[search,setSearch]=useState('');
+  const[loading,setLoading]=useState(true);
+
+  useEffect(()=>{
+    const load=async()=>{
+      try{
+        const r=await fetch('/api/hq-data');
+        if(r.ok){const d=await r.json();setData(d);}
+      }catch(e){}
+      setLoading(false);
+    };
+    load();
+    const t=setInterval(load,30000);
+    return()=>clearInterval(t);
+  },[]);
+
+  if(loading) return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',flexDirection:'column',gap:16}}>
+    <div style={{fontSize:36,color:'#E8B84B'}}>&#9672;</div>
+    <div style={{fontSize:18,color:'#5A8AAB',letterSpacing:2}}>LOADING BEAGLE HQ...</div>
+  </div>);
+
+  if(!data||!data.players||data.players.length===0) return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',flexDirection:'column',gap:16}}>
+    <div style={{fontSize:36,color:'#E8B84B'}}>&#9672;</div>
+    <div style={{fontSize:20,color:'#E8B84B',fontWeight:700,letterSpacing:2}}>BEAGLE HQ</div>
+    <div style={{fontSize:15,color:'#5A8AAB',marginTop:8}}>No pace data yet.</div>
+    <div style={{fontSize:13,color:'#2C4A6E',marginTop:4}}>Upload player data in the alliance-pace channel to populate.</div>
+  </div>);
+
+  const players=[...data.players];
+  const maxContrib=Math.max(...players.map(p=>p.lastContrib),1);
+
+  // Filter
+  let filtered=players.filter(p=>{
+    if(filter==='active') return p.lastSeenMins<180;
+    if(filter==='low') return p.lastContrib>0&&p.lastContrib<40000;
+    if(filter==='zero') return p.lastContrib===0;
+    return true;
+  });
+  if(search) filtered=filtered.filter(p=>p.name.toLowerCase().includes(search.toLowerCase()));
+
+  // Sort
+  filtered.sort((a,b)=>{
+    if(sort==='contrib') return b.lastContrib-a.lastContrib;
+    if(sort==='sv') return b.sv-a.sv;
+    if(sort==='lastseen') return a.lastSeenMins-b.lastSeenMins;
+    if(sort==='name') return a.name.localeCompare(b.name);
+    return 0;
+  });
+
+  const totalContrib=players.reduce((s,p)=>s+p.lastContrib,0);
+  const activeCount=players.filter(p=>p.lastSeenMins<180).length;
+  const zeroCount=players.filter(p=>p.lastContrib===0).length;
+  const lowCount=players.filter(p=>p.lastContrib>0&&p.lastContrib<40000).length;
+  const avgContrib=players.length?Math.round(totalContrib/players.length):0;
+
+  const fmt=n=>n>=1000000?(n/1000000).toFixed(2)+'M':n>=1000?(n/1000).toFixed(1)+'k':n.toString();
+  const contribColor=c=>c===0?'#E74C3C':c<40000?'#E8B84B':c<80000?'#00E676':'#69F0AE';
+  const activeColor=m=>m<60?'#69F0AE':m<180?'#00E676':m<360?'#E8B84B':'#E74C3C';
+
+  const ts=data.timestamp?new Date(data.timestamp).toUTCString().replace(/.*?(\d+:\d+:\d+).*/,'$1')+' UTC':'—';
+
+  const BB={border:'none',borderRadius:3,cursor:'pointer',padding:'4px 10px',fontFamily:'inherit',fontWeight:600,fontSize:13,letterSpacing:0.5};
+  const SB=(s)=>({...BB,background:sort===s?'#1A3050':'transparent',border:'1px solid '+(sort===s?'#4A80B0':'#162030'),color:sort===s?'#E8B84B':'#5A8AAB'});
+  const FB=(f,col)=>({...BB,background:filter===f?'#0A1E30':'transparent',border:'1px solid '+(filter===f?col:'#162030'),color:filter===f?col:'#4A7090'});
+
+  return(<div style={{background:'#030B17',minHeight:'100vh',display:'flex',flexDirection:'column'}}>
+
+    {/* HEADER */}
+    <div style={{background:'linear-gradient(90deg,#04101E,#0A1C32)',borderBottom:'2px solid #C4920A',padding:'10px 16px',display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:4}}>
+      <div>
+        <div style={{fontSize:22,fontWeight:700,color:'#E8B84B',letterSpacing:2}}>&#9672; BEAGLE HQ</div>
+        <div style={{fontSize:13,color:'#5A8AAB',marginTop:2,letterSpacing:1}}>PLAYER PACE MONITOR &nbsp;&#183;&nbsp; UPDATED {ts} &nbsp;&#183;&nbsp; {data.uploader||'—'}</div>
+      </div>
+      <div style={{textAlign:'right'}}>
+        <div style={{fontSize:22,fontWeight:700,color:'#E8B84B'}}>{data.alliancePace||'—'}</div>
+        <div style={{fontSize:13,color:'#8AAABB',letterSpacing:1}}>{data.airlines||0} AIRLINES</div>
+      </div>
+    </div>
+
+    {/* SUMMARY CARDS */}
+    <div style={{display:'flex',gap:8,padding:'8px 12px',background:'#040C18',borderBottom:'1px solid #0A1E30',flexWrap:'wrap'}}>
+      {[
+        {label:'TOTAL CONTRIB',value:'$'+fmt(totalContrib),color:'#E8B84B'},
+        {label:'AVG PER PLAYER',value:'$'+fmt(avgContrib),color:'#8AAABB'},
+        {label:'ACTIVE (<3h)',value:activeCount+'/'+players.length,color:'#00E676'},
+        {label:'LOW CONTRIB',value:lowCount,color:'#E8B84B'},
+        {label:'ZERO CONTRIB',value:zeroCount,color:zeroCount>0?'#E74C3C':'#4A7090'},
+      ].map(c=>(
+        <div key={c.label} style={{background:'#06121E',border:'1px solid #0A1E30',borderRadius:4,padding:'5px 12px',minWidth:100}}>
+          <div style={{fontSize:10,color:'#3A6080',letterSpacing:1,marginBottom:2}}>{c.label}</div>
+          <div style={{fontSize:18,fontWeight:700,color:c.color}}>{c.value}</div>
+        </div>
+      ))}
+    </div>
+
+    {/* CONTROLS */}
+    <div style={{display:'flex',gap:6,padding:'6px 12px',background:'#040C18',borderBottom:'1px solid #0A1E30',alignItems:'center',flexWrap:'wrap',rowGap:4}}>
+      <span style={{fontSize:12,color:'#3A6080',letterSpacing:1,marginRight:4}}>SORT</span>
+      {[['contrib','CONTRIB'],['sv','SV'],['lastseen','LAST SEEN'],['name','NAME']].map(([k,l])=>(
+        <button key={k} onClick={()=>setSort(k)} style={SB(k)}>{l}</button>
+      ))}
+      <div style={{width:1,height:16,background:'#162030',margin:'0 4px'}}/>
+      <button onClick={()=>setFilter('all')} style={FB('all','#8AAABB')}>ALL ({players.length})</button>
+      <button onClick={()=>setFilter('active')} style={FB('active','#00E676')}>ACTIVE ({activeCount})</button>
+      <button onClick={()=>setFilter('low')} style={FB('low','#E8B84B')}>LOW ({lowCount})</button>
+      <button onClick={()=>setFilter('zero')} style={FB('zero','#E74C3C')}>ZERO ({zeroCount})</button>
+      <div style={{marginLeft:'auto'}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search player..." style={{background:'#06121E',border:'1px solid #1A3050',borderRadius:3,color:'#E2EAF4',padding:'4px 8px',fontSize:13,fontFamily:'inherit',outline:'none',width:160}}/>
+      </div>
+    </div>
+
+    {/* PLAYER TABLE */}
+    <div style={{flex:1,overflowY:'auto',padding:'8px 12px'}}>
+      {/* Header row */}
+      <div style={{display:'grid',gridTemplateColumns:'32px 1fr 90px 90px 90px 70px',gap:8,padding:'4px 8px',marginBottom:4,borderBottom:'1px solid #0A1E30'}}>
+        {['#','PLAYER','CONTRIB','SV','ALLIANCE','LAST SEEN'].map(h=>(
+          <div key={h} style={{fontSize:11,color:'#3A6080',letterSpacing:1,fontWeight:600}}>{h}</div>
+        ))}
+      </div>
+      {filtered.map((p,i)=>{
+        const c=contribColor(p.lastContrib);
+        const pct=maxContrib>0?Math.round(p.lastContrib/maxContrib*100):0;
+        const globalRank=players.indexOf(p)+1; // rank by original contrib sort
+        return(<div key={p.name} style={{display:'grid',gridTemplateColumns:'32px 1fr 90px 90px 90px 70px',gap:8,padding:'6px 8px',borderRadius:4,marginBottom:2,background:p.lastContrib===0?'#0A0510':p.lastContrib<40000?'#0A0E10':'transparent',borderLeft:'3px solid '+(p.lastContrib===0?'#3A0A0A':p.lastContrib<40000?'#3A3000':'transparent')}}>
+          <div style={{fontSize:13,color:'#3A6080',fontWeight:600,paddingTop:2}}>#{globalRank}</div>
+          <div>
+            <div style={{fontSize:15,fontWeight:600,color:p.lastContrib===0?'#5A3A3A':p.lastContrib<40000?'#9A8A40':'#E2EAF4',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</div>
+            <ContribBar pct={pct} color={c}/>
+          </div>
+          <div style={{fontSize:14,fontWeight:700,color:c,paddingTop:2}}>${fmt(p.lastContrib)}</div>
+          <div style={{fontSize:13,color:'#5A8AAB',paddingTop:2}}>${p.sv.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+          <div style={{fontSize:13,color:'#4A7090',paddingTop:2}}>${fmt(p.allianceContrib)}</div>
+          <div style={{fontSize:13,color:activeColor(p.lastSeenMins),paddingTop:2}}>{p.lastSeenStr}</div>
+        </div>);
+      })}
+      {filtered.length===0&&<div style={{textAlign:'center',padding:40,color:'#2C4A68',fontSize:15}}>No players match this filter.</div>}
+    </div>
+
+  </div>);
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>`;
+
+// HQ update endpoint — accepts pace upload from n8n
+app.post('/api/hq-update', (req, res) => {
+  try {
+    const body = req.body || {};
+    const token = body.token || '';
+    const N8N_TOKEN = 'bgln8n-hq-2026';
+    if (token !== N8N_TOKEN && token !== process.env.PROJECTIONS_SECRET) {
+      return res.status(401).json({ ok: false, error: 'unauthorized' });
+    }
+    const rawText = body.rawText || '';
+    const players = parsePaceUpload(rawText);
+    if (players.length === 0) return res.status(400).json({ ok: false, error: 'no players parsed' });
+
+    // Save to history
+    if (hqData.alliancePace) {
+      hqData.history = [...(hqData.history || []).slice(-23), {
+        timestamp: hqData.timestamp,
+        alliancePace: hqData.alliancePace,
+        airlines: hqData.airlines
+      }];
+    }
+
+    hqData.timestamp = body.timestamp || new Date().toISOString();
+    hqData.uploader = body.uploader || 'unknown';
+    hqData.alliancePace = body.alliancePace || null;
+    hqData.airlines = body.airlines || players.length;
+    hqData.players = players.sort((a, b) => b.lastContrib - a.lastContrib);
+
+    console.log('[HQ] updated — ' + players.length + ' players, pace ' + hqData.alliancePace);
+    res.json({ ok: true, players: players.length });
+  } catch (e) {
+    console.error('[HQ] error:', e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// HQ data endpoint
+app.get('/api/hq-data', (req, res) => res.json(hqData));
+
+// HQ page route — no access key required (internal use)
+app.get('/hq', (req, res) => {
+  logVisit(req);
+  res.type('html').send(HQ_HTML);
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
 
 // ── VISITOR LOG ────────────────────────────────────────────────────────────
 const visitorLog = [];
@@ -97,7 +387,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-<title>Beagle Global \u2014 Alliance Projections v39</title>
+<title>Beagle Global \u2014 Alliance Projections v40</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
