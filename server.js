@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v41
+// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v42
 // Deploy: node server.js
 // Env vars: PROJECTIONS_SECRET, PORT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -387,7 +387,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-<title>Beagle Global \u2014 Alliance Projections v41</title>
+<title>Beagle Global \u2014 Alliance Projections v42</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -542,6 +542,7 @@ function App(){
   const ranking=useMemo(()=>all.length?projR(all,beagle,days):[],[all,beagle,days]);
   const bRank=ranking.find(a=>a.isBeagle);
   const mob=typeof window!=='undefined'&&window.innerWidth<700;
+  const dsk=!mob&&typeof window!=='undefined'&&window.innerWidth>=1200;
   const rChg=beagle.rank?(beagle.rank-(bRank?.projRank??beagle.rank)):0;
 
   // Crossovers between activated non-Beagle pairs
@@ -691,14 +692,14 @@ function App(){
   const renderRow=a=>{
     const isB=a.isBeagle,chg=a.rank-(a.projRank??a.rank),c=isB?'#E8B84B':lc(a),isAct=act.has(a.name);
     return(<div key={a.name} onClick={()=>!isB&&toggle(a.name)}
-      style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',
+      style={{display:'flex',alignItems:'center',gap:8,padding:dsk?'10px 14px':'7px 10px',
         background:isB?'#1A1000':isAct?c+'22':'transparent',
         borderRadius:3,borderLeft:isAct?'3px solid '+c:'3px solid transparent',
         cursor:isB?'default':'pointer',transition:'all 0.1s'}}>
-      <span style={{fontSize:20,fontWeight:700,color:a.noPace?'#4A7090':c,minWidth:36}}>#{a.projRank}</span>
-      <span style={{fontSize:20,color:isB?c:isAct?'#E2EAF4':a.noPace?'#4A7090':'#9AAABB',flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',fontWeight:isAct?600:400}}>{a.name}</span>
-      <span style={{fontSize:14,color:isB?'#C4920A':a.noPace?'#2C4A68':'#5A8AAB',minWidth:52,textAlign:'right',whiteSpace:'nowrap',marginRight:4}}>{a.pace!=null?'$'+a.pace.toFixed(2):''}</span>
-      <span style={{fontSize:18,fontWeight:600,minWidth:30,textAlign:'right',color:a.noPace?'#4A7090':chg>0?'#00E676':chg<0?'#E74C3C':'#4A7090'}}>{a.noPace?'?':chg>0?'\u25b2'+chg:chg<0?'\u25bc'+Math.abs(chg):isB?'\u2605':'\u2014'}</span>
+      <span style={{fontSize:mob?18:dsk?32:20,fontWeight:700,color:a.noPace?'#4A7090':c,minWidth:36}}>#{a.projRank}</span>
+      <span style={{fontSize:mob?18:dsk?28:20,color:isB?c:isAct?'#E2EAF4':a.noPace?'#4A7090':'#9AAABB',flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',fontWeight:isAct?600:400}}>{a.name}</span>
+      <span style={{fontSize:mob?13:dsk?22:14,color:isB?'#C4920A':a.noPace?'#2C4A68':'#5A8AAB',minWidth:52,textAlign:'right',whiteSpace:'nowrap',marginRight:4}}>{a.pace!=null?'$'+a.pace.toFixed(2):''}</span>
+      <span style={{fontSize:mob?16:dsk?28:18,fontWeight:600,minWidth:30,textAlign:'right',color:a.noPace?'#4A7090':chg>0?'#00E676':chg<0?'#E74C3C':'#4A7090'}}>{a.noPace?'?':chg>0?'\u25b2'+chg:chg<0?'\u25bc'+Math.abs(chg):isB?'\u2605':'\u2014'}</span>
     </div>);
   };
 
@@ -709,16 +710,16 @@ function App(){
     {/* HEADER */}
     <div style={{background:'linear-gradient(90deg,#04101E,#0A1C32)',borderBottom:'2px solid #C4920A',padding:'10px 16px',display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:4}}>
       <div>
-        <div style={{fontSize:26,fontWeight:700,color:'#E8B84B',letterSpacing:2}}>&#9672; BEAGLE GLOBAL \u2014 ALLIANCE PROJECTIONS</div>
-        <div style={{fontSize:15,color:'#8AAABB',marginTop:3,letterSpacing:1}}>
+        <div style={{fontSize:mob?22:dsk?38:26,fontWeight:700,color:'#E8B84B',letterSpacing:2}}>&#9672; BEAGLE GLOBAL \u2014 ALLIANCE PROJECTIONS</div>
+        <div style={{fontSize:mob?13:dsk?18:15,color:'#8AAABB',marginTop:3,letterSpacing:1}}>
           10-MO RECENT PACE \xb7 RANK #{beagle.rank}
           {ts2&&<span style={{marginLeft:12,color:'#5A8AAB'}}>UPDATED {fmtAWST(ts2)}{upl?' \xb7 '+upl:''}</span>}
           {!ts2&&<span style={{marginLeft:12,color:'#5A8AAB'}}>DEFAULT DATA \xb7 UPLOAD TO REFRESH</span>}
         </div>
       </div>
       <div style={{textAlign:'right'}}>
-        <div style={{fontSize:28,fontWeight:700,color:'#E8B84B'}}>{'$'+BS.toLocaleString('en',{minimumFractionDigits:2})+'M'}</div>
-        <div style={{fontSize:15,color:'#8AAABB',letterSpacing:1}}>{BP.toFixed(3)}/DAY</div>
+        <div style={{fontSize:mob?22:dsk?42:28,fontWeight:700,color:'#E8B84B'}}>{'$'+BS.toLocaleString('en',{minimumFractionDigits:2})+'M'}</div>
+        <div style={{fontSize:mob?13:dsk?18:15,color:'#8AAABB',letterSpacing:1}}>{BP.toFixed(3)}/DAY</div>
       </div>
     </div>
 
@@ -917,17 +918,17 @@ function App(){
     {showR&&ranking.length>0&&(<div style={{margin:'0 8px 4px',background:'#050D1A',border:'1px solid #0A1E30',borderTop:'2px solid #C4920A',borderRadius:4,padding:'8px 12px',flex:1}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,flexWrap:'wrap',gap:6}}>
         <div>
-          <span style={{fontSize:17,color:'#8AAABB',letterSpacing:1}}>PROJECTED RANKING AT </span>
-          <span style={{fontSize:17,color:'#E8B84B',fontWeight:700,letterSpacing:1}}>{pk}</span>
+          <span style={{fontSize:mob?15:dsk?22:17,color:'#8AAABB',letterSpacing:1}}>PROJECTED RANKING AT </span>
+          <span style={{fontSize:mob?15:dsk?22:17,color:'#E8B84B',fontWeight:700,letterSpacing:1}}>{pk}</span>
           <span style={{fontSize:13,color:'#4A7090',marginLeft:10}}>\u2014 tap row or line to select</span>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-          <span style={{fontSize:16,color:'#8AAABB'}}>Beagle</span>
-          <span style={{fontSize:19,fontWeight:700,color:'#E8B84B'}}>#{beagle.rank}</span>
-          <span style={{fontSize:18,color:'#5A8AAB'}}>\u2192</span>
-          <span style={{fontSize:22,fontWeight:700,color:rChg>0?'#00E676':'#E8B84B'}}>#{bRank?.projRank}</span>
-          {rChg>0&&<span style={{fontSize:18,fontWeight:700,color:'#00E676'}}>\u25b2{rChg}</span>}
-          {rChg<0&&<span style={{fontSize:18,fontWeight:700,color:'#E74C3C'}}>\u25bc{Math.abs(rChg)}</span>}
+          <span style={{fontSize:mob?14:dsk?22:16,color:'#8AAABB'}}>Beagle</span>
+          <span style={{fontSize:mob?17:dsk?28:19,fontWeight:700,color:'#E8B84B'}}>#{beagle.rank}</span>
+          <span style={{fontSize:mob?16:dsk?26:18,color:'#5A8AAB'}}>\u2192</span>
+          <span style={{fontSize:mob?20:dsk?32:22,fontWeight:700,color:rChg>0?'#00E676':'#E8B84B'}}>#{bRank?.projRank}</span>
+          {rChg>0&&<span style={{fontSize:mob?16:dsk?26:18,fontWeight:700,color:'#00E676'}}>\u25b2{rChg}</span>}
+          {rChg<0&&<span style={{fontSize:mob?16:dsk?26:18,fontWeight:700,color:'#E74C3C'}}>\u25bc{Math.abs(rChg)}</span>}
           {selA&&!selA.isBeagle&&(()=>{
             const sp=ranking.find(r=>r.name===selA.name),sc=selA.rank-(sp?.projRank??selA.rank),c=lc(selA);
             return(<span style={{display:'flex',alignItems:'center',gap:6,marginLeft:12,paddingLeft:12,borderLeft:'1px solid #162030'}}>
@@ -942,11 +943,11 @@ function App(){
       </div>
       <div style={{display:'flex',gap:16,width:'100%'}}>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:15,color:'#8AAABB',fontWeight:600,letterSpacing:1,padding:'0 6px 5px',borderBottom:'1px solid #0A1E30',marginBottom:4}}>1 \u2014 10</div>
+          <div style={{fontSize:mob?13:dsk?20:15,color:'#8AAABB',fontWeight:600,letterSpacing:1,padding:'0 6px 5px',borderBottom:'1px solid #0A1E30',marginBottom:4}}>1 \u2014 10</div>
           {ranking.slice(0,10).map(renderRow)}
         </div>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:15,color:'#8AAABB',fontWeight:600,letterSpacing:1,padding:'0 6px 5px',borderBottom:'1px solid #0A1E30',marginBottom:4}}>11 \u2014 20</div>
+          <div style={{fontSize:mob?13:dsk?20:15,color:'#8AAABB',fontWeight:600,letterSpacing:1,padding:'0 6px 5px',borderBottom:'1px solid #0A1E30',marginBottom:4}}>11 \u2014 20</div>
           {ranking.slice(10,20).map(renderRow)}
         </div>
       </div>
