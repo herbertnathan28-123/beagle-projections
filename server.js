@@ -996,6 +996,16 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </body>
 </html>`;
 
+// ── CONTRIBUTION CALCULATOR DOWNLOAD ─────────────────────────────────────
+
+app.get('/calculator', (req, res) => {
+  const KEY = process.env.CONTRIBUTIONS_LOG_IN || '';
+  if (!KEY || req.query.k !== KEY) {
+    return res.status(403).type('html').send(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Access Expired</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:24px}.card{max-width:420px}.icon{font-size:48px;color:#C4920A;margin-bottom:20px}.title{font-size:26px;font-weight:700;color:#E8B84B;letter-spacing:2px;margin-bottom:12px}.sub{font-size:16px;color:#5A8AAB;line-height:1.6;margin-bottom:24px}.note{font-size:13px;color:#2C4A6E;letter-spacing:1px}</style></head><body><div class="card"><div class="icon">&#9672;</div><div class="title">ACCESS EXPIRED</div><div class="sub">This link has expired.<br>Contact your alliance leader for the updated access link.</div><div class="note">BEAGLE GLOBAL &mdash; AM4 TOOLS</div></div></body></html>`);
+  }
+  res.redirect('https://1drv.ms/x/c/1d8aec0d94831858/IQBVm4IplVXqT5dGbTbij7saAde5i02VMwDKSclI-W9HTD0');
+});
+
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) return res.status(404).send('Not found');
   logVisit(req);
