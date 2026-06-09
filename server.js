@@ -996,6 +996,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </body>
 </html>`;
 
+app.get('/calculator', (req, res) => {
+  if (req.query.k !== process.env.CONTRIBUTIONS_LOG_IN) return res.status(403).send('Access denied.');
+  res.send(buildCalcPage(req.query.k));
+});
+
 // ── CONTRIBUTION CALCULATOR DOWNLOAD ─────────────────────────────────────
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) return res.status(404).send('Not found');
@@ -1065,11 +1070,6 @@ app.get('/api/calc', (req, res) => {
   const speed = mode === 'Easy' ? ac.easy : ac.realism;
   const grid = CALC_TIMES.map(t => CALC_DISTANCES.map(d => _calc(d, t, speed, mode)));
   res.json({ grid });
-});
-
-app.get('/calculator', (req, res) => {
-  if (req.query.k !== process.env.CONTRIBUTIONS_LOG_IN) return res.status(403).send('Access denied.');
-  res.send(buildCalcPage(req.query.k));
 });
 
 function buildCalcPage(key) {
