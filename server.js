@@ -1015,6 +1015,506 @@ app.get('*', (req, res) => {
   }
   res.type('html').send(HTML);
 });
+// ============================================================
+// AM4 CONTRIBUTION CALCULATOR — add this block to server.js
+// ============================================================
+
+const AIRCRAFT_DATA = [
+  { name: 'A380',          realism: 1154, easy: 1731 },
+  { name: 'MC21-400',      realism: 1206, easy: 1808 },
+  { name: 'A340-300 CHTR', realism: 1017, easy: 1526 },
+  { name: 'B787-10',       realism: 1040, easy: 1559 },
+  { name: 'B787-8/9',      realism: 894,  easy: 1341 },
+  { name: 'B737-MAX 10',   realism: 969,  easy: 1454 },
+  { name: 'A350-ULR',      realism: 933,  easy: 1399 },
+  { name: 'DC10 Variants', realism: 999,  easy: 1498 },
+  { name: 'B747-8',        realism: 1207, easy: 1810 },
+  { name: 'B747SP',        realism: 1100, easy: 1650 },
+  { name: 'B747-8F',       realism: 1087, easy: 1630 },
+  { name: 'A380F',         realism: 1039, easy: 1559 },
+  { name: 'A330 Variants', realism: 968,  easy: 1452 },
+  { name: 'A330 CHTR',     realism: 969,  easy: 1454 },
+  { name: 'FALCON 2000LX', realism: 1201, easy: 1802 },
+  { name: 'Space Jet',     realism: 1235, easy: 1846 },
+  { name: 'Concorde',      realism: 2126, easy: 3189 },
+];
+
+function _m(d) {
+  if (d <= 6000) return 0.0044;
+  if (d <= 10000) return 0.0044 + (0.00355 - 0.0044) * (d - 6000) / 4000;
+  return 0.00355 + (0.00349 - 0.00355) * (d - 10000) / 10000;
+}
+
+function _calc(dist, th, speed, mode) {
+  const ef = mode === 'Easy' ? 1 / 1.5 : 1;
+  const ci = (2000 / 7) * (dist / (speed * th)) - (600 / 6.9);
+  if (ci > 200) return 'X';
+  return Math.round((1 + (200 - ci) * 0.01) * _m(dist) * dist * ef * 100) / 100;
+}
+
+const CALC_DISTANCES = [
+  500,1000,1500,2000,2500,3000,3500,4000,4500,5000,5500,6000,
+  10000,10500,11000,11500,12000,12500,13000,13500,14000,14500,
+  15000,15500,16000,16500,17000,17500,18000,18500,19000,19500,20000
+];
+
+const CALC_TIMES = [];
+for (let h = 1; h <= 24; h += 0.5) CALC_TIMES.push(h);
+
+function timeLabel(h) {
+  const hr = Math.floor(h);
+  return hr + 'h ' + (h % 1 === 0 ? '00m' : '30m');
+}
+
+app.get('/api/calc', (req, res) => {
+  if (req.query.k !== process.env.CONTRIBUTIONS_LOG_IN) return res.status(403).json({ error: 'Denied' });
+  const ac = AIRCRAFT_DATA.find(a => a.name === req.query.aircraft);
+  if (!ac) return res.status(400).json({ error: 'Unknown aircraft' });
+  const mode = req.query.mode === 'Easy' ? 'Easy' : 'Realism';
+  const speed = mode === 'Easy' ? ac.easy : ac.realism;
+  const grid = CALC_TIMES.map(t => CALC_DISTANCES.map(d => _calc(d, t, speed, mode)));
+  res.json({ grid });
+});
+
+app.get('/calculator', (req, res) => {
+  if (req.query.k !== process.env.CONTRIBUTIONS_LOG_IN) return res.status(403).send('Access denied.');
+  res.send(buildCalcPage(req.query.k));
+});
+
+function buildCalcPage(key) {
+  const acOptions = AIRCRAFT_DATA.map(a =>
+    '<option value="' + a.name + '">' + a.name + '</option>'
+  ).join('');
+
+  const distHeaders = CALC_DISTANCES.map((d, i) => {
+    const isDzBefore = i === 12; // first col after dead zone
+    const spacer = isDzBefore ? '<th class="dz-col" rowspan="1">DEAD ZONE<br><span>6,001 – 9,999 km</span></th>' : '';
+    return spacer + '<th>' + d.toLocaleString() + '</th>';
+  }).join('');
+
+  const timeLabels = CALC_TIMES.map(t => '<td class="time-label">' + timeLabel(t) + '</td>').join('</tr><tr>');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AM4 Contribution Calculator — Beagle Global</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #07090F;
+    --surface: #0C1120;
+    --header-bg: #0A1628;
+    --border: #1B2A45;
+    --border-light: #243352;
+    --text: #C8D4EE;
+    --text-dim: #4E6080;
+    --accent: #1A72BB;
+    --accent-glow: rgba(26,114,187,0.25);
+    --dead-bg: #0D1118;
+    --dead-text: #252F42;
+    --dead-border: #151E2D;
+    --x-bg: #2A0606;
+    --x-text: #FF3D3D;
+    --t1-bg: #071A0E; --t1-txt: #16A34A;
+    --t2-bg: #0A2115; --t2-txt: #22C55E;
+    --t3-bg: #0D2A1B; --t3-txt: #4ADE80;
+    --t4-bg: #1A1400; --t4-txt: #EAB308;
+    --t5-bg: #141D30; --t5-txt: #94A3B8;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 13px;
+    min-height: 100vh;
+  }
+
+  /* ── TOP HEADER ── */
+  .top-bar {
+    background: var(--header-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 52px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo-block { display: flex; align-items: center; gap: 12px; }
+  .logo-text {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .logo-sep { color: var(--border-light); }
+  .page-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text);
+  }
+
+  /* ── CONTROL BAR ── */
+  .control-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 52px;
+    z-index: 99;
+  }
+  .control-group { display: flex; align-items: center; gap: 10px; }
+  .control-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  select {
+    background: #0A1422;
+    border: 1px solid var(--border-light);
+    color: var(--text);
+    padding: 6px 28px 6px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234E6080'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    min-width: 160px;
+  }
+  select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+
+  .mode-toggle { display: flex; border-radius: 4px; overflow: hidden; border: 1px solid var(--border-light); }
+  .mode-btn {
+    padding: 6px 16px;
+    background: #0A1422;
+    border: none;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: background 0.15s, color 0.15s;
+  }
+  .mode-btn.active { background: var(--accent); color: #fff; }
+  .mode-btn:not(:last-child) { border-right: 1px solid var(--border-light); }
+
+  .speed-display {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+  .speed-display span { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .status-msg {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+  }
+
+  /* ── TABLE WRAPPER ── */
+  .table-wrap {
+    overflow: auto;
+    max-height: calc(100vh - 120px);
+  }
+
+  table {
+    border-collapse: collapse;
+    white-space: nowrap;
+    font-size: 11.5px;
+  }
+
+  /* ── HEADER ROW ── */
+  thead th {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 6px 8px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    font-variant-numeric: tabular-nums;
+  }
+  thead th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 60;
+    background: var(--surface);
+    min-width: 68px;
+    color: var(--text-dim);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+  }
+
+  /* ── DEAD ZONE HEADER ── */
+  th.dz-col {
+    background: var(--dead-bg) !important;
+    color: var(--dead-text) !important;
+    border-color: var(--dead-border) !important;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    min-width: 90px;
+    padding: 4px 8px;
+    vertical-align: middle;
+  }
+  th.dz-col span { font-size: 8px; display: block; margin-top: 2px; letter-spacing: 0.05em; }
+
+  /* ── TIME LABEL CELLS ── */
+  td.time-label {
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 4px 10px 4px 8px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  /* ── DATA CELLS ── */
+  td.cell {
+    border: 1px solid var(--border);
+    padding: 4px 7px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    min-width: 52px;
+    font-size: 11px;
+    font-weight: 500;
+    transition: filter 0.1s;
+  }
+  td.cell:hover { filter: brightness(1.35); cursor: default; }
+
+  td.dz { background: var(--dead-bg); border-color: var(--dead-border); min-width: 90px; }
+
+  td.val-x  { background: var(--x-bg);  color: var(--x-text);  font-weight: 700; }
+  td.val-t1 { background: var(--t1-bg); color: var(--t1-txt); font-weight: 700; }
+  td.val-t2 { background: var(--t2-bg); color: var(--t2-txt); font-weight: 600; }
+  td.val-t3 { background: var(--t3-bg); color: var(--t3-txt); }
+  td.val-t4 { background: var(--t4-bg); color: var(--t4-txt); }
+  td.val-t5 { background: #0F1424; color: #5A7090; }
+  td.val-empty { background: #090C14; color: #1A2235; }
+
+  /* ── FOOTER ── */
+  .footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--text-dim);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* ── LOADING STATE ── */
+  #loading-overlay {
+    position: fixed; inset: 0;
+    background: rgba(7,9,15,0.85);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    display: none;
+  }
+
+  @media print { body { display: none !important; } }
+</style>
+</head>
+<body>
+
+<div id="loading-overlay">CALCULATING...</div>
+
+<div class="top-bar">
+  <div class="logo-block">
+    <span class="logo-text">ATLAS FX</span>
+    <span class="logo-sep">|</span>
+    <span class="logo-text">BEAGLE GLOBAL</span>
+  </div>
+  <span class="page-title">AM4 CONTRIBUTION CALCULATOR</span>
+  <span style="width:160px"></span>
+</div>
+
+<div class="control-bar">
+  <div class="control-group">
+    <span class="control-label">Aircraft</span>
+    <select id="aircraft-select">
+      ${acOptions}
+    </select>
+  </div>
+  <div class="control-group">
+    <span class="control-label">Mode</span>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btn-realism" onclick="setMode('Realism')">REALISM</button>
+      <button class="mode-btn" id="btn-easy" onclick="setMode('Easy')">EASY</button>
+    </div>
+  </div>
+  <div class="speed-display" id="speed-display">
+    Speed: <span id="speed-val">—</span> km/h
+  </div>
+  <div class="status-msg" id="status-msg">SELECT AIRCRAFT TO LOAD TABLE</div>
+</div>
+
+<div class="table-wrap">
+<table id="calc-table">
+  <thead>
+    <tr>
+      <th>FLIGHT TIME</th>
+      ${distHeaders}
+    </tr>
+  </thead>
+  <tbody id="calc-body">
+    <tr>
+      ${timeLabels}
+      ${CALC_DISTANCES.map((d, i) => (i === 12 ? '<td class="dz cell"></td>' : '') + '<td class="cell val-empty" id="empty-' + i + '"></td>').join('')}
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="footer">
+  <span>ATLAS FX | BEAGLE GLOBAL — AM4 CONTRIBUTION CALCULATOR</span>
+  <span>BROWSER USE ONLY — NOT FOR DOWNLOAD OR DISTRIBUTION</span>
+</div>
+
+<script>
+const DISTANCES = ${JSON.stringify(CALC_DISTANCES)};
+const TIMES = ${JSON.stringify(CALC_TIMES)};
+const AC_SPEEDS = ${JSON.stringify(Object.fromEntries(AIRCRAFT_DATA.map(a => [a.name, { r: a.realism, e: a.easy }])))};
+const KEY = '${key}';
+
+let currentMode = 'Realism';
+
+function timeLabel(h) {
+  const hr = Math.floor(h);
+  return hr + 'h ' + (h % 1 === 0 ? '00m' : '30m');
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('btn-realism').classList.toggle('active', mode === 'Realism');
+  document.getElementById('btn-easy').classList.toggle('active', mode === 'Easy');
+  const ac = document.getElementById('aircraft-select').value;
+  if (ac) {
+    const sp = AC_SPEEDS[ac];
+    document.getElementById('speed-val').textContent = (mode === 'Easy' ? sp.e : sp.r).toLocaleString();
+    loadGrid(ac, mode);
+  }
+}
+
+function getTier(val, p20, p40, p60, p80) {
+  if (val >= p80) return 'val-t1';
+  if (val >= p60) return 'val-t2';
+  if (val >= p40) return 'val-t3';
+  if (val >= p20) return 'val-t4';
+  return 'val-t5';
+}
+
+function percentile(sorted, p) {
+  const idx = Math.floor(sorted.length * p);
+  return sorted[Math.min(idx, sorted.length - 1)];
+}
+
+async function loadGrid(aircraft, mode) {
+  const overlay = document.getElementById('loading-overlay');
+  overlay.style.display = 'flex';
+  document.getElementById('status-msg').textContent = 'LOADING...';
+  try {
+    const r = await fetch('/api/calc?k=' + encodeURIComponent(KEY) + '&aircraft=' + encodeURIComponent(aircraft) + '&mode=' + encodeURIComponent(mode));
+    const data = await r.json();
+    const grid = data.grid;
+
+    // Collect numeric values for percentile coloring
+    const nums = [];
+    grid.forEach(row => row.forEach(v => { if (typeof v === 'number') nums.push(v); }));
+    nums.sort((a, b) => a - b);
+    const p20 = percentile(nums, 0.2);
+    const p40 = percentile(nums, 0.4);
+    const p60 = percentile(nums, 0.6);
+    const p80 = percentile(nums, 0.8);
+
+    // Build table body
+    const tbody = document.getElementById('calc-body');
+    const rows = TIMES.map((t, ti) => {
+      const cells = DISTANCES.map((d, di) => {
+        const isDzBefore = di === 12;
+        const dzCell = isDzBefore ? '<td class="cell dz"></td>' : '';
+        const v = grid[ti][di];
+        let cls, txt;
+        if (v === 'X') { cls = 'val-x'; txt = 'X'; }
+        else if (typeof v === 'number') { cls = getTier(v, p20, p40, p60, p80); txt = v.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2}); }
+        else { cls = 'val-empty'; txt = ''; }
+        return dzCell + '<td class="cell ' + cls + '">' + txt + '</td>';
+      }).join('');
+      return '<tr><td class="time-label">' + timeLabel(t) + '</td>' + cells + '</tr>';
+    }).join('');
+
+    tbody.innerHTML = rows;
+    document.getElementById('status-msg').textContent = aircraft.toUpperCase() + ' — ' + mode.toUpperCase() + ' MODE';
+  } catch(e) {
+    document.getElementById('status-msg').textContent = 'ERROR — RELOAD PAGE';
+  } finally {
+    overlay.style.display = 'none';
+  }
+}
+
+// Init on aircraft change
+document.getElementById('aircraft-select').addEventListener('change', function() {
+  const ac = this.value;
+  const sp = AC_SPEEDS[ac];
+  document.getElementById('speed-val').textContent = (currentMode === 'Easy' ? sp.e : sp.r).toLocaleString();
+  loadGrid(ac, currentMode);
+});
+
+// Load first aircraft on page load
+window.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('aircraft-select');
+  if (sel.options.length) {
+    const ac = sel.options[0].value;
+    document.getElementById('speed-val').textContent = AC_SPEEDS[ac].r.toLocaleString();
+    loadGrid(ac, currentMode);
+  }
+});
+
+// Block right-click save
+document.addEventListener('contextmenu', e => e.preventDefault());
+</script>
+</body>
+</html>`;
+}
+
+// ============================================================
+// END AM4 CONTRIBUTION CALCULATOR
+// ============================================================
+
 
 app.listen(PORT, () => console.log(`Beagle Projections live on port ${PORT}`));
 
