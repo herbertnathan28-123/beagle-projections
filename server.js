@@ -179,15 +179,15 @@ function buildCalcPage(key) {
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
     --bg: #F5F7FA; --surface: #FFFFFF; --header-bg: #EAEFF7;
-    --border: #D1D9E6; --border-light: #BCC8DC; --text: #1A2235; --text-dim: #6B7A99;
+    --border: #D1D9E6; --border-light: #BCC8DC; --text: #000000; --text-dim: #333333;
     --accent: #1A72BB; --accent-glow: rgba(26,114,187,0.15);
-    --dead-bg: #EEF0F5; --dead-text: #9AAABB; --dead-border: #D1D9E6;
-    --x-bg: #FDECEA; --x-text: #C0392B;
-    --t1-bg: #E8F5E9; --t1-txt: #1B5E20;
-    --t2-bg: #F1F8E9; --t2-txt: #2E7D32;
-    --t3-bg: #F9FBE7; --t3-txt: #558B2F;
-    --t4-bg: #FFFDE7; --t4-txt: #F57F17;
-    --t5-bg: #F5F7FA; --t5-txt: #8A9BB5;
+    --dead-bg: #CCCCCC; --dead-text: #000000; --dead-border: #AAAAAA;
+    --x-bg: #FF9999; --x-text: #000000;
+    --t1-bg: #1a5c2a; --t1-txt: #FFFFFF;
+    --t2-bg: #4CAF50; --t2-txt: #000000;
+    --t3-bg: #90EE90; --t3-txt: #000000;
+    --t4-bg: #C8F0C8; --t4-txt: #000000;
+    --t5-bg: #E8F8E8; --t5-txt: #000000;
   }
   body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 13px; min-height: 100vh; }
   .top-bar { background: var(--header-bg); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 52px; position: sticky; top: 0; z-index: 100; }
@@ -209,11 +209,11 @@ function buildCalcPage(key) {
   .status-msg { margin-left: auto; font-size: 11px; color: var(--text-dim); letter-spacing: 0.06em; }
   .table-wrap { overflow: auto; max-height: calc(100vh - 120px); }
   table { border-collapse: collapse; white-space: nowrap; font-size: 11.5px; }
-  thead th { background: var(--surface); border: 1px solid var(--border); padding: 6px 8px; text-align: center; font-weight: 700; font-size: 10px; letter-spacing: 0.06em; color: var(--text-dim); position: sticky; top: 0; z-index: 50; font-variant-numeric: tabular-nums; }
-  thead th:first-child { position: sticky; left: 0; z-index: 60; background: var(--surface); min-width: 68px; color: var(--text-dim); font-size: 9px; letter-spacing: 0.1em; }
+  thead th { background: var(--surface); border: 1px solid var(--border); padding: 6px 8px; text-align: center; font-weight: 700; font-size: 10px; letter-spacing: 0.06em; color: #000000; position: sticky; top: 0; z-index: 50; font-variant-numeric: tabular-nums; }
+  thead th:first-child { position: sticky; left: 0; z-index: 60; background: var(--surface); min-width: 68px; color: #000000; font-size: 9px; letter-spacing: 0.1em; }
   th.dz-col { background: var(--dead-bg) !important; color: var(--dead-text) !important; border-color: var(--dead-border) !important; font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; min-width: 90px; padding: 4px 8px; vertical-align: middle; }
   th.dz-col span { font-size: 8px; display: block; margin-top: 2px; letter-spacing: 0.05em; }
-  td.time-label { position: sticky; left: 0; z-index: 10; background: var(--surface); border: 1px solid var(--border); padding: 4px 10px 4px 8px; font-size: 10.5px; font-weight: 600; color: var(--text-dim); letter-spacing: 0.04em; font-variant-numeric: tabular-nums; text-align: right; }
+  td.time-label { position: sticky; left: 0; z-index: 10; background: var(--surface); border: 1px solid var(--border); padding: 4px 10px 4px 8px; font-size: 10.5px; font-weight: 600; color: #000000; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; text-align: right; }
   td.cell { border: 1px solid var(--border); padding: 4px 7px; text-align: right; font-variant-numeric: tabular-nums; min-width: 52px; font-size: 11px; font-weight: 500; transition: filter 0.1s; }
   td.cell:hover { filter: brightness(1.35); cursor: default; }
   td.dz { background: var(--dead-bg); border-color: var(--dead-border); min-width: 90px; }
@@ -222,8 +222,13 @@ function buildCalcPage(key) {
   td.val-t2 { background: var(--t2-bg); color: var(--t2-txt); font-weight: 600; }
   td.val-t3 { background: var(--t3-bg); color: var(--t3-txt); }
   td.val-t4 { background: var(--t4-bg); color: var(--t4-txt); }
-  td.val-t5 { background: #F5F7FA; color: #8A9BB5; }
-  td.val-empty { background: #F0F2F7; color: #C8D0E0; }
+  td.val-t1 { background: var(--t1-bg); color: var(--t1-txt); font-weight: 700; }
+  td.val-t2 { background: var(--t2-bg); color: var(--t2-txt); font-weight: 600; }
+  td.val-t3 { background: var(--t3-bg); color: var(--t3-txt); }
+  td.val-t4 { background: var(--t4-bg); color: var(--t4-txt); }
+  td.val-t5 { background: var(--t5-bg); color: var(--t5-txt); }
+  td.val-low { background: #FFFFFF; color: #000000; }
+  td.val-empty { background: #FFFFFF; color: #000000; }
   .footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; color: var(--text-dim); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
   #loading-overlay { position: fixed; inset: 0; background: rgba(7,9,15,0.85); display: none; align-items: center; justify-content: center; z-index: 200; font-size: 13px; letter-spacing: 0.1em; color: var(--text-dim); }
   @media print { body { display: none !important; } }
@@ -262,7 +267,15 @@ function buildCalcPage(key) {
 </table>
 </div>
 <div class="footer">
-  <span>ATLAS FX | BEAGLE GLOBAL — AM4 CONTRIBUTION CALCULATOR</span>
+  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+    <span style="background:#1a5c2a;color:#fff;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">PEAK #1</span>
+    <span style="background:#4CAF50;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">TOP 9</span>
+    <span style="background:#90EE90;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">TOP 25</span>
+    <span style="background:#C8F0C8;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">TOP 60</span>
+    <span style="background:#E8F8E8;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">TOP 120</span>
+    <span style="background:#FF9999;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">CI &gt; 200 (X)</span>
+    <span style="background:#CCCCCC;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">DEAD ZONE</span>
+  </div>
   <span>BROWSER USE ONLY — NOT FOR DOWNLOAD OR DISTRIBUTION</span>
 </div>
 <script>
@@ -289,16 +302,13 @@ function setMode(mode) {
   }
 }
 
-function getTier(val, p20, p40, p60, p80) {
-  if (val >= p80) return 'val-t1';
-  if (val >= p60) return 'val-t2';
-  if (val >= p40) return 'val-t3';
-  if (val >= p20) return 'val-t4';
-  return 'val-t5';
-}
-
-function percentile(sorted, p) {
-  return sorted[Math.min(Math.floor(sorted.length * p), sorted.length - 1)];
+function getTier(val, thresholds) {
+  if (val >= thresholds[0]) return 'val-t1'; // PEAK #1
+  if (val >= thresholds[1]) return 'val-t2'; // TOP 9
+  if (val >= thresholds[2]) return 'val-t3'; // TOP 25
+  if (val >= thresholds[3]) return 'val-t4'; // TOP 60
+  if (val >= thresholds[4]) return 'val-t5'; // TOP 120
+  return 'val-low';
 }
 
 async function loadGrid(aircraft, mode) {
@@ -310,10 +320,15 @@ async function loadGrid(aircraft, mode) {
     const data = await r.json();
     const grid = data.grid;
     const nums = [];
-    grid.forEach(row => row.forEach(v => { if (typeof v === 'number') nums.push(v); }));
-    nums.sort((a, b) => a - b);
-    const p20 = percentile(nums, 0.2), p40 = percentile(nums, 0.4);
-    const p60 = percentile(nums, 0.6), p80 = percentile(nums, 0.8);
+    grid.forEach(row => row.forEach(v => { if (typeof v === 'number' && v > 0) nums.push(v); }));
+    nums.sort((a, b) => b - a); // descending
+    const thresholds = [
+      nums[0] || 0,                                    // PEAK #1
+      nums[Math.min(8, nums.length-1)] || 0,           // TOP 9
+      nums[Math.min(24, nums.length-1)] || 0,          // TOP 25
+      nums[Math.min(59, nums.length-1)] || 0,          // TOP 60
+      nums[Math.min(119, nums.length-1)] || 0,         // TOP 120
+    ];
     const tbody = document.getElementById('calc-body');
     const rows = TIMES.map((t, ti) => {
       const cells = DISTANCES.map((d, di) => {
@@ -322,7 +337,7 @@ async function loadGrid(aircraft, mode) {
         const v = grid[ti][di];
         let cls, txt;
         if (v === 'X') { cls = 'val-x'; txt = 'X'; }
-        else if (typeof v === 'number') { cls = getTier(v, p20, p40, p60, p80); txt = v.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2}); }
+        else if (typeof v === 'number') { cls = getTier(v, thresholds); txt = v.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2}); }
         else { cls = 'val-empty'; txt = ''; }
         return dzCell + '<td class="cell ' + cls + '">' + txt + '</td>';
       }).join('');
