@@ -178,16 +178,16 @@ function buildCalcPage(key) {
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg: #07090F; --surface: #0C1120; --header-bg: #0A1628;
-    --border: #1B2A45; --border-light: #243352; --text: #C8D4EE; --text-dim: #4E6080;
-    --accent: #1A72BB; --accent-glow: rgba(26,114,187,0.25);
-    --dead-bg: #0D1118; --dead-text: #252F42; --dead-border: #151E2D;
-    --x-bg: #2A0606; --x-text: #FF3D3D;
-    --t1-bg: #071A0E; --t1-txt: #16A34A;
-    --t2-bg: #0A2115; --t2-txt: #22C55E;
-    --t3-bg: #0D2A1B; --t3-txt: #4ADE80;
-    --t4-bg: #1A1400; --t4-txt: #EAB308;
-    --t5-bg: #141D30; --t5-txt: #94A3B8;
+    --bg: #F5F7FA; --surface: #FFFFFF; --header-bg: #EAEFF7;
+    --border: #D1D9E6; --border-light: #BCC8DC; --text: #1A2235; --text-dim: #6B7A99;
+    --accent: #1A72BB; --accent-glow: rgba(26,114,187,0.15);
+    --dead-bg: #EEF0F5; --dead-text: #9AAABB; --dead-border: #D1D9E6;
+    --x-bg: #FDECEA; --x-text: #C0392B;
+    --t1-bg: #E8F5E9; --t1-txt: #1B5E20;
+    --t2-bg: #F1F8E9; --t2-txt: #2E7D32;
+    --t3-bg: #F9FBE7; --t3-txt: #558B2F;
+    --t4-bg: #FFFDE7; --t4-txt: #F57F17;
+    --t5-bg: #F5F7FA; --t5-txt: #8A9BB5;
   }
   body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 13px; min-height: 100vh; }
   .top-bar { background: var(--header-bg); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 52px; position: sticky; top: 0; z-index: 100; }
@@ -198,10 +198,10 @@ function buildCalcPage(key) {
   .control-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; position: sticky; top: 52px; z-index: 99; }
   .control-group { display: flex; align-items: center; gap: 10px; }
   .control-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); }
-  select { background: #0A1422; border: 1px solid var(--border-light); color: var(--text); padding: 6px 28px 6px 10px; border-radius: 4px; font-size: 13px; font-family: inherit; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234E6080'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; min-width: 160px; }
+  select { background: #FFFFFF; border: 1px solid var(--border-light); color: var(--text); padding: 6px 28px 6px 10px; border-radius: 4px; font-size: 13px; font-family: inherit; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234E6080'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; min-width: 160px; }
   select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
   .mode-toggle { display: flex; border-radius: 4px; overflow: hidden; border: 1px solid var(--border-light); }
-  .mode-btn { padding: 6px 16px; background: #0A1422; border: none; color: var(--text-dim); font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer; letter-spacing: 0.05em; transition: background 0.15s, color 0.15s; }
+  .mode-btn { padding: 6px 16px; background: #FFFFFF; border: none; color: var(--text-dim); font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer; letter-spacing: 0.05em; transition: background 0.15s, color 0.15s; }
   .mode-btn.active { background: var(--accent); color: #fff; }
   .mode-btn:not(:last-child) { border-right: 1px solid var(--border-light); }
   .speed-display { font-size: 11px; color: var(--text-dim); letter-spacing: 0.05em; }
@@ -222,8 +222,8 @@ function buildCalcPage(key) {
   td.val-t2 { background: var(--t2-bg); color: var(--t2-txt); font-weight: 600; }
   td.val-t3 { background: var(--t3-bg); color: var(--t3-txt); }
   td.val-t4 { background: var(--t4-bg); color: var(--t4-txt); }
-  td.val-t5 { background: #0F1424; color: #5A7090; }
-  td.val-empty { background: #090C14; color: #1A2235; }
+  td.val-t5 { background: #F5F7FA; color: #8A9BB5; }
+  td.val-empty { background: #F0F2F7; color: #C8D0E0; }
   .footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; color: var(--text-dim); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
   #loading-overlay { position: fixed; inset: 0; background: rgba(7,9,15,0.85); display: none; align-items: center; justify-content: center; z-index: 200; font-size: 13px; letter-spacing: 0.1em; color: var(--text-dim); }
   @media print { body { display: none !important; } }
