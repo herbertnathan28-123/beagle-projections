@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 const express = require('express');
 const cors    = require('cors');
+const esbuild = require('esbuild');
 const app     = express();
 const PORT    = process.env.PORT || 3000;
 const SECRET       = process.env.PROJECTIONS_SECRET || 'changeme';
@@ -623,6 +624,7 @@ function getXTicks(total,visStart,visDays){const e=visStart+visDays;let t=[];if(
 function xlbl(d){if(d<365)return Math.round(d/30.4)+'MO';const y=d/365;return(Number.isInteger(y)?y:y.toFixed(1))+'Y';}
 function lc(a){if(a.isBeagle)return'#E8B84B';if(a.passed)return'#E74C3C';if(!a.catchable)return'#3A6090';if(a.daysTo<100)return'#00E676';if(a.daysTo<400)return'#69F0AE';if(a.daysTo<800)return'#F9A825';return'#F57F17';}
 function fmtD(d){if(!d)return null;const m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return d.getDate()+' '+m[d.getMonth()]+' '+d.getFullYear();}
+function fmtAxis(v){return v>=1000?(v/1000).toFixed(1)+'k':v<=-1000?(v/1000).toFixed(1)+'k':String(v);}
 function fmtAWST(ts){if(!ts)return null;const d=new Date(ts),a=new Date(d.getTime()+8*3600000);const m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];const p=n=>String(n).padStart(2,'0');return a.getUTCDate()+' '+m[a.getUTCMonth()]+' '+a.getUTCFullYear()+' \xb7 '+p(a.getUTCHours())+':'+p(a.getUTCMinutes())+' AWST';}
 function build(data){const BS=data.beagleSV,BP=data.beaglePace;const bg={rank:data.beagleRank,name:'Beagle Global',sv:BS,pace:BP,isBeagle:true};const all=[...data.alliances,bg].map(a=>{const gap=+(a.sv-BS).toFixed(2);const cl=a.pace!=null?+(BP-a.pace).toFixed(4):null;const dt=cl>0&&gap>0?gap/cl:null;const od=dt?new Date(Date.now()+dt*86400000):null;return{...a,gap,closure:cl,daysTo:dt,overtakeDate:od,catchable:cl>0,passed:gap<0};});return{all,beagle:{...bg,gap:0,closure:0,catchable:false,passed:false},BS,BP};}
 function projR(all,beagle,days){const kn=all.filter(a=>a.pace!=null&&!a.isBeagle).map(a=>({...a,pSV:a.sv+a.pace*days}));const un=all.filter(a=>a.pace==null&&!a.isBeagle).map(a=>({...a,pSV:null,noPace:true}));const bp={...beagle,pSV:beagle.sv+beagle.pace*days};const sorted=[...kn,bp].sort((a,b)=>b.pSV-a.pSV);const res=[...sorted];un.forEach(u=>{const at=Math.min(u.rank-1,res.length);res.splice(at,0,{...u,projRank:u.rank});});return res.map((a,i)=>({...a,projRank:a.noPace?a.rank:i+1}));}
@@ -672,6 +674,39 @@ function App(){
   const ts2=apiData?.timestamp,upl=apiData?.uploader;const hasAct=act.size>0;
   const renderRow=a=>{const isB=a.isBeagle,chg=a.rank-(a.projRank??a.rank),c=isB?'#E8B84B':lc(a),isAct=act.has(a.name);return(<div key={a.name} onClick={()=>!isB&&toggle(a.name)} style={{display:'flex',alignItems:'center',gap:8,padding:W2>=1600?'10px 14px':'7px 10px',background:isB?'#1A1000':isAct?c+'22':'transparent',borderRadius:3,borderLeft:isAct?'3px solid '+c:'3px solid transparent',cursor:isB?'default':'pointer',transition:'all 0.1s'}}><span style={{fontSize:sz(18,34,0.017),fontWeight:700,color:a.noPace?'#4A7090':c,minWidth:36}}>#{a.projRank}</span><span style={{fontSize:sz(18,30,0.016),color:isB?c:isAct?'#E2EAF4':a.noPace?'#4A7090':'#9AAABB',flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',fontWeight:isAct?600:400}}>{a.name}</span><span style={{fontSize:sz(13,24,0.013),color:isB?'#C4920A':a.noPace?'#2C4A68':'#5A8AAB',minWidth:52,textAlign:'right',whiteSpace:'nowrap',marginRight:4}}>{a.pace!=null?'$'+a.pace.toFixed(2):''}</span><span style={{fontSize:sz(16,28,0.015),fontWeight:600,minWidth:30,textAlign:'right',color:a.noPace?'#4A7090':chg>0?'#00E676':chg<0?'#E74C3C':'#4A7090'}}>{a.noPace?'?':chg>0?'\u25b2'+chg:chg<0?'\u25bc'+Math.abs(chg):isB?'\u2605':'\u2014'}</span></div>);};
   const nameTag=(name,c)=>name.length>18?name.slice(0,17)+'\u2026':name;
+  const renderGAP=()=>{
+    const gMin=Math.min(...pool.map(a=>a.sv-BS+(((a.pace||0)-BP)*days)),-200)*1.05;
+    const gMax=Math.max(...pool.map(a=>a.sv-BS),200)*1.05;
+    const gR=gMax-gMin;
+    const yg=v=>mt+ch-((v-gMin)/gR)*ch;
+    const gStep=gR>5000?1000:gR>2000?500:gR>800?200:100;
+    const gTks=[];
+    for(let v=Math.ceil(gMin/gStep)*gStep;v<=gMax;v+=gStep)gTks.push(v);
+    const ticks=gTks.map(v=>({v,y:yg(v),zero:v===0,lbl:fmtAxis(v)}));
+    const zeroY=yg(0);
+    const lines=pool.map(a=>{
+      const isAct=act.has(a.name),dim=hasAct&&!isAct,c=lc(a);
+      const g0=a.sv-BS,g1=(a.sv+(a.pace||0)*days)-(BS+BP*days);
+      const cX=g0!==g1?(-g0/(g1-g0)):null;
+      const cD=cX!=null&&cX>0&&cX<1?cX*days:null;
+      const yE=yg(g1);
+      return {name:a.name,isAct,dim,c,y0:yg(g0),y1:yE,yE,cD,cDx:cD!=null?xs(cD):null,cDate:cD!=null?fmtD(new Date(Date.now()+cD*86400000)):null,showLbl:isAct&&yE>=mt&&yE<=mt+ch};
+    });
+    return(<g>{ticks.map(t=>(<g key={t.v}><line x1={ml} x2={ml+cw} y1={t.y} y2={t.y} stroke={t.zero?'#E8B84B':'#1E3A5F'} strokeWidth={t.zero?'1.5':'0.6'} strokeDasharray={t.zero?'none':'4,6'} opacity={t.zero?0.7:1}/><text x={ml-6} y={t.y+4} textAnchor="end" fill={t.zero?'#E8B84B':'#5A8AAB'} fontSize="14" fontWeight={t.zero?'700':'400'}>{t.lbl}</text></g>))}{zeroY>mt&&zeroY<mt+ch&&<text x={ml+10} y={zeroY-8} fill="#E8B84B" fontSize="13" fontWeight="700">BEAGLE</text>}<g clipPath="url(#cc)">{lines.map(d=>(<g key={d.name} opacity={d.dim?0.1:0.9}><line x1={xs(0)} y1={d.y0} x2={xs(days)} y2={d.y1} stroke="transparent" strokeWidth="22" style={{cursor:'pointer'}} onClick={()=>toggle(d.name)}/><line x1={xs(0)} y1={d.y0} x2={xs(days)} y2={d.y1} stroke={d.c} strokeWidth={d.isAct?3:1.5} strokeLinecap="round"/>{d.cD&&<circle cx={d.cDx} cy={zeroY} r="4" fill={d.c}/>}{d.cD&&<text x={d.cDx} y={zeroY-12} textAnchor="middle" fill={d.c} fontSize="12" fontWeight="700">{d.cDate}</text>}{d.showLbl&&<text x={xs(days)+8} y={d.yE+5} fill={d.c} fontSize="14" fontWeight="700">{nameTag(d.name)}</text>}</g>))}</g><text x={ml-6} y={zeroY+4} textAnchor="end" fill="#E8B84B" fontSize="14" fontWeight="700">0</text></g>);
+  };
+  const renderRANK=()=>{
+    const yr=v=>mt+((v-1)/19)*ch;
+    const gridR=[1,5,10,15,20].map(r=>({r,y:yr(r)}));
+    const lines=[...pool,beagle].map(a=>{
+      const isB=a.isBeagle,isAct=act.has(a.name),dim=hasAct&&!isAct&&!isB,c=lc(a);
+      const pts=[0,days/4,days/2,3*days/4,days].map(d=>{const pr=projR(all,beagle,d),e=pr.find(r=>r.name===a.name);return{d,r:e?.projRank??a.rank};});
+      const pd=pts.map((p,i)=>(i===0?'M':'L')+xs(p.d).toFixed(1)+','+yr(p.r).toFixed(1)).join(' ');
+      const ep=pts[pts.length-1];
+      const epy=yr(ep.r);
+      return {name:a.name,isB,isAct,dim,c,pd,epy,showLbl:(isAct||isB)&&epy>=mt&&epy<=mt+ch};
+    });
+    return(<g>{gridR.map(g=>(<g key={g.r}><line x1={ml} x2={ml+cw} y1={g.y} y2={g.y} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/><text x={ml-6} y={g.y+4} textAnchor="end" fill="#5A8AAB" fontSize="13">#{g.r}</text></g>))}<g clipPath="url(#cc)">{lines.map(d=>(<g key={d.name} onClick={()=>!d.isB&&toggle(d.name)} style={{cursor:d.isB?'default':'pointer'}}><path d={d.pd} stroke="transparent" strokeWidth="18" fill="none"/><path d={d.pd} stroke={d.c} strokeWidth={d.isB?3.5:d.isAct?2.5:1.2} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={d.dim?0.08:d.isB?1:0.85} filter={d.isB?'url(#fg)':undefined}/>{d.showLbl&&<text x={xs(days)+8} y={d.epy+5} fill={d.c} fontSize="14" fontWeight="700">{d.isB?'Beagle':nameTag(d.name)}</text>}</g>))}</g></g>);
+  };
   return(<div style={{background:'#030B17',height:'100%',minHeight:'100vh',display:'flex',flexDirection:'column'}}>
     <div style={{background:'linear-gradient(90deg,#04101E,#0A1C32)',borderBottom:'2px solid #C4920A',padding:'10px 16px',display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:4}}>
       <div><div style={{fontSize:sz(22,38,0.020),fontWeight:700,color:'#E8B84B',letterSpacing:2}}>&#9672; BEAGLE GLOBAL \u2014 ALLIANCE PROJECTIONS</div><div style={{fontSize:sz(13,20,0.011),color:'#8AAABB',marginTop:3,letterSpacing:1}}>10-MO RECENT PACE \xb7 RANK #{beagle.rank}{ts2&&<span style={{marginLeft:12,color:'#5A8AAB'}}>UPDATED {fmtAWST(ts2)}{upl?' \xb7 '+upl:''}</span>}{!ts2&&<span style={{marginLeft:12,color:'#5A8AAB'}}>DEFAULT DATA \xb7 UPLOAD TO REFRESH</span>}</div></div>
@@ -710,15 +745,15 @@ function App(){
       <svg ref={svgRef} className="svg-chart" viewBox={'0 0 '+W+' '+H} style={{width:'100%',maxHeight:'38vh',display:'block',touchAction:'none'}} onMouseDown={onMouseDown}>
         <defs><filter id="fg"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="fl"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><clipPath id="cc"><rect x={ml} y={mt} width={cw} height={ch}/></clipPath><style>{'@keyframes pu{0%,100%{r:5;opacity:1}50%{r:9;opacity:0.4}} .pd{animation:pu 1.8s ease-in-out infinite}'}</style></defs>
         <rect x={ml} y={mt} width={cw} height={ch} fill="#030810" rx="2"/>
-        {mode!=='RANK'&&yTks.map(v=>(<g key={v}><line x1={ml} x2={ml+cw} y1={ys(v)} y2={ys(v)} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/><text x={ml-6} y={ys(v)+4} textAnchor="end" fill="#5A8AAB" fontSize="14">{v>=1000?(v/1000).toFixed(1)+'k':v<=-1000?(v/1000).toFixed(1)+'k':v}</text></g>))}
+        {mode!=='RANK'&&yTks.map(v=>(<g key={v}><line x1={ml} x2={ml+cw} y1={ys(v)} y2={ys(v)} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/><text x={ml-6} y={ys(v)+4} textAnchor="end" fill="#5A8AAB" fontSize="14">{fmtAxis(v)}</text></g>))}
         {xTks.map(d=>(<g key={d}><line x1={xs(d)} x2={xs(d)} y1={mt} y2={mt+ch} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/><text x={xs(d)} y={mt+ch+18} textAnchor="middle" fill="#5A8AAB" fontSize="14" fontWeight="600">{xlbl(d)}</text></g>))}
         {mode==='SV'&&(<g><g clipPath="url(#cc)">{pool.map(a=>{const isAct=act.has(a.name),dim=hasAct&&!isAct,c=lc(a);const sv1=a.sv+(a.pace||0)*days;const cd=crossD(a);return(<g key={a.name}><line x1={xs(0)} y1={ys(a.sv)} x2={xs(days)} y2={ys(sv1)} stroke="transparent" strokeWidth="22" style={{cursor:'pointer'}} onClick={()=>toggle(a.name)}/><line x1={xs(0)} y1={ys(a.sv)} x2={xs(days)} y2={ys(sv1)} stroke={c} strokeWidth={isAct?3:dim?1:1.8} opacity={dim?0.1:0.88} strokeLinecap="round" strokeDasharray={!a.catchable&&!a.passed?'4,3':'none'}/>{cd&&!dim&&<circle cx={xs(cd)} cy={ys(BS+BP*cd)} r="3.5" fill={c} opacity="0.9"/>}</g>);})}
         {crossovers.map((co,i)=>{const ahead=pool.find(a=>a.name===co.ahead),behind=pool.find(a=>a.name===co.behind);if(!ahead||!behind)return null;const yCross=ys(ahead.sv+(ahead.pace||0)*co.crossDay);if(yCross<mt||yCross>mt+ch)return null;return(<g key={i}><circle cx={xs(co.crossDay)} cy={yCross} r="6" fill="none" stroke="#FFD700" strokeWidth="2" className="pd"/><circle cx={xs(co.crossDay)} cy={yCross} r="3" fill="#FFD700"/><rect x={xs(co.crossDay)-52} y={yCross-30} width={104} height={20} fill="#0A0800" rx="3" stroke="#C4920A" strokeWidth="1"/><text x={xs(co.crossDay)} y={yCross-17} textAnchor="middle" fill="#FFD700" fontSize="12" fontWeight="700">{fmtD(co.date)}</text></g>);})}
         <line x1={xs(0)} y1={ys(BS)} x2={xs(days)} y2={ys(BS+BP*days)} stroke="#E8B84B" strokeWidth="10" opacity="0.15" strokeLinecap="round"/><line x1={xs(0)} y1={ys(BS)} x2={xs(days)} y2={ys(BS+BP*days)} stroke="#E8B84B" strokeWidth="3.5" strokeLinecap="round" filter="url(#fg)"/><circle cx={xs(0)} cy={ys(BS)} r="5" fill="#E8B84B" filter="url(#fg)"/><circle cx={xs(days)} cy={ys(BS+BP*days)} r="4" fill="#E8B84B" opacity="0.7"/></g>
         {pool.filter(a=>act.has(a.name)).map(a=>{const yE=ys(a.sv+(a.pace||0)*days);if(yE<mt||yE>mt+ch)return null;return(<text key={a.name+'_l'} x={xs(days)+8} y={yE+5} fill={lc(a)} fontSize="14" fontWeight="700">{nameTag(a.name)}</text>);})}
         <text x={ml-6} y={ys(BS)+4} textAnchor="end" fill="#E8B84B" fontSize="14" fontWeight="700">\u2605{beagle.rank}</text></g>)}
-        {mode==='GAP'&&(()=>{const gMin=Math.min(...pool.map(a=>a.sv-BS+(((a.pace||0)-BP)*days)),-200)*1.05;const gMax=Math.max(...pool.map(a=>a.sv-BS),200)*1.05;const gR=gMax-gMin;const yg=v=>mt+ch-((v-gMin)/gR)*ch;const gStep=gR>5000?1000:gR>2000?500:gR>800?200:100;const gTks=[];for(let v=Math.ceil(gMin/gStep)*gStep;v<=gMax;v+=gStep)gTks.push(v);return(<g>{gTks.map(v=>(<g key={v}><line x1={ml} x2={ml+cw} y1={yg(v)} y2={yg(v)} stroke={v===0?'#E8B84B':'#1E3A5F'} strokeWidth={v===0?'1.5':'0.6'} strokeDasharray={v===0?'none':'4,6'} opacity={v===0?0.7:1}/><text x={ml-6} y={yg(v)+4} textAnchor="end" fill={v===0?'#E8B84B':'#5A8AAB'} fontSize="14" fontWeight={v===0?'700':'400'}>{v>=1000?(v/1000).toFixed(1)+'k':v<=-1000?(v/1000).toFixed(1)+'k':v}</text></g>))}{yg(0)>mt&&yg(0)<mt+ch&&<text x={ml+10} y={yg(0)-8} fill="#E8B84B" fontSize="13" fontWeight="700">BEAGLE</text>}<g clipPath="url(#cc)">{pool.map(a=>{const isAct=act.has(a.name),dim=hasAct&&!isAct,c=lc(a);const g0=a.sv-BS,g1=(a.sv+(a.pace||0)*days)-(BS+BP*days);const cX=g0!==g1?(-g0/(g1-g0)):null;const cD=cX!=null&&cX>0&&cX<1?cX*days:null;const yE=yg(g1);return(<g key={a.name} opacity={dim?0.1:0.9}><line x1={xs(0)} y1={yg(g0)} x2={xs(days)} y2={yg(g1)} stroke="transparent" strokeWidth="22" style={{cursor:'pointer'}} onClick={()=>toggle(a.name)}/><line x1={xs(0)} y1={yg(g0)} x2={xs(days)} y2={yg(g1)} stroke={c} strokeWidth={isAct?3:1.5} strokeLinecap="round"/>{cD&&<circle cx={xs(cD)} cy={yg(0)} r="4" fill={c}/>}{cD&&<text x={xs(cD)} y={yg(0)-12} textAnchor="middle" fill={c} fontSize="12" fontWeight="700">{fmtD(new Date(Date.now()+cD*86400000))}</text>}{isAct&&yE>=mt&&yE<=mt+ch&&<text x={xs(days)+8} y={yE+5} fill={c} fontSize="14" fontWeight="700">{nameTag(a.name)}</text>}</g>);})</g><text x={ml-6} y={yg(0)+4} textAnchor="end" fill="#E8B84B" fontSize="14" fontWeight="700">0</text></g>);})()}
-        {mode==='RANK'&&(()=>{const yr=v=>mt+((v-1)/19)*ch;return(<g>{[1,5,10,15,20].map(r=>(<g key={r}><line x1={ml} x2={ml+cw} y1={yr(r)} y2={yr(r)} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/><text x={ml-6} y={yr(r)+4} textAnchor="end" fill="#5A8AAB" fontSize="13">#{r}</text></g>))}<g clipPath="url(#cc)">{[...pool,beagle].map(a=>{const isB=a.isBeagle,isAct=act.has(a.name),dim=hasAct&&!isAct&&!isB,c=lc(a);const pts=[0,days/4,days/2,3*days/4,days].map(d=>{const pr=projR(all,beagle,d),e=pr.find(r=>r.name===a.name);return{d,r:e?.projRank??a.rank};});const pd=pts.map((p,i)=>(i===0?'M':'L')+xs(p.d).toFixed(1)+','+yr(p.r).toFixed(1)).join(' ');const ep=pts[pts.length-1];return(<g key={a.name} onClick={()=>!isB&&toggle(a.name)} style={{cursor:isB?'default':'pointer'}}><path d={pd} stroke="transparent" strokeWidth="18" fill="none"/><path d={pd} stroke={c} strokeWidth={isB?3.5:isAct?2.5:1.2} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={dim?0.08:isB?1:0.85} filter={isB?'url(#fg)':undefined}/>{(isAct||isB)&&yr(ep.r)>=mt&&yr(ep.r)<=mt+ch&&<text x={xs(days)+8} y={yr(ep.r)+5} fill={c} fontSize="14" fontWeight="700">{isB?'Beagle':nameTag(a.name)}</text>}</g>);})}</g></g>);})()}
+        {mode==='GAP'&&renderGAP()}
+        {mode==='RANK'&&renderRANK()}
         <line x1={ml} y1={mt} x2={ml} y2={mt+ch} stroke="#2C4A6E" strokeWidth="1"/><line x1={ml} y1={mt+ch} x2={ml+cw} y2={mt+ch} stroke="#2C4A6E" strokeWidth="1"/><line x1={ml+cw} y1={mt} x2={ml+cw} y2={mt+ch} stroke="#1A3050" strokeWidth="1" strokeDasharray="3,4"/>
         <text x="12" y={mt+ch/2} textAnchor="middle" fill="#3A6080" fontSize="13" fontWeight="600" transform={'rotate(-90,12,'+(mt+ch/2)+')'}>{mode==='SV'?'Share Value':mode==='GAP'?'SV Gap':'Rank'}</text>
         {zoomed&&<text x={ml+cw-4} y={mt+16} textAnchor="end" fill="#E8B84B" fontSize="13" fontWeight="700" opacity="0.7">{'x'+Math.max(yZ,xZ).toFixed(1)}</text>}
@@ -756,6 +791,28 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>`;
+
+// ── Pre-compile JSX at startup (avoids in-browser Babel regex/division bug) ─
+function precompileJSX(html) {
+  return html.replace(
+    /<script type="text\/babel">([\s\S]*?)<\/script>/g,
+    (_, jsx) => {
+      const result = esbuild.transformSync(jsx, {
+        loader: 'jsx',
+        jsx: 'transform',
+        jsxFactory: 'React.createElement',
+        jsxFragment: 'React.Fragment',
+        target: 'es2020',
+      });
+      return '<script>' + result.code + '<\/script>';
+    }
+  ).replace(
+    /<script src="https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/babel-standalone\/[^"]*"><\/script>\n?/g,
+    ''
+  );
+}
+
+const HTML_COMPILED = precompileJSX(HTML);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ROUTES — specific routes MUST come before the wildcard app.get('*')
@@ -865,7 +922,7 @@ app.get('*', (req, res) => {
   if (ACCESS_KEY && req.query.k !== ACCESS_KEY) {
     return res.status(403).type('html').send(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Access Expired</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:24px}.card{max-width:420px}.icon{font-size:48px;color:#C4920A;margin-bottom:20px}.title{font-size:26px;font-weight:700;color:#E8B84B;letter-spacing:2px;margin-bottom:12px}.sub{font-size:16px;color:#5A8AAB;line-height:1.6;margin-bottom:24px}.note{font-size:13px;color:#2C4A6E;letter-spacing:1px}</style></head><body><div class="card"><div class="icon">&#9672;</div><div class="title">ACCESS EXPIRED</div><div class="sub">This link has expired.<br>Contact your alliance leader for the current month's access link.</div><div class="note">BEAGLE GLOBAL &mdash; ALLIANCE PROJECTIONS</div></div></body></html>`);
   }
-  res.type('html').send(HTML);
+  res.type('html').send(HTML_COMPILED);
 });
 
 app.listen(PORT, () => console.log(`Beagle Projections live on port ${PORT}`));
