@@ -98,10 +98,9 @@ function _calc(dist, th, speed, mode) {
   return Math.round((1 + (200 - ci) * 0.01) * _m(dist) * dist * ef * 100) / 100;
 }
 
-// All valid distances (500-6000 in 500 steps, 10000-20000 in 500 steps)
+// All valid distances (500-20000 in 500 steps, continuous — includes dead zone 6001-9999)
 const ALL_DISTANCES = [];
-for (let d = 500; d <= 6000; d += 500) ALL_DISTANCES.push(d);
-for (let d = 10000; d <= 20000; d += 500) ALL_DISTANCES.push(d);
+for (let d = 500; d <= 20000; d += 500) ALL_DISTANCES.push(d);
 
 const CALC_DISTANCES = ALL_DISTANCES; // backward compat
 
@@ -221,15 +220,16 @@ function buildCalcPage(key) {
   thead th:first-child { position: sticky; left: 0; z-index: 60; background: #1A2744; min-width: 68px; font-size: 9px; }
   th.dz-col { background: #888888 !important; color: #FFFFFF !important; border-color: #666666 !important; font-size: 9px; min-width: 90px; padding: 4px 8px; }
   th.dz-col span { font-size: 8px; display: block; margin-top: 2px; }
+  th.dz { background: #AAAAAA !important; color: #000000 !important; border-color: #999999 !important; }
   td.tlbl { position: sticky; left: 0; z-index: 10; background: #1A2744; border: 1px solid #2A3A6A; padding: 4px 10px 4px 8px; font-size: 10.5px; font-weight: 600; color: #FFFFFF; text-align: right; }
   td.tlbl.opt { background: #1A3A1A !important; border-left: 3px solid #FFD700 !important; color: #FFD700 !important; }
   td.cell { border: 1px solid #AAAAAA; padding: 4px 7px; text-align: right; min-width: 52px; font-size: 11px; font-weight: 500; }
   td.cell:hover { filter: brightness(1.3); cursor: default; }
-  td.dz { background: #C0C0C0; border-color: #999999; min-width: 90px; }
+  td.dz { background: #D9D9D9; color: #000000; border-color: #BBBBBB; }
   td.vx  { background: #FF8080; color: #000000; font-weight: 700; }
-  td.vt1 { background: #1B5E20; color: #FFFFFF; font-weight: 700; }
-  td.vt2 { background: #2E7D32; color: #FFFFFF; font-weight: 600; }
-  td.vt3 { background: #43A047; color: #FFFFFF; }
+  td.vt1 { background: #1B5E20; color: #000000; font-weight: 700; }
+  td.vt2 { background: #2E7D32; color: #000000; font-weight: 600; }
+  td.vt3 { background: #43A047; color: #000000; }
   td.vt4 { background: #81C784; color: #000000; }
   td.vt5 { background: #C8E6C9; color: #000000; }
   td.vlo { background: #FFFFFF; color: #000000; }
@@ -309,14 +309,14 @@ function buildCalcPage(key) {
 
 <div class="footer">
   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-    <span style="background:#1B5E20;color:#fff;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">PEAK #1</span>
-    <span style="background:#2E7D32;color:#fff;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">TOP 9</span>
-    <span style="background:#43A047;color:#fff;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">TOP 25</span>
+    <span style="background:#1B5E20;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">PEAK #1</span>
+    <span style="background:#2E7D32;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">TOP 9</span>
+    <span style="background:#43A047;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">TOP 25</span>
     <span style="background:#81C784;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">TOP 60</span>
     <span style="background:#C8E6C9;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">TOP 120</span>
     <span style="background:#FFCDD2;color:#B71C1C;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">NEGATIVE</span>
     <span style="background:#FF8080;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">CI &gt; 200</span>
-    <span style="background:#C0C0C0;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">DEAD ZONE</span>
+    <span style="background:#D9D9D9;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">DEAD ZONE</span>
     <span style="outline:2px solid #FFD700;outline-offset:1px;background:#1A3A1A;color:#FFD700;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">★ OPTIMAL ROW</span>
   </div>
   <span>BROWSER USE ONLY — NOT FOR DOWNLOAD OR DISTRIBUTION</span>
@@ -336,7 +336,7 @@ function fval(v){ return typeof v==='number'?'$'+v.toLocaleString(undefined,{min
 
 function optMins(fpd,mt){ const f=fpd*2; return (2880-(f*3)-(mt?30:0)-26)/f; }
 function closestRow(om){ let b=0,bd=Infinity; TMS.forEach((t,i)=>{const d=Math.abs(t-om/60);if(d<bd){bd=d;b=i;}}); return b; }
-function peakRow(g,ri){ if(!g||ri<0||ri>=g.length)return 0; return Math.max(0,...g[ri].filter(v=>typeof v==='number')); }
+function peakRow(g,ri,ds){ if(!g||ri<0||ri>=g.length)return 0; return Math.max(0,...g[ri].filter((v,di)=>typeof v==='number'&&!(ds&&isDZ(ds[di])))); }
 
 function setMode(m){
   cMode=m;
@@ -348,8 +348,8 @@ function setMode(m){
 
 function toggleMaint(){ maint=!maint; const b=document.getElementById('mbt'); b.textContent=maint?'YES':'NO'; b.className='maint-btn'+(maint?' on':''); if(sGrid){populateDD(sGrid,sDists);onDDChange();} }
 
-function thresholds(g){
-  const n=[]; g.forEach(row=>row.forEach(v=>{if(typeof v==='number'&&v>0)n.push(v);})); n.sort((a,b)=>b-a);
+function thresholds(g,dists){
+  const n=[]; g.forEach(row=>row.forEach((v,di)=>{if(typeof v==='number'&&v>0&&!(dists&&isDZ(dists[di])))n.push(v);})); n.sort((a,b)=>b-a);
   return[n[0]||0,n[Math.min(8,n.length-1)]||0,n[Math.min(24,n.length-1)]||0,n[Math.min(59,n.length-1)]||0,n[Math.min(119,n.length-1)]||0];
 }
 
@@ -359,28 +359,30 @@ function tier(v,th){
   if(v>=th[3])return'vt4'; if(v>=th[4])return'vt5'; return'vlo';
 }
 
+function isDZ(d){ return d>6000&&d<10000; }
 function buildHead(dists,headId,isSV){
   const tr=document.getElementById(headId);
   while(tr.children.length>1)tr.removeChild(tr.lastChild);
-  let dzDone=false;
   dists.forEach((d,i)=>{
-    if(!isSV&&!dzDone&&d>=10000&&(i===0||dists[i-1]<=6000)){
-      const th=document.createElement('th'); th.className='dz-col'; th.innerHTML='DEAD ZONE<br><span>6,001–9,999 km</span>'; tr.appendChild(th); dzDone=true;
-    }
-    const th=document.createElement('th'); th.textContent=d.toLocaleString(); tr.appendChild(th);
+    const th=document.createElement('th');
+    th.textContent=d.toLocaleString();
+    if(!isSV&&isDZ(d)) th.className='dz';
+    tr.appendChild(th);
   });
 }
 
 function buildBody(grid,dists,bodyId,th,isSV,optRowIdx){
   let html='';
-  const needDZ=(di)=>!isSV&&dists[di]>=10000&&(di===0||dists[di-1]<=6000);
   TMS.forEach((t,ti)=>{
     const isOpt=ti===optRowIdx;
     html+='<tr><td class="tlbl'+(isOpt?' opt':'')+'">'+tl(t)+'</td>';
     dists.forEach((d,di)=>{
-      if(needDZ(di))html+='<td class="cell dz"></td>';
       const v=grid[ti][di]; let cls,txt;
-      if(v==='X'){cls='vx';txt='X';}
+      if(!isSV&&isDZ(d)){
+        if(v==='X'){cls='dz';txt='X';}
+        else if(typeof v==='number'){cls='dz';txt=v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
+        else{cls='dz';txt='';}
+      } else if(v==='X'){cls='vx';txt='X';}
       else if(typeof v==='number'){cls=tier(v,th)+(isOpt?' opt-cell':'');txt=v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
       else{cls='vem';txt='';}
       html+='<td class="cell '+cls+'">'+txt+'</td>';
@@ -395,7 +397,7 @@ function populateDD(sg,sd){
   const res=[];
   for(let fpd=1;fpd<=10;fpd++){
     const om=optMins(fpd,maint); if(om<=0)continue;
-    const ri=closestRow(om); const pk=peakRow(sg,ri); const t48=pk*fpd*2;
+    const ri=closestRow(om); const pk=peakRow(sg,ri,sd); const t48=pk*fpd*2;
     const lbl=fmins(om)+' = '+fpd*2+' flights | '+fval(t48)+' /48hrs';
     const opt=document.createElement('option'); opt.value=fpd; opt.textContent=lbl; sel.appendChild(opt);
     res.push({fpd,om,ri,pk,t48,lbl});
@@ -409,7 +411,7 @@ function buildBestCards(res,sg,sd){
   const c=document.getElementById('best-cards'); c.innerHTML='';
   top.forEach((r,i)=>{
     let bd='—'; let bv=0;
-    if(sg&&r.ri<sg.length){sg[r.ri].forEach((v,di)=>{if(typeof v==='number'&&v>bv){bv=v;bd=sd[di];}});}
+    if(sg&&r.ri<sg.length){sg[r.ri].forEach((v,di)=>{if(typeof v==='number'&&v>bv&&!isDZ(sd[di])){bv=v;bd=sd[di];}});}
     const d=document.createElement('div'); d.className='bcard'+(i===0?' gold':'');
     d.innerHTML='<div class="bcard-rank">'+(i===0?'#1 BEST':i===1?'#2':'#3')+'</div>'+
       '<div class="bcard-time">'+fmins(r.om)+'</div>'+
@@ -425,7 +427,7 @@ function onDDChange(){
   const el=document.getElementById('ores');
   if(!fpd||!sGrid){el.textContent='—';optIdx=-1;reOpt();return;}
   const om=optMins(fpd,maint); optIdx=closestRow(om);
-  const pk=peakRow(sGrid,optIdx); el.textContent=fmins(om)+' · '+fval(pk*fpd*2)+' /48hrs';
+  const pk=peakRow(sGrid,optIdx,sDists); el.textContent=fmins(om)+' · '+fval(pk*fpd*2)+' /48hrs';
   reOpt();
 }
 
@@ -452,7 +454,7 @@ async function loadGrid(ac,mode){
     populateDD(sg,sd);
     const fpd=parseInt(document.getElementById('opt-dd').value)||0;
     optIdx=fpd?closestRow(optMins(fpd,maint)):-1;
-    const sth=thresholds(sg);
+    const sth=thresholds(sg,sd);
     buildHead(sd,'s-head',false);
     buildBody(sg,sd,'s-body',sth,false,optIdx);
     document.getElementById('hm1sub').textContent='500 – '+mx.toLocaleString()+'km';
