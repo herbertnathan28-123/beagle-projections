@@ -20,6 +20,10 @@ function loadState() {
   try {
     if (fs.existsSync(STATE_FILE)) {
       const saved = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+      if (!saved.beaglePace || saved.beaglePace < 1.0) {
+        console.log('[STARTUP] beaglePace corrupted (' + saved.beaglePace + ') — resetting to DEFAULT ' + DEFAULT_DATA.beaglePace);
+        saved.beaglePace = DEFAULT_DATA.beaglePace;
+      }
       console.log('[STARTUP] Loaded projections state from disk — ' + saved.timestamp);
       return saved;
     }
@@ -55,31 +59,31 @@ app.use(express.json());
 
 // ── DEFAULT DATA ──────────────────────────────────────────────────────────
 const DEFAULT_DATA = {
-  timestamp:  '2026-06-07T07:22:00Z',
+  timestamp:  '2026-06-15T20:00:50Z',
   uploader:   'atlas.4693',
-  beagleSV:   2929.83,
-  beaglePace: 5.312,
+  beagleSV:   2977.93,
+  beaglePace: 5.507,   // datum May 26 → Jun 15 (20.19 days)
   beagleRank: 19,
   alliances: [
-    { rank:1,  name:"Dokdo",            sv:8164.14, pace:7.842 },
-    { rank:2,  name:"Valiant Air",      sv:7133.09, pace:7.395 },
-    { rank:3,  name:"Free Flying",      sv:5550.95, pace:8.134 },
-    { rank:4,  name:"Grizzly Group",    sv:5547.41, pace:4.281 },
-    { rank:5,  name:"Per Aspera",       sv:5309.77, pace:4.456 },
-    { rank:6,  name:"Indonesia Unity",  sv:4531.24, pace:3.814 },
-    { rank:7,  name:"GERMAN ALLIANCE",  sv:4364.19, pace:3.600 },
-    { rank:8,  name:"Happy Skies 2.0",  sv:3942.91, pace:3.483 },
-    { rank:9,  name:"STARFLEET",        sv:3541.02, pace:3.464 },
-    { rank:10, name:"Russian Wings",    sv:3515.59, pace:2.121 },
-    { rank:11, name:"CODESHARE",        sv:3505.56, pace:3.522 },
-    { rank:12, name:"SpaceX",           sv:3312.59, pace:3.736 },
-    { rank:13, name:"ClearSky Group",   sv:3097.31, pace:2.530 },
-    { rank:14, name:"JetSTAR",          sv:3085.56, pace:2.530 },
-    { rank:15, name:"BRASIL GT",        sv:3048.67, pace:3.289 },
-    { rank:16, name:"Mixer World",      sv:3046.26, pace:1.518 },
-    { rank:17, name:"Sky Wings",        sv:3027.74, pace:4.106 },
-    { rank:18, name:"Alpha Vikings",    sv:2965.52, pace:3.055 },
-    { rank:20, name:"Star Alliance",    sv:2833.68, pace:2.977 },
+    { rank:1,  name:"Dokdo",            sv:8229.86, pace:7.842 },
+    { rank:2,  name:"Valiant Air",      sv:7195.06, pace:7.395 },
+    { rank:3,  name:"Free Flying",      sv:5619.11, pace:8.134 },
+    { rank:4,  name:"Grizzly Group",    sv:5583.29, pace:4.281 },
+    { rank:5,  name:"Per Aspera",       sv:5347.11, pace:4.456 },
+    { rank:6,  name:"Indonesia Unity",  sv:4563.20, pace:3.814 },
+    { rank:7,  name:"GERMAN ALLIANCE",  sv:4394.36, pace:3.600 },
+    { rank:8,  name:"Happy Skies 2.0",  sv:3972.10, pace:3.483 },
+    { rank:9,  name:"STARFLEET",        sv:3570.05, pace:3.464 },
+    { rank:10, name:"Russian Wings",    sv:3533.36, pace:2.121 },
+    { rank:11, name:"CODESHARE",        sv:3535.07, pace:3.522 },
+    { rank:12, name:"SpaceX",           sv:3343.90, pace:3.736 },
+    { rank:13, name:"ClearSky Group",   sv:3118.51, pace:2.530 },
+    { rank:14, name:"JetSTAR",          sv:3106.63, pace:1.043 },  // datum-verified Jun 15
+    { rank:15, name:"BRASIL GT",        sv:3079.29, pace:1.516 },  // datum-verified Jun 15
+    { rank:16, name:"Mixer World",      sv:3060.47, pace:0.704 },  // datum-verified Jun 15
+    { rank:17, name:"Sky Wings",        sv:3060.33, pace:1.614 },  // datum-verified Jun 15
+    { rank:18, name:"Alpha Vikings",    sv:2999.65, pace:1.690 },  // datum-verified Jun 15
+    { rank:20, name:"Star Alliance",    sv:2860.27, pace:1.317 },  // datum-verified Jun 15
   ]
 };
 
@@ -1057,7 +1061,7 @@ app.post('/api/update', (req, res) => {
   liveData = {
     timestamp, uploader,
     beagleSV:   beagleSV   ?? liveData.beagleSV,
-    beaglePace: (beaglePace != null && !isNaN(beaglePace)) ? beaglePace : liveData.beaglePace,
+    beaglePace: (beaglePace != null && !isNaN(beaglePace) && beaglePace >= 1.0) ? beaglePace : liveData.beaglePace,
     beagleRank: beagleRank ?? liveData.beagleRank,
     alliances:  merged.length ? merged : liveData.alliances,
   };
