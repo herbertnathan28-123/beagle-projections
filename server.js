@@ -651,8 +651,6 @@ select optgroup{background:#030B17;color:#4A7090}
 .svg-chart.dragging{cursor:grabbing!important}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.umd.min.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -673,7 +671,7 @@ function App(){
   const[,forceLayout]=useState(0);
   useEffect(()=>{let t;const onResize=()=>{clearTimeout(t);t=setTimeout(()=>forceLayout(n=>n+1),200);};window.addEventListener('resize',onResize);window.addEventListener('orientationchange',onResize);return()=>{clearTimeout(t);window.removeEventListener('resize',onResize);window.removeEventListener('orientationchange',onResize);};},[]);
   const[focus,setFocus]=useState(null);const[full,setFull]=useState(true);const[showR,setShowR]=useState(true);const[yZ,setYZ]=useState(1);const[yP,setYP]=useState(0);const[xZ,setXZ]=useState(1);const[xP,setXP]=useState(0);
-  const svgRef=useRef(null);const pinchDist=useRef(null);const drag=useRef({active:false,x:0,y:0,yp:0,xp:0});const lv=useRef({yP:0,xP:0,days:182.6,yRZ:0,xZ:1});const gapCvs=useRef(null);const gapChart=useRef(null);
+  const svgRef=useRef(null);const pinchDist=useRef(null);const drag=useRef({active:false,x:0,y:0,yp:0,xp:0});const lv=useRef({yP:0,xP:0,days:182.6,yRZ:0,xZ:1});const gapCvs=useRef(null);const gapChart=useRef(null);const gapZI=useRef(null);const gapZO=useRef(null);const gapRZ=useRef(null);const gapPL=useRef(null);const gapPR=useRef(null);const gapPU=useRef(null);const gapPD=useRef(null);
   const toggle=useCallback(name=>{setAct(prev=>{const n=new Set(prev);if(n.has(name)){n.delete(name);setFocus(f=>f===name?([...n].pop()||null):f);}else{n.add(name);setFocus(name);}return n;});},[]);
   useEffect(()=>{fetch('/api/data').then(r=>r.json()).then(d=>{setApiData(d);setLoading(false);}).catch(()=>setLoading(false));},[]);
   const{all,beagle,BS,BP}=useMemo(()=>{if(!apiData)return{all:[],beagle:{sv:0,pace:0,rank:19},BS:0,BP:0};return build(apiData);},[apiData]);
@@ -729,7 +727,7 @@ function App(){
     });
     GDS.push({label:'Beagle',data:[{x:0,y:0},{x:maxDay,y:0}],borderColor:'#E8B84B',borderWidth:2,pointRadius:0,showLine:true,tension:0,fill:false});
     let selG=null;
-    const bgP2={id:'bg2',beforeDraw(c){const x=c.ctx;x.save();x.fillStyle='#020B16';x.fillRect(0,0,c.width,c.height);x.restore();}};
+    const bgP2={id:'bg2',beforeDraw(c){const x=c.ctx;x.save();x.fillStyle='#000000';x.fillRect(0,0,c.width,c.height);x.restore();}};
     const lblP2={id:'lbl2',afterDraw(ch){
       const ctx=ch.ctx,xs=ch.scales.x,ys=ch.scales.y,ca=ch.chartArea;
       ctx.save();
@@ -775,10 +773,7 @@ function App(){
       type:'scatter',data:{datasets:GDS},plugins:[bgP2,lblP2],
       options:{
         responsive:true,maintainAspectRatio:false,animation:{duration:600},
-        plugins:{
-          legend:{display:false},tooltip:{enabled:false},
-          zoom:{zoom:{wheel:{enabled:true,speed:.08},pinch:{enabled:true},mode:'xy'},pan:{enabled:true,mode:'xy',threshold:6}}
-        },
+        plugins:{legend:{display:false},tooltip:{enabled:false}},
         scales:{
           x:{type:'linear',min:0,max:maxDay,grid:{color:'#0B1A28',lineWidth:.8},border:{color:'#1A324A'},
             ticks:{color:'#2A4A6A',font:{family:FF2,size:11,weight:'300'},
@@ -810,7 +805,22 @@ function App(){
         }
       }
     });
-    return()=>{if(gapChart.current){gapChart.current.destroy();gapChart.current=null;}};
+    const cvs=gapCvs.current;
+    const zS={minX:0,maxX:maxDay,minY:-Math.max(BS*0.04,80),maxY:maxGap};
+    const apZ=()=>{if(!gapChart.current)return;gapChart.current.options.scales.x.min=zS.minX;gapChart.current.options.scales.x.max=zS.maxX;gapChart.current.options.scales.y.min=zS.minY;gapChart.current.options.scales.y.max=zS.maxY;gapChart.current.update('none');};
+    const dZoom=f=>{const rx=zS.maxX-zS.minX,ry=zS.maxY-zS.minY,mx=(zS.minX+zS.maxX)/2,my=(zS.minY+zS.maxY)/2;zS.minX=mx-rx*f/2;zS.maxX=mx+rx*f/2;zS.minY=my-ry*f/2;zS.maxY=my+ry*f/2;apZ();};
+    const dPan=(dx,dy)=>{const rx=zS.maxX-zS.minX,ry=zS.maxY-zS.minY;zS.minX+=dx*rx;zS.maxX+=dx*rx;zS.minY+=dy*ry;zS.maxY+=dy*ry;apZ();};
+    gapZI.current=()=>dZoom(0.72);gapZO.current=()=>dZoom(1.35);
+    gapRZ.current=()=>{zS.minX=0;zS.maxX=maxDay;zS.minY=-Math.max(BS*0.04,80);zS.maxY=maxGap;apZ();};
+    gapPL.current=()=>dPan(-0.15,0);gapPR.current=()=>dPan(0.15,0);
+    gapPU.current=()=>dPan(0,0.12);gapPD.current=()=>dPan(0,-0.12);
+    let td={a:false,x:0,y:0,mx:0,Mx:0,my:0,My:0,pd:null,pmx:0,pMx:0,pmy:0,pMy:0};
+    const onTS=e=>{if(e.touches.length===1){td.a=true;td.x=e.touches[0].clientX;td.y=e.touches[0].clientY;td.mx=zS.minX;td.Mx=zS.maxX;td.my=zS.minY;td.My=zS.maxY;td.pd=null;}else if(e.touches.length===2){td.a=false;td.pd=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);td.pmx=zS.minX;td.pMx=zS.maxX;td.pmy=zS.minY;td.pMy=zS.maxY;}};
+    const onTM=e=>{e.preventDefault();const rect=cvs.getBoundingClientRect();if(e.touches.length===1&&td.a){const dx=(e.touches[0].clientX-td.x)/rect.width*(td.Mx-td.mx);const dy=(e.touches[0].clientY-td.y)/rect.height*(td.My-td.my);zS.minX=td.mx-dx;zS.maxX=td.Mx-dx;zS.minY=td.my+dy;zS.maxY=td.My+dy;apZ();}else if(e.touches.length===2&&td.pd!=null){const nd=Math.hypot(e.touches[1].clientX-e.touches[0].clientX,e.touches[1].clientY-e.touches[0].clientY);const f=td.pd/nd;const mx=(td.pmx+td.pMx)/2,my=(td.pmy+td.pMy)/2;const rx=(td.pMx-td.pmx)*f/2,ry=(td.pMy-td.pmy)*f/2;zS.minX=mx-rx;zS.maxX=mx+rx;zS.minY=my-ry;zS.maxY=my+ry;apZ();}};
+    const onTE=e=>{if(e.touches.length<2)td.pd=null;if(e.touches.length===0)td.a=false;};
+    const onWH=e=>{e.preventDefault();dZoom(e.deltaY>0?1.25:0.8);};
+    cvs.addEventListener('touchstart',onTS,{passive:false});cvs.addEventListener('touchmove',onTM,{passive:false});cvs.addEventListener('touchend',onTE);cvs.addEventListener('wheel',onWH,{passive:false});
+    return()=>{cvs.removeEventListener('touchstart',onTS);cvs.removeEventListener('touchmove',onTM);cvs.removeEventListener('touchend',onTE);cvs.removeEventListener('wheel',onWH);if(gapChart.current){gapChart.current.destroy();gapChart.current=null;}};
   },[mode,all,BS,BP,beagle,days]);
   const onDblClick=useCallback(e=>{const svg=svgRef.current;if(!svg)return;setZHint(false);const r=svg.getBoundingClientRect();const mx=(e.clientX-r.left-ml*(r.width/W))/(cw*(r.width/W));const my=(e.clientY-r.top-mt*(r.height/H))/(ch*(r.height/H));const clampX=Math.max(0,Math.min(1,mx)),clampY=Math.max(0,Math.min(1,my));const f=2;setYZ(prev=>{const nz=Math.max(1,Math.min(30,prev*f));const oldR=lv.current.yRZ,newR=(yMxB-yMnB)/nz;setYP(p=>p+(oldR-newR)*(0.5-clampY));return nz;});setXZ(prev=>{const nz=Math.max(1,Math.min(30,prev*f));const oldVD=lv.current.days/lv.current.xZ,newVD=lv.current.days/nz;setXP(p=>Math.max(0,Math.min(p+(oldVD-newVD)*clampX,lv.current.days-newVD)));return nz;});},[yMnB,yMxB]);
   const detP=selA?[1,3,6,12].map(mo=>({mo,sv:selA.sv+(selA.pace||0)*MTD[mo],rank:projR(all,beagle,MTD[mo]).findIndex(a=>a.isBeagle)+1})):[];
@@ -908,22 +918,22 @@ function App(){
       <div style={{width:1,height:18,background:'#162030',margin:'0 3px',flexShrink:0}}/>
       <button onClick={()=>setShowR(r=>!r)} style={{...BB,background:showR?'#0D2240':'transparent',border:'1px solid #162030',color:showR?'#7FAACC':'#4A7090'}}>{showR?(mob?'HIDE':'HIDE RANKING'):(mob?'SHOW':'SHOW RANKING')}</button>
       <div style={{display:'flex',alignItems:'center',gap:3,marginLeft:'auto'}}>
-        <button onClick={()=>{if(mode==='GAP')gapChart.current?.zoom(1.35);else{setYZ(z=>Math.min(30,z*1.25));setXZ(z=>Math.min(30,z*1.25));}}} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:16,fontWeight:700}} title="Zoom in">+</button>
+        <button onClick={()=>{if(mode==='GAP')gapZI.current?.();else{setYZ(z=>Math.min(30,z*1.25));setXZ(z=>Math.min(30,z*1.25));}}} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:16,fontWeight:700}} title="Zoom in">+</button>
         <span style={{fontSize:12,color:zoomed?'#E8B84B':'#3A6080',minWidth:36,textAlign:'center'}}>{zoomed?('x'+Math.max(yZ,xZ).toFixed(1)):'1x'}</span>
-        <button onClick={()=>{if(mode==='GAP')gapChart.current?.zoom(0.74);else{setYZ(z=>Math.max(1,z*0.8));setXZ(z=>Math.max(1,z*0.8));}}} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:16,fontWeight:700}} title="Zoom out">-</button>
-        {!mob&&mode!=='GAP'&&<><div style={{width:1,height:16,background:'#162030',margin:'0 3px'}}/>
-        <button onClick={()=>setXP(p=>Math.max(0,p-lv.current.days/lv.current.xZ*0.2))} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:15,fontWeight:700}}>◄</button>
-        <button onClick={()=>setYP(p=>p+lv.current.yRZ*0.15)} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:15,fontWeight:700}}>▲</button>
-        <button onClick={()=>setYP(p=>p-lv.current.yRZ*0.15)} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:15,fontWeight:700}}>▼</button>
-        <button onClick={()=>setXP(p=>Math.max(0,Math.min(p+lv.current.days/lv.current.xZ*0.2,lv.current.days-lv.current.days/lv.current.xZ)))} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:15,fontWeight:700}}>►</button></>}
-        {(mode==='GAP'||zoomed||yP!==0||xP!==0)&&<button onClick={()=>{if(mode==='GAP')gapChart.current?.resetZoom();else resetZoom();}} style={{...BB,background:'#1A0A00',border:'1px solid #C4920A60',color:'#E8B84B',fontSize:12,marginLeft:2}}>RESET</button>}
+        <button onClick={()=>{if(mode==='GAP')gapZO.current?.();else{setYZ(z=>Math.max(1,z*0.8));setXZ(z=>Math.max(1,z*0.8));}}} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:16,fontWeight:700}} title="Zoom out">-</button>
+        {!mob&&<><div style={{width:1,height:16,background:'#162030',margin:'0 3px'}}/>
+        <button onClick={()=>mode==='GAP'?gapPL.current?.():setXP(p=>Math.max(0,p-lv.current.days/lv.current.xZ*0.2))} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:15,fontWeight:700}}>◄</button>
+        <button onClick={()=>mode==='GAP'?gapPU.current?.():setYP(p=>p+lv.current.yRZ*0.15)} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:15,fontWeight:700}}>▲</button>
+        <button onClick={()=>mode==='GAP'?gapPD.current?.():setYP(p=>p-lv.current.yRZ*0.15)} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:15,fontWeight:700}}>▼</button>
+        <button onClick={()=>mode==='GAP'?gapPR.current?.():setXP(p=>Math.max(0,Math.min(p+lv.current.days/lv.current.xZ*0.2,lv.current.days-lv.current.days/lv.current.xZ)))} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:15,fontWeight:700}}>►</button></>}
+        {(mode==='GAP'||zoomed||yP!==0||xP!==0)&&<button onClick={()=>{if(mode==='GAP')gapRZ.current?.();else resetZoom();}} style={{...BB,background:'#1A0A00',border:'1px solid #C4920A60',color:'#E8B84B',fontSize:12,marginLeft:2}}>RESET</button>}
       </div>
       <div style={{marginLeft:'auto',display:'flex',gap:10,alignItems:'center',flexShrink:0}}>
         {[['#E8B84B','Beagle'],['#00E676','<100d'],['#69F0AE','catching'],['#3A6090','away'],['#E74C3C','passed']].map(([c,l])=>(<span key={l} style={{display:'flex',alignItems:'center',gap:4,whiteSpace:'nowrap'}}><span style={{width:l==='Beagle'?20:15,height:l==='Beagle'?3:2,background:c,display:'inline-block',borderRadius:2}}/><span style={{fontSize:12,color:'#8AAABB'}}>{l}</span></span>))}
       </div>
     </div>
     <div style={{padding:'2px 4px 4px',flexShrink:0,touchAction:mode==='GAP'?'auto':'none'}}>
-      {mode==='GAP'?(<div style={{width:'100%',height:'38vh',background:'#020B16',borderRadius:2}}><canvas ref={gapCvs} style={{width:'100%',height:'100%',display:'block'}}/></div>):(<svg ref={svgRef} className={'svg-chart'+(zoomed?' zoomed':'')} viewBox={'0 0 '+W+' '+H} style={{width:'100%',maxHeight:'38vh',display:'block',touchAction:'none'}} onMouseDown={onMouseDown} onDoubleClick={onDblClick}>
+      {mode==='GAP'?(<div style={{width:'100%',height:'38vh',background:'#000000',borderRadius:2}}><canvas ref={gapCvs} style={{width:'100%',height:'100%',display:'block'}}/></div>):(<svg ref={svgRef} className={'svg-chart'+(zoomed?' zoomed':'')} viewBox={'0 0 '+W+' '+H} style={{width:'100%',maxHeight:'38vh',display:'block',touchAction:'none'}} onMouseDown={onMouseDown} onDoubleClick={onDblClick}>
         <defs><filter id="fg"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="fl"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><clipPath id="cc"><rect x={ml} y={mt} width={cw} height={ch}/></clipPath><style>{'@keyframes pu{0%,100%{r:5;opacity:1}50%{r:9;opacity:0.4}} .pd{animation:pu 1.8s ease-in-out infinite}'}</style></defs>
         <rect x={ml} y={mt} width={cw} height={ch} fill="#030810" rx="2"/>
         {mode==='SV'&&yTks.map(v=>(<g key={v}><line x1={ml} x2={ml+cw} y1={ys(v)} y2={ys(v)} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/><text x={ml-6} y={ys(v)+4} textAnchor="end" fill="#5A8AAB" fontSize="14">{fmtAxis(v)}</text></g>))}
