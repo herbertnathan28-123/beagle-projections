@@ -740,12 +740,12 @@ function App(){
           <rect x={ml} y={ry-rowH/2+1} width={cw} height={rowH-2} fill={isAct?'#081828':'transparent'} rx="2"/>
           <text x={barStart-8} y={ry+4} textAnchor="end" fill={c} fontSize="12" fontWeight={isAct?'700':'400'}>#{a.rank}  {trimN(a.name,21)}</text>
           <rect x={barStart} y={ry-rowH/2+3} width={Math.max(barLen,3)} height={rowH-6} fill={c} opacity={isAct?0.9:0.65} rx="2"/>
-          <text x={labelX} y={ry+4} fill={c} fontSize="11" fontWeight={isAct?'700':'400'}>${a.gap.toFixed(1)}M  |  {etaTxt}{isAct?closeTxt:''}</text>
+          <text x={labelX} y={ry+4} fill={c} fontSize="11" fontWeight={isAct?'700':'400'}>{'$'+a.gap.toFixed(1)+'M  |  '}{etaTxt}{isAct?closeTxt:''}</text>
         </g>);
       })}
       <line x1={ml} x2={ml+cw} y1={divY} y2={divY} stroke="#E8B84B" strokeWidth="2" opacity="0.7"/>
       <rect x={ml+cw/2-80} y={divY-10} width={160} height={20} fill="#0D0A00" rx="4" stroke="#C4920A" strokeWidth="1"/>
-      <text x={ml+cw/2} y={divY+5} textAnchor="middle" fill="#E8B84B" fontSize="13" fontWeight="700">BEAGLE #{beagle.rank}  —  ${BS.toFixed(0)}M</text>
+      <text x={ml+cw/2} y={divY+5} textAnchor="middle" fill="#E8B84B" fontSize="13" fontWeight="700">{'BEAGLE #'+beagle.rank+'  \u2014  $'+BS.toFixed(0)+'M'}</text>
       <text x={ml+2} y={divY+rowH*0.7} fill="#4A6A8A" fontSize="11" fontWeight="700" letterSpacing="2">WATCHING — ALLIANCES BEHIND BEAGLE</text>
       {belowShow.map((a,j)=>{
         const ry=divY+rowH+(j*rowH)+rowH/2;
@@ -758,7 +758,7 @@ function App(){
           <rect x={ml} y={ry-rowH/2+1} width={cw} height={rowH-2} fill={isAct?'#180808':'transparent'} rx="2"/>
           <text x={barStart-8} y={ry+4} textAnchor="end" fill={c} fontSize="12" fontWeight={isAct?'700':'400'}>#{a.rank}  {trimN(a.name,21)}</text>
           <rect x={barStart} y={ry-rowH/2+3} width={Math.max(barLen,3)} height={rowH-6} fill={c} opacity={isAct?0.85:0.55} rx="2"/>
-          <text x={labelX} y={ry+4} fill={c} fontSize="11" fontWeight={isAct?'700':'400'}>${gap.toFixed(1)}M behind  |  {etaTxt}</text>
+          <text x={labelX} y={ry+4} fill={c} fontSize="11" fontWeight={isAct?'700':'400'}>{'$'+gap.toFixed(1)+'M behind  |  '}{etaTxt}</text>
         </g>);
       })}
       <line x1={ml} y1={mt+ch} x2={ml+cw} y2={mt+ch} stroke="#2C4A6E" strokeWidth="1"/>
