@@ -714,25 +714,57 @@ function App(){
   const renderRow=a=>{const isB=a.isBeagle,chg=a.rank-(a.projRank??a.rank),c=isB?'#E8B84B':lc(a),isAct=act.has(a.name),pr=paceRanks.get(a.name),isCheater=CHEATERS.has(a.name),totalPaced=paceRanks.size,pc=pr!=null?paceColor(pr,totalPaced):'#3A6090';return(<div key={a.name} onClick={()=>!isB&&toggle(a.name)} style={{display:'flex',alignItems:'center',gap:8,padding:W2>=1600?'10px 14px':'7px 10px',background:isB?'#1A1000':isAct?c+'22':'transparent',borderRadius:3,borderLeft:isAct?'3px solid '+c:'3px solid transparent',cursor:isB?'default':'pointer',transition:'all 0.1s',opacity:isCheater?0.35:1}}><span style={{fontSize:sz(18,34,0.017),fontWeight:700,color:a.noPace?'#4A7090':isCheater?'#4A5060':c,minWidth:36}}>#{a.projRank}</span><span style={{fontSize:sz(18,30,0.016),color:isB?c:isCheater?'#4A5060':isAct?'#E2EAF4':a.noPace?'#4A7090':'#9AAABB',flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',fontWeight:isAct?600:400}}>{a.name}</span>{pr!=null&&<span style={{fontSize:sz(12,20,0.011),fontWeight:700,color:isCheater?'#4A5060':pc,minWidth:26,textAlign:'center',borderRadius:3,padding:'1px 4px',letterSpacing:0.5}}>{pr}</span>}<span style={{fontSize:sz(13,24,0.013),color:isB?'#C4920A':a.noPace?'#2C4A68':isCheater?'#4A5060':pc,fontWeight:pr!=null&&pr<=3?700:400,minWidth:52,textAlign:'right',whiteSpace:'nowrap',marginRight:4}}>{a.pace!=null?'$'+a.pace.toFixed(2):''}</span><span style={{fontSize:sz(16,28,0.015),fontWeight:600,minWidth:30,textAlign:'right',color:a.noPace?'#4A7090':chg>0?'#00E676':chg<0?'#E74C3C':'#4A7090'}}>{a.noPace?'?':chg>0?'\u25b2'+chg:chg<0?'\u25bc'+Math.abs(chg):isB?'\u2605':'\u2014'}</span></div>);};
   const nameTag=(name,c)=>name.length>18?name.slice(0,17)+'\u2026':name;
   const renderGAP=()=>{
-    const gMin=Math.min(...pool.map(a=>a.sv-BS+(((a.pace||0)-BP)*days)),-200)*1.05;
-    const gMax=Math.max(...pool.map(a=>a.sv-BS),200)*1.05;
-    const gR=gMax-gMin;
-    const yg=v=>mt+ch-((v-gMin)/gR)*ch;
-    const gStep=gR>5000?1000:gR>2000?500:gR>800?200:100;
-    const gTks=[];
-    for(let v=Math.ceil(gMin/gStep)*gStep;v<=gMax;v+=gStep)gTks.push(v);
-    const ticks=gTks.map(v=>({v,y:yg(v),zero:v===0,lbl:fmtAxis(v)}));
-    const zeroY=yg(0);
-    const lines=pool.map(a=>{
-      const isAct=act.has(a.name),dim=hasAct&&!isAct,c=lc(a);
-      const g0=a.sv-BS,g1=(a.sv+(a.pace||0)*days)-(BS+BP*days);
-      const cX=g0!==g1?(-g0/(g1-g0)):null;
-      const cD=cX!=null&&cX>0&&cX<1?cX*days:null;
-      const yE=yg(g1);
-      return {name:a.name,isAct,dim,c,y0:yg(g0),y1:yE,yE,cD,cDx:cD!=null?xs(cD):null,cDate:cD!=null?fmtD(new Date(Date.now()+cD*86400000)):null,showLbl:isAct&&yE>=mt&&yE<=mt+ch};
+    const above=[...all].filter(a=>!a.isBeagle&&a.gap>0).sort((x,y)=>x.gap-y.gap);
+    const below=[...all].filter(a=>!a.isBeagle&&a.gap<0).sort((x,y)=>{
+      const xr=(x.pace||0)-BP,yr=(y.pace||0)-BP;return yr-xr;
     });
-    return(<g>{ticks.map(t=>(<g key={t.v}><line x1={ml} x2={ml+cw} y1={t.y} y2={t.y} stroke={t.zero?'#E8B84B':'#1E3A5F'} strokeWidth={t.zero?'1.5':'0.6'} strokeDasharray={t.zero?'none':'4,6'} opacity={t.zero?0.7:1}/><text x={ml-6} y={t.y+4} textAnchor="end" fill={t.zero?'#E8B84B':'#5A8AAB'} fontSize="14" fontWeight={t.zero?'700':'400'}>{t.lbl}</text></g>))}{zeroY>mt&&zeroY<mt+ch&&<text x={ml+10} y={zeroY-8} fill="#E8B84B" fontSize="13" fontWeight="700">BEAGLE</text>}<g clipPath="url(#cc)">{lines.map(d=>(<g key={d.name} opacity={d.dim?0.1:0.9}><line x1={xs(0)} y1={d.y0} x2={xs(days)} y2={d.y1} stroke="transparent" strokeWidth="22" style={{cursor:'pointer'}} onClick={()=>toggle(d.name)}/><line x1={xs(0)} y1={d.y0} x2={xs(days)} y2={d.y1} stroke={d.c} strokeWidth={d.isAct?3:1.5} strokeLinecap="round"/>{d.cD&&<circle cx={d.cDx} cy={zeroY} r="4" fill={d.c}/>}{d.cD&&<text x={d.cDx} y={zeroY-12} textAnchor="middle" fill={d.c} fontSize="12" fontWeight="700">{d.cDate}</text>}{d.showLbl&&<text x={xs(days)+8} y={d.yE+5} fill={d.c} fontSize="14" fontWeight="700">{nameTag(d.name)}</text>}</g>))}</g><text x={ml-6} y={zeroY+4} textAnchor="end" fill="#E8B84B" fontSize="14" fontWeight="700">0</text></g>);
+    const aboveShow=above.slice(0,8),belowShow=below.slice(0,4);
+    const maxGap=Math.max(...aboveShow.map(a=>a.gap),...belowShow.map(a=>Math.abs(a.gap)),50);
+    const nameW=230,barStart=ml+nameW,barMaxW=cw-nameW-220,labelX=barStart+barMaxW+10;
+    const totalRows=aboveShow.length+belowShow.length+4;
+    const rowH=Math.max(Math.floor(ch/Math.max(totalRows,6)),14);
+    const trimN=(n,mx)=>n.length>mx?n.slice(0,mx-1)+'…':n;
+    const aboveColor=(a)=>{if(!a.catchable)return'#2A3A5A';if(a.daysTo<200)return'#00E676';if(a.daysTo<500)return'#69F0AE';if(a.daysTo<1200)return'#F9A825';return'#D84315';};
+    const belowColor=(a)=>{const cr=(a.pace||0)-BP;if(cr<=0)return'#2E7D52';const t=Math.abs(a.gap)/cr;if(t<200)return'#E74C3C';if(t<600)return'#FF7043';return'#F9A825';};
+    const yy=mt+4;
+    const divY=yy+24+(aboveShow.length*rowH)+rowH*0.3;
+    return(<g>
+      <text x={ml+2} y={yy+10} fill="#4A6A8A" fontSize="11" fontWeight="700" letterSpacing="2">CHASING — ALLIANCES AHEAD OF BEAGLE</text>
+      {aboveShow.map((a,i)=>{
+        const ry=yy+20+(i*rowH)+rowH/2;
+        const barLen=Math.min((a.gap/maxGap)*barMaxW,barMaxW);
+        const c=aboveColor(a);const isAct=act.has(a.name);
+        const etaTxt=a.catchable&&a.daysTo?Math.round(a.daysTo)+'d':'away';
+        const closeTxt=a.catchable&&a.closure?(' — closing $'+a.closure.toFixed(2)+'/d'):'';
+        return(<g key={a.name} style={{cursor:'pointer'}} onClick={()=>toggle(a.name)}>
+          <rect x={ml} y={ry-rowH/2+1} width={cw} height={rowH-2} fill={isAct?'#081828':'transparent'} rx="2"/>
+          <text x={barStart-8} y={ry+4} textAnchor="end" fill={c} fontSize="12" fontWeight={isAct?'700':'400'}>#{a.rank}  {trimN(a.name,21)}</text>
+          <rect x={barStart} y={ry-rowH/2+3} width={Math.max(barLen,3)} height={rowH-6} fill={c} opacity={isAct?0.9:0.65} rx="2"/>
+          <text x={labelX} y={ry+4} fill={c} fontSize="11" fontWeight={isAct?'700':'400'}>${a.gap.toFixed(1)}M  |  {etaTxt}{isAct?closeTxt:''}</text>
+        </g>);
+      })}
+      <line x1={ml} x2={ml+cw} y1={divY} y2={divY} stroke="#E8B84B" strokeWidth="2" opacity="0.7"/>
+      <rect x={ml+cw/2-80} y={divY-10} width={160} height={20} fill="#0D0A00" rx="4" stroke="#C4920A" strokeWidth="1"/>
+      <text x={ml+cw/2} y={divY+5} textAnchor="middle" fill="#E8B84B" fontSize="13" fontWeight="700">BEAGLE #{beagle.rank}  —  ${BS.toFixed(0)}M</text>
+      <text x={ml+2} y={divY+rowH*0.7} fill="#4A6A8A" fontSize="11" fontWeight="700" letterSpacing="2">WATCHING — ALLIANCES BEHIND BEAGLE</text>
+      {belowShow.map((a,j)=>{
+        const ry=divY+rowH+(j*rowH)+rowH/2;
+        const gap=Math.abs(a.gap);
+        const barLen=Math.min((gap/maxGap)*barMaxW,barMaxW);
+        const c=belowColor(a);const isAct=act.has(a.name);
+        const cr=(a.pace||0)-BP;
+        const etaTxt=cr>0?Math.round(gap/cr)+'d to catch':'Beagle clear';
+        return(<g key={a.name} style={{cursor:'pointer'}} onClick={()=>toggle(a.name)}>
+          <rect x={ml} y={ry-rowH/2+1} width={cw} height={rowH-2} fill={isAct?'#180808':'transparent'} rx="2"/>
+          <text x={barStart-8} y={ry+4} textAnchor="end" fill={c} fontSize="12" fontWeight={isAct?'700':'400'}>#{a.rank}  {trimN(a.name,21)}</text>
+          <rect x={barStart} y={ry-rowH/2+3} width={Math.max(barLen,3)} height={rowH-6} fill={c} opacity={isAct?0.85:0.55} rx="2"/>
+          <text x={labelX} y={ry+4} fill={c} fontSize="11" fontWeight={isAct?'700':'400'}>${gap.toFixed(1)}M behind  |  {etaTxt}</text>
+        </g>);
+      })}
+      <line x1={ml} y1={mt+ch} x2={ml+cw} y2={mt+ch} stroke="#2C4A6E" strokeWidth="1"/>
+    </g>);
   };
+
   const renderRANK=()=>{
     const yr=v=>mt+((v-1)/19)*ch;
     const gridR=[1,5,10,15,20].map(r=>({r,y:yr(r)}));
@@ -762,7 +794,7 @@ function App(){
       <button onClick={()=>setFull(f=>!f)} style={btn2(full)}>{full?'CLOSE PACK':'ALL LINES'}</button>
       {hasAct&&<button onClick={()=>{setAct(new Set());setFocus(null);}} style={{...BB,background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB'}}>CLEAR ({act.size})</button>}
       <div style={{width:1,height:18,background:'#162030',margin:'0 3px',flexShrink:0}}/>
-      {[['SV','SV LINES'],['GAP','SV GAP'],['RANK','RANK']].map(([m,l])=>{const lbl=mob?m:l;return(<button key={m} onClick={()=>setMode(m)} style={{...BB,background:mode===m?'#1A3050':'transparent',border:'1px solid '+(mode===m?'#4A80B0':'#162030'),color:mode===m?'#E8B84B':'#6A9AB5'}}>{lbl}</button>);})}
+      {[['SV','SV LINES'],['GAP','OVERTAKE'],['RANK','RANK']].map(([m,l])=>{const lbl=mob?m:l;return(<button key={m} onClick={()=>setMode(m)} style={{...BB,background:mode===m?'#1A3050':'transparent',border:'1px solid '+(mode===m?'#4A80B0':'#162030'),color:mode===m?'#E8B84B':'#6A9AB5'}}>{lbl}</button>);})}
       <div style={{width:1,height:18,background:'#162030',margin:'0 3px',flexShrink:0}}/>
       <button onClick={()=>setShowR(r=>!r)} style={{...BB,background:showR?'#0D2240':'transparent',border:'1px solid #162030',color:showR?'#7FAACC':'#4A7090'}}>{showR?(mob?'HIDE':'HIDE RANKING'):(mob?'SHOW':'SHOW RANKING')}</button>
       <div style={{display:'flex',alignItems:'center',gap:3,marginLeft:'auto'}}>
@@ -784,8 +816,9 @@ function App(){
       <svg ref={svgRef} className={'svg-chart'+(zoomed?' zoomed':'')} viewBox={'0 0 '+W+' '+H} style={{width:'100%',maxHeight:'38vh',display:'block',touchAction:'none'}} onMouseDown={onMouseDown} onDoubleClick={onDblClick}>
         <defs><filter id="fg"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="fl"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><clipPath id="cc"><rect x={ml} y={mt} width={cw} height={ch}/></clipPath><style>{'@keyframes pu{0%,100%{r:5;opacity:1}50%{r:9;opacity:0.4}} .pd{animation:pu 1.8s ease-in-out infinite}'}</style></defs>
         <rect x={ml} y={mt} width={cw} height={ch} fill="#030810" rx="2"/>
-        {mode!=='RANK'&&yTks.map(v=>(<g key={v}><line x1={ml} x2={ml+cw} y1={ys(v)} y2={ys(v)} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/><text x={ml-6} y={ys(v)+4} textAnchor="end" fill="#5A8AAB" fontSize="14">{fmtAxis(v)}</text></g>))}
-        {xTks.map(d=>(<g key={d}><line x1={xs(d)} x2={xs(d)} y1={mt} y2={mt+ch} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/><text x={xs(d)} y={mt+ch+18} textAnchor="middle" fill="#5A8AAB" fontSize="14" fontWeight="600">{xlbl(d)}</text></g>))}
+        {mode==='SV'&&yTks.map(v=>(<g key={v}><line x1={ml} x2={ml+cw} y1={ys(v)} y2={ys(v)} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/><text x={ml-6} y={ys(v)+4} textAnchor="end" fill="#5A8AAB" fontSize="14">{fmtAxis(v)}</text></g>))}
+        {mode==='RANK'&&yTks.map(v=>(<g key={v}><line x1={ml} x2={ml+cw} y1={ys(v)} y2={ys(v)} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/></g>))}
+        {mode!=='GAP'&&xTks.map(d=>(<g key={d}><line x1={xs(d)} x2={xs(d)} y1={mt} y2={mt+ch} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/><text x={xs(d)} y={mt+ch+18} textAnchor="middle" fill="#5A8AAB" fontSize="14" fontWeight="600">{xlbl(d)}</text></g>))}
         {mode==='SV'&&(<g><g clipPath="url(#cc)">{pool.map(a=>{const isAct=act.has(a.name),dim=hasAct&&!isAct,c=lc(a);const sv1=a.sv+(a.pace||0)*days;const cd=crossD(a);return(<g key={a.name}><line x1={xs(0)} y1={ys(a.sv)} x2={xs(days)} y2={ys(sv1)} stroke="transparent" strokeWidth="22" style={{cursor:'pointer'}} onClick={()=>toggle(a.name)}/><line x1={xs(0)} y1={ys(a.sv)} x2={xs(days)} y2={ys(sv1)} stroke={c} strokeWidth={isAct?3:dim?1:1.8} opacity={dim?0.1:0.88} strokeLinecap="round" strokeDasharray={!a.catchable&&!a.passed?'4,3':'none'}/>{cd&&!dim&&<circle cx={xs(cd)} cy={ys(BS+BP*cd)} r="3.5" fill={c} opacity="0.9"/>}</g>);})}
         {crossovers.map((co,i)=>{const ahead=pool.find(a=>a.name===co.ahead),behind=pool.find(a=>a.name===co.behind);if(!ahead||!behind)return null;const yCross=ys(ahead.sv+(ahead.pace||0)*co.crossDay);if(yCross<mt||yCross>mt+ch)return null;return(<g key={i}><circle cx={xs(co.crossDay)} cy={yCross} r="6" fill="none" stroke="#FFD700" strokeWidth="2" className="pd"/><circle cx={xs(co.crossDay)} cy={yCross} r="3" fill="#FFD700"/><rect x={xs(co.crossDay)-52} y={yCross-30} width={104} height={20} fill="#0A0800" rx="3" stroke="#C4920A" strokeWidth="1"/><text x={xs(co.crossDay)} y={yCross-17} textAnchor="middle" fill="#FFD700" fontSize="12" fontWeight="700">{fmtD(co.date)}</text></g>);})}
         <line x1={xs(0)} y1={ys(BS)} x2={xs(days)} y2={ys(BS+BP*days)} stroke="#E8B84B" strokeWidth="10" opacity="0.15" strokeLinecap="round"/><line x1={xs(0)} y1={ys(BS)} x2={xs(days)} y2={ys(BS+BP*days)} stroke="#E8B84B" strokeWidth="3.5" strokeLinecap="round" filter="url(#fg)"/><circle cx={xs(0)} cy={ys(BS)} r="5" fill="#E8B84B" filter="url(#fg)"/><circle cx={xs(days)} cy={ys(BS+BP*days)} r="4" fill="#E8B84B" opacity="0.7"/></g>
