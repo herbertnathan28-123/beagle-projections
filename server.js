@@ -541,6 +541,9 @@ body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;
 ::-webkit-scrollbar{width:4px;background:#040C18}
 ::-webkit-scrollbar-thumb{background:#1A3050;border-radius:2px}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.umd.min.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -666,7 +669,7 @@ function App(){
   const[,forceLayout]=useState(0);
   useEffect(()=>{let t;const onResize=()=>{clearTimeout(t);t=setTimeout(()=>forceLayout(n=>n+1),200);};window.addEventListener('resize',onResize);window.addEventListener('orientationchange',onResize);return()=>{clearTimeout(t);window.removeEventListener('resize',onResize);window.removeEventListener('orientationchange',onResize);};},[]);
   const[focus,setFocus]=useState(null);const[full,setFull]=useState(true);const[showR,setShowR]=useState(true);const[yZ,setYZ]=useState(1);const[yP,setYP]=useState(0);const[xZ,setXZ]=useState(1);const[xP,setXP]=useState(0);
-  const svgRef=useRef(null);const pinchDist=useRef(null);const drag=useRef({active:false,x:0,y:0,yp:0,xp:0});const lv=useRef({yP:0,xP:0,days:182.6,yRZ:0,xZ:1});
+  const svgRef=useRef(null);const pinchDist=useRef(null);const drag=useRef({active:false,x:0,y:0,yp:0,xp:0});const lv=useRef({yP:0,xP:0,days:182.6,yRZ:0,xZ:1});const gapCvs=useRef(null);const gapChart=useRef(null);
   const toggle=useCallback(name=>{setAct(prev=>{const n=new Set(prev);if(n.has(name)){n.delete(name);setFocus(f=>f===name?([...n].pop()||null):f);}else{n.add(name);setFocus(name);}return n;});},[]);
   useEffect(()=>{fetch('/api/data').then(r=>r.json()).then(d=>{setApiData(d);setLoading(false);}).catch(()=>setLoading(false));},[]);
   const{all,beagle,BS,BP}=useMemo(()=>{if(!apiData)return{all:[],beagle:{sv:0,pace:0,rank:19},BS:0,BP:0};return build(apiData);},[apiData]);
@@ -702,6 +705,109 @@ function App(){
   const[zHint,setZHint]=useState(true);
   useEffect(()=>{if(zHint){const t=setTimeout(()=>setZHint(false),4000);return()=>clearTimeout(t);}},[zHint]);
   useEffect(()=>{const handler=e=>{const svg=svgRef.current;if(!svg)return;const r=svg.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;e.preventDefault();setZHint(false);const zIn=e.deltaY<0;const f=zIn?1.5:0.667;const mx=(e.clientX-r.left-ml*(r.width/W))/(cw*(r.width/W));const my=(e.clientY-r.top-mt*(r.height/H))/(ch*(r.height/H));const clampX=Math.max(0,Math.min(1,mx)),clampY=Math.max(0,Math.min(1,my));setYZ(prev=>{const nz=Math.max(1,Math.min(30,prev*f));const oldR=lv.current.yRZ,newR=(yMxB-yMnB)/nz;setYP(p=>p+(oldR-newR)*(0.5-clampY));return nz;});setXZ(prev=>{const nz=Math.max(1,Math.min(30,prev*f));const oldVD=lv.current.days/lv.current.xZ,newVD=lv.current.days/nz;setXP(p=>Math.max(0,Math.min(p+(oldVD-newVD)*clampX,lv.current.days-newVD)));return nz;});};window.addEventListener('wheel',handler,{passive:false});return()=>window.removeEventListener('wheel',handler);},[yMnB,yMxB]);
+
+  const GAP_COLS=['#FF1744','#FF6D00','#FF9100','#FFD600','#FFEA00','#AEEA00','#76FF03','#00E676','#00E5FF','#C6FF00'];
+  const FF2='-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif';
+  const rgba2=(h,a)=>{const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return'rgba('+r+','+g+','+b+','+a+')';};
+  useEffect(()=>{
+    if(mode!=='GAP'){if(gapChart.current){gapChart.current.destroy();gapChart.current=null;}return;}
+    if(!gapCvs.current||typeof Chart==='undefined')return;
+    if(gapChart.current){gapChart.current.destroy();gapChart.current=null;}
+    const above=all.filter(a=>!a.isBeagle&&a.gap>0).sort((x,y)=>y.gap-x.gap);
+    const maxDay=Math.max(days,above.filter(a=>a.daysTo).reduce((m,a)=>Math.max(m,a.daysTo),260)*1.15);
+    const maxGap=above.reduce((m,a)=>Math.max(m,a.gap),200)*1.1;
+    const GDS=above.map((a,i)=>{
+      const c=GAP_COLS[i%GAP_COLS.length];
+      if(!a.catchable||!a.daysTo)return{label:a.name,data:[{x:0,y:a.gap},{x:maxDay,y:a.gap}],borderColor:rgba2(c,.35),borderWidth:1,pointRadius:0,showLine:true,tension:0,fill:false,_c:c};
+      const cr=a.gap/a.daysTo,pts=[];
+      for(let d=0;d<=maxDay;d+=Math.max(2,Math.floor(maxDay/130)))pts.push({x:d,y:a.gap-cr*d});
+      return{label:a.name,data:pts,borderColor:c,borderWidth:1.1,pointRadius:0,showLine:true,tension:0,fill:false,_c:c};
+    });
+    GDS.push({label:'Beagle',data:[{x:0,y:0},{x:maxDay,y:0}],borderColor:'#E8B84B',borderWidth:2,pointRadius:0,showLine:true,tension:0,fill:false});
+    let selG=null;
+    const bgP2={id:'bg2',beforeDraw(c){const x=c.ctx;x.save();x.fillStyle='#020B16';x.fillRect(0,0,c.width,c.height);x.restore();}};
+    const lblP2={id:'lbl2',afterDraw(ch){
+      const ctx=ch.ctx,xs=ch.scales.x,ys=ch.scales.y,ca=ch.chartArea;
+      ctx.save();
+      const rawY=above.map(a=>ys.getPixelForValue(a.gap));
+      const adjY=[...rawY];
+      for(let i=1;i<adjY.length;i++)for(let j=0;j<i;j++)if(Math.abs(adjY[i]-adjY[j])<15)adjY[i]=adjY[j]+16;
+      above.forEach((a,i)=>{
+        const c=GAP_COLS[i%GAP_COLS.length];
+        const isSel=selG===i,hasSel=selG!==null,dim=hasSel&&!isSel;
+        const inView=rawY[i]>=ca.top-30&&rawY[i]<=ca.bottom+30;
+        ctx.globalAlpha=dim?.1:1;
+        if(inView){
+          ctx.fillStyle=c;ctx.font=(isSel?'500':'300')+' 13px '+FF2;
+          ctx.textAlign='right';
+          ctx.fillText('#'+a.rank+'  '+(a.name.length>18?a.name.slice(0,17)+'…':a.name),ca.left-10,adjY[i]+4.5);
+          ctx.beginPath();ctx.arc(ca.left,rawY[i],isSel?3.5:2,0,Math.PI*2);ctx.fill();
+        }
+        if(a.catchable&&a.daysTo&&a.daysTo<=maxDay){
+          const cx=xs.getPixelForValue(a.daysTo),cy=ys.getPixelForValue(0);
+          const inPlot=cx>=ca.left&&cx<=ca.right&&cy>=ca.top&&cy<=ca.bottom;
+          if(inPlot){
+            ctx.strokeStyle=c;ctx.lineWidth=isSel?2:1;
+            ctx.beginPath();ctx.arc(cx,cy,isSel?10:5.5,0,Math.PI*2);ctx.stroke();
+            ctx.beginPath();ctx.arc(cx,cy,isSel?4:2.5,0,Math.PI*2);ctx.fillStyle=c;ctx.fill();
+            if(isSel){
+              ctx.globalAlpha=1;ctx.font='500 12px '+FF2;ctx.textAlign='center';ctx.fillStyle=c;
+              ctx.fillText(fmtD(a.overtakeDate),cx,cy-17);
+              ctx.font='300 10px '+FF2;ctx.fillStyle=rgba2(c,.7);
+              ctx.fillText(Math.round(a.daysTo)+'d',cx,cy+22);
+            }
+          }
+        }
+      });
+      ctx.globalAlpha=1;
+      const zy=ys.getPixelForValue(0);
+      if(zy>=ca.top&&zy<=ca.bottom){
+        ctx.font='400 12px '+FF2;ctx.textAlign='left';ctx.fillStyle='#E8B84B';
+        ctx.fillText('⧆  BEAGLE #'+beagle.rank+'  —  $'+BS.toFixed(2)+'M',ca.left+10,zy-10);
+      }
+      ctx.restore();
+    }};
+    gapChart.current=new Chart(gapCvs.current,{
+      type:'scatter',data:{datasets:GDS},plugins:[bgP2,lblP2],
+      options:{
+        responsive:true,maintainAspectRatio:false,animation:{duration:600},
+        plugins:{
+          legend:{display:false},tooltip:{enabled:false},
+          zoom:{zoom:{wheel:{enabled:true,speed:.08},pinch:{enabled:true},mode:'xy'},pan:{enabled:true,mode:'xy',threshold:6}}
+        },
+        scales:{
+          x:{type:'linear',min:0,max:maxDay,grid:{color:'#0B1A28',lineWidth:.8},border:{color:'#1A324A'},
+            ticks:{color:'#2A4A6A',font:{family:FF2,size:11,weight:'300'},
+              callback:v=>v===0?'NOW':v<60?Math.round(v)+'d':Math.round(v/30.4)+'MO'}},
+          y:{min:-Math.max(BS*0.04,80),max:maxGap,grid:{color:'#0B1A28',lineWidth:.8},border:{color:'#1A324A'},
+            ticks:{color:'#2A4A6A',font:{family:FF2,size:11,weight:'300'},
+              callback:v=>v===0?'':v<0?'▼$'+Math.abs(v).toFixed(0)+'M':'$'+v.toFixed(0)+'M'}}
+        },
+        layout:{padding:{left:158,right:20,top:20,bottom:8}},
+        onClick(e){
+          const ca=gapChart.current.chartArea,xs=gapChart.current.scales.x,ys=gapChart.current.scales.y;
+          const mx=e.native.offsetX,my=e.native.offsetY;
+          if(mx<ca.left||mx>ca.right||my<ca.top||my>ca.bottom)return;
+          let near=null,minD=20;
+          above.forEach((a,i)=>{
+            if(!a.catchable||!a.daysTo)return;
+            const cr=a.gap/a.daysTo,day=xs.getValueForPixel(mx);
+            const ly=ys.getPixelForValue(a.gap-cr*day);
+            if(Math.abs(my-ly)<minD){minD=Math.abs(my-ly);near=i;}
+          });
+          selG=(near===selG)?null:near;
+          above.forEach((a,i)=>{
+            const c=GAP_COLS[i%GAP_COLS.length];
+            const isSel=selG===i,dim=selG!==null&&!isSel;
+            GDS[i].borderColor=dim?rgba2(c,.08):c;GDS[i].borderWidth=isSel?2.5:1.1;
+          });
+          gapChart.current.update('none');
+          setFocus(selG!==null?above[selG].name:null);
+        }
+      }
+    });
+    return()=>{if(gapChart.current){gapChart.current.destroy();gapChart.current=null;}};
+  },[mode,all,BS,BP,beagle,days]);
   const onDblClick=useCallback(e=>{const svg=svgRef.current;if(!svg)return;setZHint(false);const r=svg.getBoundingClientRect();const mx=(e.clientX-r.left-ml*(r.width/W))/(cw*(r.width/W));const my=(e.clientY-r.top-mt*(r.height/H))/(ch*(r.height/H));const clampX=Math.max(0,Math.min(1,mx)),clampY=Math.max(0,Math.min(1,my));const f=2;setYZ(prev=>{const nz=Math.max(1,Math.min(30,prev*f));const oldR=lv.current.yRZ,newR=(yMxB-yMnB)/nz;setYP(p=>p+(oldR-newR)*(0.5-clampY));return nz;});setXZ(prev=>{const nz=Math.max(1,Math.min(30,prev*f));const oldVD=lv.current.days/lv.current.xZ,newVD=lv.current.days/nz;setXP(p=>Math.max(0,Math.min(p+(oldVD-newVD)*clampX,lv.current.days-newVD)));return nz;});},[yMnB,yMxB]);
   const detP=selA?[1,3,6,12].map(mo=>({mo,sv:selA.sv+(selA.pace||0)*MTD[mo],rank:projR(all,beagle,MTD[mo]).findIndex(a=>a.isBeagle)+1})):[];
   const BB={borderRadius:3,fontSize:14,fontWeight:700,cursor:'pointer',letterSpacing:1,fontFamily:'inherit',padding:'5px 12px'};
@@ -798,22 +904,22 @@ function App(){
       <div style={{width:1,height:18,background:'#162030',margin:'0 3px',flexShrink:0}}/>
       <button onClick={()=>setShowR(r=>!r)} style={{...BB,background:showR?'#0D2240':'transparent',border:'1px solid #162030',color:showR?'#7FAACC':'#4A7090'}}>{showR?(mob?'HIDE':'HIDE RANKING'):(mob?'SHOW':'SHOW RANKING')}</button>
       <div style={{display:'flex',alignItems:'center',gap:3,marginLeft:'auto'}}>
-        <button onClick={()=>{setYZ(z=>Math.min(30,z*1.25));setXZ(z=>Math.min(30,z*1.25));}} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:16,fontWeight:700}} title="Zoom in">+</button>
+        <button onClick={()=>{if(mode==='GAP')gapChart.current?.zoom(1.35);else{setYZ(z=>Math.min(30,z*1.25));setXZ(z=>Math.min(30,z*1.25));}}} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:16,fontWeight:700}} title="Zoom in">+</button>
         <span style={{fontSize:12,color:zoomed?'#E8B84B':'#3A6080',minWidth:36,textAlign:'center'}}>{zoomed?('x'+Math.max(yZ,xZ).toFixed(1)):'1x'}</span>
-        <button onClick={()=>{setYZ(z=>Math.max(1,z*0.8));setXZ(z=>Math.max(1,z*0.8));}} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:16,fontWeight:700}} title="Zoom out">-</button>
-        {!mob&&<><div style={{width:1,height:16,background:'#162030',margin:'0 3px'}}/>
+        <button onClick={()=>{if(mode==='GAP')gapChart.current?.zoom(0.74);else{setYZ(z=>Math.max(1,z*0.8));setXZ(z=>Math.max(1,z*0.8));}}} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:16,fontWeight:700}} title="Zoom out">-</button>
+        {!mob&&mode!=='GAP'&&<><div style={{width:1,height:16,background:'#162030',margin:'0 3px'}}/>
         <button onClick={()=>setXP(p=>Math.max(0,p-lv.current.days/lv.current.xZ*0.2))} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:15,fontWeight:700}}>◄</button>
         <button onClick={()=>setYP(p=>p+lv.current.yRZ*0.15)} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:15,fontWeight:700}}>▲</button>
         <button onClick={()=>setYP(p=>p-lv.current.yRZ*0.15)} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:15,fontWeight:700}}>▼</button>
         <button onClick={()=>setXP(p=>Math.max(0,Math.min(p+lv.current.days/lv.current.xZ*0.2,lv.current.days-lv.current.days/lv.current.xZ)))} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:15,fontWeight:700}}>►</button></>}
-        {(zoomed||yP!==0||xP!==0)&&<button onClick={resetZoom} style={{...BB,background:'#1A0A00',border:'1px solid #C4920A60',color:'#E8B84B',fontSize:12,marginLeft:2}}>RESET</button>}
+        {(mode==='GAP'||zoomed||yP!==0||xP!==0)&&<button onClick={()=>{if(mode==='GAP')gapChart.current?.resetZoom();else resetZoom();}} style={{...BB,background:'#1A0A00',border:'1px solid #C4920A60',color:'#E8B84B',fontSize:12,marginLeft:2}}>RESET</button>}
       </div>
       <div style={{marginLeft:'auto',display:'flex',gap:10,alignItems:'center',flexShrink:0}}>
         {[['#E8B84B','Beagle'],['#00E676','<100d'],['#69F0AE','catching'],['#3A6090','away'],['#E74C3C','passed']].map(([c,l])=>(<span key={l} style={{display:'flex',alignItems:'center',gap:4,whiteSpace:'nowrap'}}><span style={{width:l==='Beagle'?20:15,height:l==='Beagle'?3:2,background:c,display:'inline-block',borderRadius:2}}/><span style={{fontSize:12,color:'#8AAABB'}}>{l}</span></span>))}
       </div>
     </div>
-    <div style={{padding:'2px 4px 4px',flexShrink:0,touchAction:'none'}}>
-      <svg ref={svgRef} className={'svg-chart'+(zoomed?' zoomed':'')} viewBox={'0 0 '+W+' '+H} style={{width:'100%',maxHeight:'38vh',display:'block',touchAction:'none'}} onMouseDown={onMouseDown} onDoubleClick={onDblClick}>
+    <div style={{padding:'2px 4px 4px',flexShrink:0,touchAction:mode==='GAP'?'auto':'none'}}>
+      {mode==='GAP'?(<div style={{width:'100%',height:'38vh',background:'#020B16',borderRadius:2}}><canvas ref={gapCvs} style={{width:'100%',height:'100%',display:'block'}}/></div>):(<svg ref={svgRef} className={'svg-chart'+(zoomed?' zoomed':'')} viewBox={'0 0 '+W+' '+H} style={{width:'100%',maxHeight:'38vh',display:'block',touchAction:'none'}} onMouseDown={onMouseDown} onDoubleClick={onDblClick}>
         <defs><filter id="fg"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="fl"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><clipPath id="cc"><rect x={ml} y={mt} width={cw} height={ch}/></clipPath><style>{'@keyframes pu{0%,100%{r:5;opacity:1}50%{r:9;opacity:0.4}} .pd{animation:pu 1.8s ease-in-out infinite}'}</style></defs>
         <rect x={ml} y={mt} width={cw} height={ch} fill="#030810" rx="2"/>
         {mode==='SV'&&yTks.map(v=>(<g key={v}><line x1={ml} x2={ml+cw} y1={ys(v)} y2={ys(v)} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/><text x={ml-6} y={ys(v)+4} textAnchor="end" fill="#5A8AAB" fontSize="14">{fmtAxis(v)}</text></g>))}
@@ -824,14 +930,13 @@ function App(){
         <line x1={xs(0)} y1={ys(BS)} x2={xs(days)} y2={ys(BS+BP*days)} stroke="#E8B84B" strokeWidth="10" opacity="0.15" strokeLinecap="round"/><line x1={xs(0)} y1={ys(BS)} x2={xs(days)} y2={ys(BS+BP*days)} stroke="#E8B84B" strokeWidth="3.5" strokeLinecap="round" filter="url(#fg)"/><circle cx={xs(0)} cy={ys(BS)} r="5" fill="#E8B84B" filter="url(#fg)"/><circle cx={xs(days)} cy={ys(BS+BP*days)} r="4" fill="#E8B84B" opacity="0.7"/></g>
         {pool.filter(a=>act.has(a.name)).map(a=>{const yE=ys(a.sv+(a.pace||0)*days);if(yE<mt||yE>mt+ch)return null;return(<text key={a.name+'_l'} x={xs(days)+8} y={yE+5} fill={lc(a)} fontSize="14" fontWeight="700">{nameTag(a.name)}</text>);})}
         <text x={ml-6} y={ys(BS)+4} textAnchor="end" fill="#E8B84B" fontSize="14" fontWeight="700">\u2605{beagle.rank}</text></g>)}
-        {mode==='GAP'&&renderGAP()}
         {mode==='RANK'&&renderRANK()}
         <line x1={ml} y1={mt} x2={ml} y2={mt+ch} stroke="#2C4A6E" strokeWidth="1"/><line x1={ml} y1={mt+ch} x2={ml+cw} y2={mt+ch} stroke="#2C4A6E" strokeWidth="1"/><line x1={ml+cw} y1={mt} x2={ml+cw} y2={mt+ch} stroke="#1A3050" strokeWidth="1" strokeDasharray="3,4"/>
         <text x="12" y={mt+ch/2} textAnchor="middle" fill="#3A6080" fontSize="13" fontWeight="600" transform={'rotate(-90,12,'+(mt+ch/2)+')'}>{mode==='SV'?'Share Value':mode==='GAP'?'SV Gap':'Rank'}</text>
         {zoomed&&<g><rect x={ml+cw-72} y={mt+3} width={68} height={22} rx="3" fill="#0A1020" opacity="0.85"/><text x={ml+cw-8} y={mt+18} textAnchor="end" fill="#E8B84B" fontSize="13" fontWeight="700">{'x'+Math.max(yZ,xZ).toFixed(1)+' zoom'}</text></g>}
         {zoomed&&<g style={{cursor:'pointer'}} onClick={resetZoom}><rect x={ml+4} y={mt+3} width={52} height={22} rx="3" fill="#1A3050" stroke="#4A80B0" strokeWidth="1"/><text x={ml+30} y={mt+18} textAnchor="middle" fill="#E8B84B" fontSize="12" fontWeight="700">RESET</text></g>}
         {!zoomed&&zHint&&<g style={{pointerEvents:'none'}}><rect x={ml+cw/2-90} y={mt+ch/2-14} width={180} height={28} rx="6" fill="#0A1020" opacity="0.85"/><text x={ml+cw/2} y={mt+ch/2+5} textAnchor="middle" fill="#5A8AAB" fontSize="13" fontWeight="600" opacity="0.9">Scroll or pinch to zoom</text></g>}
-      </svg>
+      </svg>)}
     </div>
     {crossovers.length>0&&(<div style={{margin:'0 8px 4px',background:'#0A0800',border:'1px solid #C4920A',borderLeft:'4px solid #FFD700',borderRadius:4,padding:'8px 14px'}}>{crossovers.map((co,i)=>(<div key={i} style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:i<crossovers.length-1?4:0}}><span style={{fontSize:13,color:'#FFD700',fontWeight:700,letterSpacing:1}}>&#9733; CROSSOVER</span><span style={{fontSize:15,fontWeight:700,color:lc(pool.find(a=>a.name===co.behind)||{})}}>{co.behind}</span><span style={{fontSize:13,color:'#8AAABB'}}>overtakes</span><span style={{fontSize:15,fontWeight:700,color:lc(pool.find(a=>a.name===co.ahead)||{})}}>{co.ahead}</span><span style={{fontSize:13,color:'#8AAABB'}}>on</span><span style={{fontSize:16,fontWeight:700,color:'#FFD700'}}>{fmtD(co.date)}</span><span style={{fontSize:13,color:'#5A8AAB'}}>({co.daysTo} days)</span></div>))}</div>)}
     {showR&&ranking.length>0&&(<div style={{margin:'0 8px 4px',background:'#050D1A',border:'1px solid #0A1E30',borderTop:'2px solid #C4920A',borderRadius:4,padding:'8px 12px',flex:1}}>
