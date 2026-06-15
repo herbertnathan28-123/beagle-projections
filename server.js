@@ -6,10 +6,49 @@
 const express = require('express');
 const cors    = require('cors');
 const esbuild = require('esbuild');
+const fs      = require('fs');
 const app     = express();
 const PORT    = process.env.PORT || 3000;
 const SECRET       = process.env.PROJECTIONS_SECRET || 'changeme';
 const N8N_TOKEN    = 'bgln8n-proj-2026';
+
+// ── PERSISTENT DISK STATE ─────────────────────────────────────────────────
+const STATE_FILE    = '/data/state.json';
+const HQ_STATE_FILE = '/data/hq-state.json';
+
+function loadState() {
+  try {
+    if (fs.existsSync(STATE_FILE)) {
+      const saved = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+      console.log('[STARTUP] Loaded projections state from disk — ' + saved.timestamp);
+      return saved;
+    }
+  } catch (e) { console.error('[STARTUP] Failed to load state:', e.message); }
+  console.log('[STARTUP] No saved state — using DEFAULT_DATA');
+  return { ...DEFAULT_DATA };
+}
+
+function saveState(data) {
+  try { fs.writeFileSync(STATE_FILE, JSON.stringify(data), 'utf8'); }
+  catch (e) { console.error('[SAVE] Failed to write projections state:', e.message); }
+}
+
+function loadHqState() {
+  try {
+    if (fs.existsSync(HQ_STATE_FILE)) {
+      const saved = JSON.parse(fs.readFileSync(HQ_STATE_FILE, 'utf8'));
+      console.log('[STARTUP] Loaded HQ state from disk — ' + (saved.players?.length ?? 0) + ' players');
+      return saved;
+    }
+  } catch (e) { console.error('[STARTUP] Failed to load HQ state:', e.message); }
+  return { timestamp: null, uploader: null, alliancePace: null, airlines: 0, players: [], history: [] };
+}
+
+function saveHqState(data) {
+  try { fs.writeFileSync(HQ_STATE_FILE, JSON.stringify(data), 'utf8'); }
+  catch (e) { console.error('[SAVE] Failed to write HQ state:', e.message); }
+}
+
 
 app.use(cors());
 app.use(express.json());
@@ -44,17 +83,10 @@ const DEFAULT_DATA = {
   ]
 };
 
-let liveData = { ...DEFAULT_DATA };
+let liveData = loadState();
 
 // ── BEAGLE HQ — IN-MEMORY STORE ───────────────────────────────────────────
-let hqData = {
-  timestamp: null,
-  uploader: null,
-  alliancePace: null,
-  airlines: 0,
-  players: [],
-  history: []
-};
+let hqData = loadHqState();
 
 // ── AM4 CONTRIBUTION CALCULATOR — DATA & FUNCTIONS ───────────────────────
 // base speeds from game × 1.1 = realism, × 1.65 = easy
@@ -851,6 +883,7 @@ app.post('/api/hq-update', (req, res) => {
     hqData.alliancePace = body.alliancePace || null;
     hqData.airlines = body.airlines || players.length;
     hqData.players = players.sort((a, b) => b.lastContrib - a.lastContrib);
+    saveHqState(hqData);
     console.log('[HQ] updated — ' + players.length + ' players, pace ' + hqData.alliancePace);
     res.json({ ok: true, players: players.length });
   } catch (e) {
@@ -891,6 +924,7 @@ app.post('/api/update', (req, res) => {
     alliances:  merged.length ? merged : liveData.alliances,
   };
   console.log(`[${new Date().toISOString()}] Updated by ${uploader}`);
+  saveState(liveData);
   res.json({ ok: true });
 });
 
