@@ -688,7 +688,7 @@ select optgroup{background:#030B17;color:#4A7090}
 <script>
 window.onerror=function(m,s,l,c,e){
   var d=document.getElementById('diag');
-  if(d){d.style.background='#CC0000';d.style.color='#fff';d.style.maxWidth='90vw';d.style.whiteSpace='pre-wrap';d.textContent='JS ERROR: '+m+'\n'+s+':'+l+':'+c;}
+  if(d){d.style.background='#CC0000';d.style.color='#fff';d.style.maxWidth='90vw';d.style.whiteSpace='pre-wrap';d.textContent='JS ERROR: '+m+' @ '+s+':'+l+':'+c;}
   return false;
 };
 window.addEventListener('unhandledrejection',function(e){
@@ -711,6 +711,7 @@ function projR(all,beagle,days){const kn=all.filter(a=>a.pace!=null&&!a.isBeagle
 function App(){
   const[apiData,setApiData]=useState(null);const[loading,setLoading]=useState(true);const[pk,setPk]=useState('6MO');const[mode,setMode]=useState('SV');const[act,setAct]=useState(new Set());
   const[,forceLayout]=useState(0);
+  useEffect(()=>{const d=document.getElementById('diag');if(d)d.style.display='none';},[]);
   useEffect(()=>{let t;const onResize=()=>{clearTimeout(t);t=setTimeout(()=>forceLayout(n=>n+1),200);};window.addEventListener('resize',onResize);window.addEventListener('orientationchange',onResize);return()=>{clearTimeout(t);window.removeEventListener('resize',onResize);window.removeEventListener('orientationchange',onResize);};},[]);
   const[focus,setFocus]=useState(null);const[full,setFull]=useState(true);const[showR,setShowR]=useState(true);const[yZ,setYZ]=useState(1);const[yP,setYP]=useState(0);const[xZ,setXZ]=useState(1);const[xP,setXP]=useState(0);
   const svgRef=useRef(null);const pinchDist=useRef(null);const drag=useRef({active:false,x:0,y:0,yp:0,xp:0});const lv=useRef({yP:0,xP:0,days:182.6,yRZ:0,xZ:1});const gapCvs=useRef(null);const gapChart=useRef(null);const gapZI=useRef(null);const gapZO=useRef(null);const gapRZ=useRef(null);const gapPL=useRef(null);const gapPR=useRef(null);const gapPU=useRef(null);const gapPD=useRef(null);const svCvs=useRef(null);const svChart=useRef(null);const svZI=useRef(null);const svZO=useRef(null);const svRZ=useRef(null);const svPL=useRef(null);const svPR=useRef(null);const svPU=useRef(null);const svPD=useRef(null);const rkCvs=useRef(null);const rkChart=useRef(null);const rkZI=useRef(null);const rkZO=useRef(null);const rkRZ=useRef(null);const rkPL=useRef(null);const rkPR=useRef(null);const rkPU=useRef(null);const rkPD=useRef(null);
@@ -718,6 +719,7 @@ function App(){
   useEffect(()=>{fetch('/api/data').then(r=>r.json()).then(d=>{setApiData(d);setLoading(false);}).catch(()=>setLoading(false));},[]);
   const{all,beagle,BS,BP}=useMemo(()=>{if(!apiData)return{all:[],beagle:{sv:0,pace:0,rank:19},BS:0,BP:0};return build(apiData);},[apiData]);
   const maxCD=all.filter(a=>!a.isBeagle&&a.catchable&&a.daysTo).reduce((m,a)=>Math.max(m,a.daysTo),365);
+  const hasAct=act.size>0;
   const MAX_D=Math.ceil(maxCD*1.2/30)*30;
   const pOpt=PERIOD_OPTS.find(p=>p.label===pk)||PERIOD_OPTS[5];
   const days=pOpt.days??MAX_D;
@@ -1037,7 +1039,7 @@ function App(){
   const btn=on=>({...BB,background:on?'#C4920A':'transparent',border:'1px solid '+(on?'#C4920A':'#162030'),color:on?'#030B17':'#6A9AB5'});
   const btn2=on=>({...BB,background:on?'#1A3050':'transparent',border:'1px solid '+(on?'#4A80B0':'#162030'),color:on?'#E8B84B':'#6A9AB5'});
   if(loading)return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',flexDirection:'column',gap:16}}><div style={{fontSize:40,color:'#E8B84B'}}>&#9672;</div><div style={{fontSize:20,color:'#5A8AAB',letterSpacing:2}}>LOADING PROJECTIONS...</div></div>);
-  const ts2=apiData?.timestamp,upl=apiData?.uploader;const hasAct=act.size>0;
+  const ts2=apiData?.timestamp,upl=apiData?.uploader;
   const CHEATERS=new Set(['Dokdo']);
   const paceColor=(pr,total)=>{if(total<=1)return'#00E676';const t=(pr-1)/(total-1);const r=Math.round(0+(58-0)*t),g=Math.round(230+(144-230)*t),b=Math.round(118+(110-118)*t);return'rgb('+r+','+g+','+b+')';};
   const renderRow=a=>{const isB=a.isBeagle,chg=a.rank-(a.projRank??a.rank),c=isB?'#E8B84B':lc(a),isAct=act.has(a.name),pr=paceRanks.get(a.name),isCheater=CHEATERS.has(a.name),totalPaced=paceRanks.size,pc=pr!=null?paceColor(pr,totalPaced):'#3A6090';return(<div key={a.name} onClick={()=>!isB&&toggle(a.name)} style={{display:'flex',alignItems:'center',gap:8,padding:W2>=1600?'10px 14px':'7px 10px',background:isB?'#1A1000':isAct?c+'22':'transparent',borderRadius:3,borderLeft:isAct?'3px solid '+c:'3px solid transparent',cursor:isB?'default':'pointer',transition:'all 0.1s',opacity:isCheater?0.35:1}}><span style={{fontSize:sz(18,34,0.017),fontWeight:700,color:a.noPace?'#4A7090':isCheater?'#4A5060':c,minWidth:36}}>#{a.projRank}</span><span style={{fontSize:sz(18,30,0.016),color:isB?c:isCheater?'#4A5060':isAct?'#E2EAF4':a.noPace?'#4A7090':'#9AAABB',flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',fontWeight:isAct?600:400}}>{a.name}</span>{pr!=null&&<span style={{fontSize:sz(12,20,0.011),fontWeight:700,color:isCheater?'#4A5060':pc,minWidth:26,textAlign:'center',borderRadius:3,padding:'1px 4px',letterSpacing:0.5}}>{pr}</span>}<span style={{fontSize:sz(13,24,0.013),color:isB?'#C4920A':a.noPace?'#2C4A68':isCheater?'#4A5060':pc,fontWeight:pr!=null&&pr<=3?700:400,minWidth:52,textAlign:'right',whiteSpace:'nowrap',marginRight:4}}>{a.pace!=null?'$'+a.pace.toFixed(2):''}</span><span style={{fontSize:sz(16,28,0.015),fontWeight:600,minWidth:30,textAlign:'right',color:a.noPace?'#4A7090':chg>0?'#00E676':chg<0?'#E74C3C':'#4A7090'}}>{a.noPace?'?':chg>0?'\u25b2'+chg:chg<0?'\u25bc'+Math.abs(chg):isB?'\u2605':'\u2014'}</span></div>);};
@@ -1189,7 +1191,6 @@ function App(){
     </div>)}
   </div>);
 }
-document.getElementById('diag').style.display='none';
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
