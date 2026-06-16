@@ -713,7 +713,7 @@ function App(){
   const rgba2=(h,a)=>{const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return'rgba('+r+','+g+','+b+','+a+')';};
   useEffect(()=>{
     if(mode!=='GAP'){if(gapChart.current){gapChart.current.destroy();gapChart.current=null;}return;}
-    if(!gapCvs.current||typeof Chart==='undefined')return;
+    if(!all.length||!gapCvs.current||typeof Chart==='undefined')return;
     if(gapChart.current){gapChart.current.destroy();gapChart.current=null;}
     const above=all.filter(a=>!a.isBeagle&&a.gap>0).sort((x,y)=>y.gap-x.gap);
     const maxDay=Math.max(days,above.filter(a=>a.daysTo).reduce((m,a)=>Math.max(m,a.daysTo),260)*1.15);
@@ -769,7 +769,7 @@ function App(){
       }
       ctx.restore();
     }};
-    gapChart.current=new Chart(gapCvs.current,{
+    try{gapChart.current=new Chart(gapCvs.current,{
       type:'scatter',data:{datasets:GDS},plugins:[bgP2,lblP2],
       options:{
         responsive:true,maintainAspectRatio:false,animation:{duration:600},
@@ -804,7 +804,7 @@ function App(){
           setFocus(selG!==null?above[selG].name:null);
         }
       }
-    });
+    });}catch(e){console.error('GAP chart err',e);return;}
     const cvs=gapCvs.current;
     const zS={minX:0,maxX:maxDay,minY:-Math.max(BS*0.04,80),maxY:maxGap};
     const apZ=()=>{if(!gapChart.current)return;gapChart.current.options.scales.x.min=zS.minX;gapChart.current.options.scales.x.max=zS.maxX;gapChart.current.options.scales.y.min=zS.minY;gapChart.current.options.scales.y.max=zS.maxY;gapChart.current.update('none');};
@@ -825,14 +825,15 @@ function App(){
 
   useEffect(()=>{
     if(mode!=='SV'){if(svChart.current){svChart.current.destroy();svChart.current=null;}return;}
-    if(!svCvs.current||typeof Chart==='undefined')return;
+    if(!all.length||!svCvs.current||typeof Chart==='undefined')return;
     if(svChart.current){svChart.current.destroy();svChart.current=null;}
     const FF2='-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif';
     const rgba2=(h,a)=>{const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return'rgba('+r+','+g+','+b+','+a+')';};
     const getC=a=>{if(a.isBeagle)return'#E8B84B';if(a.passed)return'#E74C3C';if(!a.catchable)return'#3A6090';if(a.daysTo<100)return'#00E676';if(a.daysTo<400)return'#69F0AE';if(a.daysTo<800)return'#F9A825';return'#F57F17';};
-    const svPool=[...all].sort((a,b)=>b.sv-a.sv);
+    const svPool=(full?[...all]:[...all].filter(a=>a.isBeagle||a.passed||a.gap<800)).sort((a,b)=>b.sv-a.sv);
     const allSVEnd=svPool.map(a=>a.sv+(a.pace||0)*days);
-    const maxY=Math.max(...allSVEnd)*1.06,minY=Math.min(...svPool.map(a=>a.sv))*0.93;
+    const maxY=allSVEnd.length?Math.max(...allSVEnd)*1.06:5000;
+    const minY=svPool.length?Math.min(...svPool.map(a=>a.sv||0))*0.93:1000;
     let selS=null;
     const SDS=svPool.map(a=>{
       const c=getC(a),isAct=act.has(a.name),dim=hasAct&&!isAct&&!a.isBeagle;
@@ -858,7 +859,7 @@ function App(){
       });
       ctx.globalAlpha=1;ctx.restore();
     }};
-    svChart.current=new Chart(svCvs.current,{type:'scatter',data:{datasets:SDS},plugins:[bgSV,lblSV],
+    try{svChart.current=new Chart(svCvs.current,{type:'scatter',data:{datasets:SDS},plugins:[bgSV,lblSV],
       options:{responsive:true,maintainAspectRatio:false,animation:{duration:400},
         plugins:{legend:{display:false},tooltip:{enabled:false}},
         scales:{
@@ -885,7 +886,7 @@ function App(){
           setFocus(selS!==null?svPool[selS].name:null);
         }
       }
-    });
+    });}catch(e){console.error('SV chart err',e);return;}
     const cvs=svCvs.current;
     const zS={minX:0,maxX:days,minY,maxY};
     const apZ=()=>{if(!svChart.current)return;svChart.current.options.scales.x.min=zS.minX;svChart.current.options.scales.x.max=zS.maxX;svChart.current.options.scales.y.min=zS.minY;svChart.current.options.scales.y.max=zS.maxY;svChart.current.update('none');};
@@ -905,7 +906,7 @@ function App(){
 
   useEffect(()=>{
     if(mode!=='RANK'){if(rkChart.current){rkChart.current.destroy();rkChart.current=null;}return;}
-    if(!rkCvs.current||typeof Chart==='undefined')return;
+    if(!all.length||!rkCvs.current||typeof Chart==='undefined')return;
     if(rkChart.current){rkChart.current.destroy();rkChart.current=null;}
     const FF2='-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif';
     const rgba2=(h,a)=>{const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return'rgba('+r+','+g+','+b+','+a+')';};
@@ -944,7 +945,7 @@ function App(){
       }
       ctx.globalAlpha=1;ctx.restore();
     }};
-    rkChart.current=new Chart(rkCvs.current,{type:'scatter',data:{datasets:RDS},plugins:[bgRK,lblRK],
+    try{rkChart.current=new Chart(rkCvs.current,{type:'scatter',data:{datasets:RDS},plugins:[bgRK,lblRK],
       options:{responsive:true,maintainAspectRatio:false,animation:{duration:400},
         plugins:{legend:{display:false},tooltip:{enabled:false}},
         scales:{
@@ -971,7 +972,7 @@ function App(){
           setFocus(selR!==null&&!rkAll[selR]?.isBeagle?rkAll[selR].name:null);
         }
       }
-    });
+    });}catch(e){console.error('RANK chart err',e);return;}
     const cvs=rkCvs.current;
     const zS={minX:0,maxX:days,minY:1,maxY:20};
     const apZ=()=>{if(!rkChart.current)return;rkChart.current.options.scales.x.min=zS.minX;rkChart.current.options.scales.x.max=zS.maxX;rkChart.current.options.scales.y.min=zS.minY;rkChart.current.options.scales.y.max=zS.maxY;rkChart.current.update('none');};
@@ -1287,4 +1288,3 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Beagle Projections live on port ${PORT}`));
-
