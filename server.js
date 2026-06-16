@@ -1,16 +1,46 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v44
+// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v46
 // Deploy: node server.js
-// Env vars: PROJECTIONS_SECRET, ACCESS_KEY, CONTRIBUTIONS_LOG_IN, PORT
+// GUARD_CHECK_v46_OK
+// Env vars: PROJECTIONS_SECRET, ACCESS_KEY, CONTRIBUTIONS_LOG_IN, PORT,
+//           DISCORD_UPLOAD_WEBHOOK
 // ═══════════════════════════════════════════════════════════════════════════
 const express = require('express');
 const cors    = require('cors');
+const https   = require('https');
 const esbuild = require('esbuild');
 const fs      = require('fs');
 const app     = express();
 const PORT    = process.env.PORT || 3000;
 const SECRET       = process.env.PROJECTIONS_SECRET || 'changeme';
 const N8N_TOKEN    = 'bgln8n-proj-2026';
+
+// ── DISCORD UPLOAD NOTIFICATIONS ─────────────────────────────────────────
+function notifyDiscord(msg) {
+  const url = process.env.DISCORD_UPLOAD_WEBHOOK;
+  if (!url) { console.log('[DISCORD] no webhook set'); return; }
+  try {
+    const body = JSON.stringify({ content: msg });
+    const u = new URL(url);
+    const req = https.request({
+      hostname: u.hostname,
+      path: u.pathname + u.search,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+    });
+    req.on('error', e => console.error('[DISCORD] notify error:', e.message));
+    req.write(body);
+    req.end();
+  } catch(e) { console.error('[DISCORD] notify failed:', e.message); }
+}
+function awstStamp(iso) {
+  try {
+    return new Date(iso).toLocaleString('en-AU', {
+      timeZone: 'Australia/Perth', hour12: false,
+      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+    });
+  } catch(e) { return iso || '?'; }
+}
 
 // ── PERSISTENT DISK STATE ─────────────────────────────────────────────────
 const STATE_FILE    = '/data/state.json';
@@ -1189,7 +1219,10 @@ app.post('/api/hq-update', (req, res) => {
     }
     const rawText = body.rawText || '';
     const players = parsePaceUpload(rawText);
-    if (players.length === 0) return res.status(400).json({ ok: false, error: 'no players parsed' });
+    if (players.length === 0) {
+      notifyDiscord('⚠️ **HQ DATA NOT RECEIVED** — No players could be parsed from the upload. Data has NOT been logged. Contact Atlas.');
+      return res.status(400).json({ ok: false, error: 'no players parsed' });
+    }
     if (hqData.alliancePace) {
       hqData.history = [...(hqData.history || []).slice(-23), {
         timestamp: hqData.timestamp,
@@ -1204,9 +1237,12 @@ app.post('/api/hq-update', (req, res) => {
     hqData.players = players.sort((a, b) => b.lastContrib - a.lastContrib);
     saveHqState(hqData);
     console.log('[HQ] updated — ' + players.length + ' players, pace ' + hqData.alliancePace);
+    const paceStr = hqData.alliancePace ? '$' + parseFloat(hqData.alliancePace).toFixed(2) + '/day' : 'not available';
+    notifyDiscord('✅ **HQ DATA RECEIVED & LOGGED** — Alliance Pace: **' + paceStr + '** · ' + players.length + ' players · as of ' + awstStamp(hqData.timestamp) + ' AWST · uploaded by ' + hqData.uploader);
     res.json({ ok: true, players: players.length });
   } catch (e) {
     console.error('[HQ] error:', e.message);
+    notifyDiscord('⚠️ **HQ DATA NOT RECEIVED** — System error during save: ' + e.message + '. Data may NOT be current. Contact Atlas.');
     res.status(500).json({ ok: false, error: e.message });
   }
 });
@@ -1244,6 +1280,14 @@ app.post('/api/update', (req, res) => {
   };
   console.log(`[${new Date().toISOString()}] Updated by ${uploader}`);
   saveState(liveData);
+  notifyDiscord(
+    '✅ **PROJECTIONS DATA RECEIVED & LOGGED**' +
+    ' — Beagle Pace: **$' + (liveData.beaglePace || 0).toFixed(2) + '/day**' +
+    ' · SV: ' + (liveData.beagleSV || 0).toLocaleString() +
+    ' · Rank: #' + (liveData.beagleRank || '?') +
+    ' · as of ' + awstStamp(liveData.timestamp) + ' AWST' +
+    ' · uploaded by ' + uploader
+  );
   res.json({ ok: true });
 });
 
@@ -1288,4 +1332,3 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Beagle Projections live on port ${PORT}`));
-
