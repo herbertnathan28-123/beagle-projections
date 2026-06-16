@@ -683,7 +683,19 @@ select optgroup{background:#030B17;color:#4A7090}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 </head>
 <body>
+<div id="diag" style="position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#E8B84B;color:#000;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:700;z-index:9999;letter-spacing:.05em;">LOADING...</div>
 <div id="root"></div>
+<script>
+window.onerror=function(m,s,l,c,e){
+  var d=document.getElementById('diag');
+  if(d){d.style.background='#CC0000';d.style.color='#fff';d.style.maxWidth='90vw';d.style.whiteSpace='pre-wrap';d.textContent='JS ERROR: '+m+'\n'+s+':'+l+':'+c;}
+  return false;
+};
+window.addEventListener('unhandledrejection',function(e){
+  var d=document.getElementById('diag');
+  if(d){d.style.background='#CC0000';d.style.color='#fff';d.textContent='PROMISE ERROR: '+(e.reason?.message||String(e.reason));}
+});
+</script>
 <script type="text/babel">
 const {useState,useEffect,useMemo,useRef,useCallback}=React;
 const PERIOD_OPTS=[{label:'1MO',days:30.4,g:'M'},{label:'2MO',days:60.8,g:'M'},{label:'3MO',days:91.3,g:'M'},{label:'4MO',days:121.7,g:'M'},{label:'5MO',days:152.1,g:'M'},{label:'6MO',days:182.6,g:'M'},{label:'7MO',days:213.0,g:'M'},{label:'8MO',days:243.3,g:'M'},{label:'9MO',days:273.9,g:'M'},{label:'10MO',days:304.3,g:'M'},{label:'11MO',days:334.6,g:'M'},{label:'12MO',days:365,g:'M'},{label:'15MO',days:456.3,g:'M'},{label:'18MO',days:547.5,g:'M'},{label:'21MO',days:638.8,g:'M'},{label:'24MO',days:730,g:'M'},{label:'3Y',days:1095,g:'Y'},{label:'4Y',days:1460,g:'Y'},{label:'5Y',days:1825,g:'Y'},{label:'6Y',days:2190,g:'Y'},{label:'7Y',days:2555,g:'Y'},{label:'8Y',days:2920,g:'Y'},{label:'9Y',days:3285,g:'Y'},{label:'10Y',days:3650,g:'Y'},{label:'15Y',days:5475,g:'Y'},{label:'20Y',days:7300,g:'Y'},{label:'25Y',days:9125,g:'Y'},{label:'50Y',days:18250,g:'Y'},{label:'MAX',days:null,g:'A'}];
@@ -1177,6 +1189,7 @@ function App(){
     </div>)}
   </div>);
 }
+document.getElementById('diag').style.display='none';
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
