@@ -983,7 +983,21 @@ function App(){
     const bgRK={id:'bgRK',beforeDraw(c){const x=c.ctx;x.save();x.fillStyle='#000000';x.fillRect(0,0,c.width,c.height);x.restore();}};
     const lblRK={id:'lblRK',afterDraw(ch){
       const ctx=ch.ctx,xs=ch.scales.x,ys=ch.scales.y,ca=ch.chartArea;ctx.save();
-      const endRanks=RDS.map(d=>d.data[d.data.length-1].y);
+      // Interpolate rank at current right edge of zoom window
+      const interpRank=(ds,T)=>{
+        const pts=ds.data;if(!pts.length)return pts[0]?.y??10;
+        if(T>=pts[pts.length-1].x)return pts[pts.length-1].y;
+        if(T<=pts[0].x)return pts[0].y;
+        for(let k=0;k<pts.length-1;k++){
+          if(T>=pts[k].x&&T<=pts[k+1].x){
+            const f=(T-pts[k].x)/(pts[k+1].x-pts[k].x);
+            return pts[k].y+f*(pts[k+1].y-pts[k].y);
+          }
+        }
+        return pts[pts.length-1].y;
+      };
+      const xR=zS.maxX;
+      const endRanks=RDS.map(ds=>interpRank(ds,xR));
       const rawY=endRanks.map(r=>ys.getPixelForValue(r));
       const adjY=[...rawY];
       for(let i=1;i<adjY.length;i++)for(let j=0;j<i;j++)if(Math.abs(adjY[i]-adjY[j])<13)adjY[i]=adjY[j]+14;
