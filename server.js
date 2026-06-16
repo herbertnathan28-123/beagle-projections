@@ -886,19 +886,36 @@ function App(){
     });
     const bgSV={id:'bgSV',beforeDraw(c){const x=c.ctx;x.save();x.fillStyle='#000000';x.fillRect(0,0,c.width,c.height);x.restore();}};
     const lblSV={id:'lblSV',afterDraw(ch){
-      const ctx=ch.ctx,ys=ch.scales.y,ca=ch.chartArea;ctx.save();
-      const rawY=svPool.map(a=>ys.getPixelForValue(a.sv));
+      const ctx=ch.ctx,ys=ch.scales.y,xs=ch.scales.x,ca=ch.chartArea;ctx.save();
+      const xL=xs.min,xR=xs.max;
+      // LEFT labels — track where each line is at the current left edge
+      const rawY=svPool.map(a=>ys.getPixelForValue(a.sv+(a.pace||0)*xL));
       const adjY=[...rawY];
       for(let i=1;i<adjY.length;i++)for(let j=0;j<i;j++)if(Math.abs(adjY[i]-adjY[j])<14)adjY[i]=adjY[j]+15;
+      // RIGHT labels — predicted SV at current right edge
+      const rawYR=svPool.map(a=>ys.getPixelForValue(a.sv+(a.pace||0)*xR));
+      const adjYR=[...rawYR];
+      for(let i=1;i<adjYR.length;i++)for(let j=0;j<i;j++)if(Math.abs(adjYR[i]-adjYR[j])<14)adjYR[i]=adjYR[j]+15;
       svPool.forEach((a,i)=>{
         const c=getC(a);const isSel=selS===i,hasSel=selS!==null,dim=hasSel&&!isSel&&!a.isBeagle;
         ctx.globalAlpha=dim?.07:1;
+        // LEFT label
         if(rawY[i]>=ca.top-30&&rawY[i]<=ca.bottom+30){
           ctx.fillStyle=a.isBeagle?'#E8B84B':'#FFFFFF';
           ctx.font=(a.isBeagle||isSel?'600':'400')+' 13px '+FF2;
           ctx.textAlign='right';
           ctx.fillText('#'+a.rank+' '+(a.name.length>17?a.name.slice(0,16)+'\u2026':a.name),ca.left-8,adjY[i]+4);
           ctx.fillStyle=c;ctx.beginPath();ctx.arc(ca.left-2,rawY[i],isSel?4:2.5,0,Math.PI*2);ctx.fill();
+        }
+        // RIGHT label — predicted SV
+        if(rawYR[i]>=ca.top-30&&rawYR[i]<=ca.bottom+30){
+          const svEnd=a.sv+(a.pace||0)*xR;
+          const svStr='$'+(svEnd>=1000?(svEnd/1000).toFixed(2)+'B':svEnd.toFixed(1)+'M');
+          ctx.fillStyle=a.isBeagle?'#E8B84B':c;
+          ctx.font=(a.isBeagle||isSel?'700':'500')+' 12px '+FF2;
+          ctx.textAlign='left';
+          ctx.fillText(svStr,ca.right+8,adjYR[i]+4);
+          ctx.fillStyle=c;ctx.beginPath();ctx.arc(ca.right+3,rawYR[i],isSel?3.5:2,0,Math.PI*2);ctx.fill();
         }
       });
       ctx.globalAlpha=1;ctx.restore();
@@ -912,7 +929,7 @@ function App(){
           y:{min:minY,max:maxY,grid:{color:'#0A1520',lineWidth:.6},border:{color:'#1A324A'},
             ticks:{color:'#2A4A6A',font:{family:FF2,size:11},callback:v=>'$'+v.toFixed(0)+'M'}}
         },
-        layout:{padding:{left:158,right:20,top:20,bottom:8}},
+        layout:{padding:{left:158,right:80,top:20,bottom:8}},
         onClick(e){
           if(!svChart.current)return;
           const ca=svChart.current.chartArea,xs=svChart.current.scales.x,ys=svChart.current.scales.y;
