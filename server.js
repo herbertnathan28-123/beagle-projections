@@ -10,6 +10,7 @@ const cors    = require('cors');
 const https   = require('https');
 const esbuild = require('esbuild');
 const fs      = require('fs');
+const path    = require('path');
 const app     = express();
 const PORT    = process.env.PORT || 3000;
 const SECRET       = process.env.PROJECTIONS_SECRET || 'changeme';
@@ -121,6 +122,28 @@ let liveData = loadState();
 
 // ── BEAGLE HQ — IN-MEMORY STORE ───────────────────────────────────────────
 let hqData = loadHqState();
+
+// ── HUNTER ELITE — IN-MEMORY STORE ────────────────────────────────────────
+const HUNTER_FILE = path.join(__dirname, 'data', 'hunter-data.json');
+let hunterStore = {
+  lastUpdated: null,
+  players: {},
+  alliances: [],
+  individuals: []
+};
+
+try {
+  if (!fs.existsSync(path.join(__dirname, 'data')))
+    fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
+  if (fs.existsSync(HUNTER_FILE))
+    hunterStore = JSON.parse(fs.readFileSync(HUNTER_FILE, 'utf8'));
+} catch (e) { console.error('Hunter load error:', e); }
+
+function saveHunter() {
+  try {
+    fs.writeFileSync(HUNTER_FILE, JSON.stringify(hunterStore, null, 2));
+  } catch (e) {}
+}
 
 // ── AM4 CONTRIBUTION CALCULATOR — DATA & FUNCTIONS ───────────────────────
 // base speeds from game × 1.1 = realism, × 1.65 = easy
@@ -1421,6 +1444,73 @@ app.get('/api/calc', (req, res) => {
 app.get('/calculator', (req, res) => {
   if (req.query.k !== process.env.CONTRIBUTIONS_LOG_IN) return res.status(403).send('Access denied.');
   res.send(buildCalcPage(req.query.k));
+});
+
+// ── HUNTER ELITE ROUTES ────────────────────────────────────────────────────
+app.get('/hunter', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'hunter-elite.html'));
+});
+
+app.post('/api/hunter-update', (req, res) => {
+  try {
+    const { players = [], departed = [], lastUpdated } = req.body;
+    for (const p of players) {
+      if (!p.airline_name) continue;
+      hunterStore.players[p.airline_name] = {
+        ...p,
+        roster_status: p.roster_status || 'RETURNING',
+        lastUpdated: lastUpdated || new Date().toISOString(),
+      };
+    }
+    for (const name of departed) {
+      if (hunterStore.players[name]) {
+        hunterStore.players[name].roster_status = 'DEPARTED';
+        hunterStore.players[name].departed_at =
+          lastUpdated || new Date().toISOString();
+      }
+    }
+    hunterStore.lastUpdated = lastUpdated || new Date().toISOString();
+    saveHunter();
+    res.json({ ok: true, total: Object.keys(hunterStore.players).length });
+  } catch (e) {
+    console.error('Hunter update error:', e);
+    res.status(500).json({ ok: false });
+  }
+});
+
+app.get('/api/hunter-data', (req, res) => {
+  try {
+    const all = Object.values(hunterStore.players || {});
+    const allianceMap = {};
+    const individuals = [];
+    for (const p of all) {
+      const aName = p.alliance_name;
+      const isInd = !aName || aName === 'UNKNOWN' || aName === 'INDIVIDUAL';
+      if (isInd) {
+        individuals.push(p);
+      } else {
+        if (!allianceMap[aName])
+          allianceMap[aName] = { allianceName: aName, players: [], departed: [] };
+        if (p.roster_status === 'DEPARTED')
+          allianceMap[aName].departed.push(p.airline_name);
+        else
+          allianceMap[aName].players.push(p);
+      }
+    }
+    const alliances = Object.values(allianceMap).sort((a, b) => {
+      const ar = a.players.filter(p => p.level === 'RED').length;
+      const br = b.players.filter(p => p.level === 'RED').length;
+      return br - ar;
+    });
+    res.json({
+      lastUpdated: hunterStore.lastUpdated,
+      totalPlayers: all.filter(p => p.roster_status !== 'DEPARTED').length,
+      alliances,
+      individuals,
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load hunter data' });
+  }
 });
 
 // ── WILDCARD — catches all other routes (Alliance Projections main page) ───
