@@ -731,6 +731,7 @@ function App(){
   const mob=typeof window!=='undefined'&&window.innerWidth<700;
   const W2=typeof window!=='undefined'?window.innerWidth:1200;
   const sz=(mn,mx,sc)=>mob?mn:Math.round(Math.min(mx,Math.max(mn+2,W2*sc)));
+  const portrait=mob&&(typeof window!=='undefined'?window.innerHeight>window.innerWidth:false);
   const rChg=beagle.rank?(beagle.rank-(bRank?.projRank??beagle.rank)):0;
   const crossovers=useMemo(()=>{const activeA=[...act].map(n=>all.find(a=>a.name===n)).filter(a=>a&&!a.isBeagle&&a.pace!=null);const pairs=[];for(let i=0;i<activeA.length;i++){for(let j=i+1;j<activeA.length;j++){const a=activeA[i],b=activeA[j];const paceDiff=a.pace-b.pace;const svDiff=a.sv-b.sv;if(paceDiff!==0){const t=-svDiff/paceDiff;if(t>0){const ahead=svDiff>0?a:b;const behind=svDiff>0?b:a;const xDate=new Date(Date.now()+t*86400000);pairs.push({ahead:ahead.name,behind:behind.name,daysTo:Math.round(t),date:xDate,crossDay:t,aColor:lc(a),bColor:lc(b),aName:a.name,bName:b.name});}}}}return pairs;},[act,all]);
   const W=1380,H=280,ml=72,mr=170,mt=18,mb=42,cw=W-ml-mr,ch=H-mt-mb;
@@ -819,11 +820,11 @@ function App(){
         responsive:true,maintainAspectRatio:false,animation:{duration:600},
         plugins:{legend:{display:false},tooltip:{enabled:false}},
         scales:{
-          x:{type:'linear',min:0,max:maxDay,grid:{color:'#0B1A28',lineWidth:.8},border:{color:'#1A324A'},
-            ticks:{color:'#2A4A6A',font:{family:FF2,size:11,weight:'300'},
+          x:{type:'linear',min:0,max:maxDay,grid:{color:'#112030',lineWidth:.8},border:{color:'#1A324A'},
+            ticks:{color:'#7AAAC8',font:{family:FF2,size:11,weight:'300'},
               callback:v=>v===0?'NOW':v<60?Math.round(v)+'d':Math.round(v/30.4)+'MO'}},
-          y:{min:-Math.max(BS*0.04,80),max:maxGap,grid:{color:'#0B1A28',lineWidth:.8},border:{color:'#1A324A'},
-            ticks:{color:'#2A4A6A',font:{family:FF2,size:11,weight:'300'},
+          y:{min:-Math.max(BS*0.04,80),max:maxGap,grid:{color:'#112030',lineWidth:.8},border:{color:'#1A324A'},
+            ticks:{color:'#7AAAC8',font:{family:FF2,size:11,weight:'300'},
               callback:v=>v===0?'':v<0?'▼$'+Math.abs(v).toFixed(0)+'M':'$'+v.toFixed(0)+'M'}}
         },
         layout:{padding:{left:158,right:20,top:20,bottom:8}},
@@ -924,10 +925,10 @@ function App(){
       options:{responsive:true,maintainAspectRatio:false,animation:{duration:400},
         plugins:{legend:{display:false},tooltip:{enabled:false}},
         scales:{
-          x:{type:'linear',min:0,max:days,grid:{color:'#0A1520',lineWidth:.6},border:{color:'#1A324A'},
-            ticks:{color:'#2A4A6A',font:{family:FF2,size:11},callback:v=>v===0?'NOW':v<60?Math.round(v)+'d':Math.round(v/30.4)+'MO'}},
-          y:{min:minY,max:maxY,grid:{color:'#0A1520',lineWidth:.6},border:{color:'#1A324A'},
-            ticks:{color:'#2A4A6A',font:{family:FF2,size:11},callback:v=>'$'+v.toFixed(0)+'M'}}
+          x:{type:'linear',min:0,max:days,grid:{color:'#0F1E2E',lineWidth:.6},border:{color:'#1A324A'},
+            ticks:{color:'#7AAAC8',font:{family:FF2,size:11},callback:v=>v===0?'NOW':v<60?Math.round(v)+'d':Math.round(v/30.4)+'MO'}},
+          y:{min:minY,max:maxY,grid:{color:'#0F1E2E',lineWidth:.6},border:{color:'#1A324A'},
+            ticks:{color:'#7AAAC8',font:{family:FF2,size:11},callback:v=>'$'+v.toFixed(0)+'M'}}
         },
         layout:{padding:{left:158,right:80,top:20,bottom:8}},
         onClick(e){
@@ -1015,7 +1016,7 @@ function App(){
       for(let r=1;r<=20;r+=r<5?1:r<10?2:5){
         const py=ys.getPixelForValue(r);
         if(py<ca.top||py>ca.bottom)continue;
-        ctx.globalAlpha=1;ctx.fillStyle='#2A4A6A';ctx.font='300 11px '+FF2;ctx.textAlign='right';
+        ctx.globalAlpha=1;ctx.fillStyle='#7AAAC8';ctx.font='300 11px '+FF2;ctx.textAlign='right';
         ctx.fillText('#'+r,ca.left-6,py+4);
       }
       ctx.globalAlpha=1;ctx.restore();
@@ -1024,9 +1025,9 @@ function App(){
       options:{responsive:true,maintainAspectRatio:false,animation:{duration:400},
         plugins:{legend:{display:false},tooltip:{enabled:false}},
         scales:{
-          x:{type:'linear',min:0,max:days,grid:{color:'#0A1520',lineWidth:.6},border:{color:'#1A324A'},
-            ticks:{color:'#2A4A6A',font:{family:FF2,size:11},callback:v=>v===0?'NOW':v<60?Math.round(v)+'d':Math.round(v/30.4)+'MO'}},
-          y:{min:1,max:20,reverse:true,grid:{color:'#0A1520',lineWidth:.6},border:{color:'#1A324A'},ticks:{display:false}}
+          x:{type:'linear',min:0,max:days,grid:{color:'#0F1E2E',lineWidth:.6},border:{color:'#1A324A'},
+            ticks:{color:'#7AAAC8',font:{family:FF2,size:11},callback:v=>v===0?'NOW':v<60?Math.round(v)+'d':Math.round(v/30.4)+'MO'}},
+          y:{min:1,max:20,reverse:true,grid:{color:'#0F1E2E',lineWidth:.6},border:{color:'#1A324A'},ticks:{display:false}}
         },
         layout:{padding:{left:40,right:155,top:20,bottom:8}},
         onClick(e){
@@ -1175,7 +1176,8 @@ function App(){
       </div>
     </div>
     <div style={{padding:'2px 4px 4px',flexShrink:0,touchAction:'auto'}}>
-      {mode==='GAP'?(<div style={{width:'100%',height:'38vh',background:'#000000',borderRadius:2}}><canvas ref={gapCvs} style={{width:'100%',height:'100%',display:'block'}}/></div>):mode==='SV'?(<div style={{width:'100%',height:'38vh',background:'#000000',borderRadius:2}}><canvas ref={svCvs} style={{width:'100%',height:'100%',display:'block'}}/></div>):mode==='RANK'?(<div style={{width:'100%',height:'38vh',background:'#000000',borderRadius:2}}><canvas ref={rkCvs} style={{width:'100%',height:'100%',display:'block'}}/></div>):(<svg ref={svgRef} className={'svg-chart'+(zoomed?' zoomed':'')} viewBox={'0 0 '+W+' '+H} style={{width:'100%',maxHeight:'38vh',display:'block',touchAction:'none'}} onMouseDown={onMouseDown} onDoubleClick={onDblClick}>
+      {portrait&&(<div style={{background:'#0A1520',border:'1px solid #1A3A5A',borderRadius:4,padding:'6px 12px',marginBottom:6,display:'flex',alignItems:'center',gap:8,fontSize:12,color:'#5A8AAB',letterSpacing:'.05em'}}><span style={{fontSize:16}}>&#8635;</span><span>ROTATE DEVICE FOR BEST EXPERIENCE</span></div>)}
+      {mode==='GAP'?(<div style={{width:'100%',height:portrait?'44vh':'38vh',background:'#000000',borderRadius:2}}><canvas ref={gapCvs} style={{width:'100%',height:'100%',display:'block'}}/></div>):mode==='SV'?(<div style={{width:'100%',height:portrait?'44vh':'38vh',background:'#000000',borderRadius:2}}><canvas ref={svCvs} style={{width:'100%',height:'100%',display:'block'}}/></div>):mode==='RANK'?(<div style={{width:'100%',height:portrait?'44vh':'38vh',background:'#000000',borderRadius:2}}><canvas ref={rkCvs} style={{width:'100%',height:'100%',display:'block'}}/></div>):(<svg ref={svgRef} className={'svg-chart'+(zoomed?' zoomed':'')} viewBox={'0 0 '+W+' '+H} style={{width:'100%',maxHeight:'38vh',display:'block',touchAction:'none'}} onMouseDown={onMouseDown} onDoubleClick={onDblClick}>
         <defs><filter id="fg"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="fl"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><clipPath id="cc"><rect x={ml} y={mt} width={cw} height={ch}/></clipPath><style>{'@keyframes pu{0%,100%{r:5;opacity:1}50%{r:9;opacity:0.4}} .pd{animation:pu 1.8s ease-in-out infinite}'}</style></defs>
         <rect x={ml} y={mt} width={cw} height={ch} fill="#030810" rx="2"/>
         {mode==='SV'&&yTks.map(v=>(<g key={v}><line x1={ml} x2={ml+cw} y1={ys(v)} y2={ys(v)} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/><text x={ml-6} y={ys(v)+4} textAnchor="end" fill="#5A8AAB" fontSize="14">{fmtAxis(v)}</text></g>))}
@@ -1205,7 +1207,7 @@ function App(){
           {selA&&!selA.isBeagle&&(()=>{const sp=ranking.find(r=>r.name===selA.name),sc=selA.rank-(sp?.projRank??selA.rank),c=lc(selA);return(<span style={{display:'flex',alignItems:'center',gap:6,marginLeft:12,paddingLeft:12,borderLeft:'1px solid #162030'}}><span style={{fontSize:14,color:c,fontWeight:600}}>{selA.name}</span><span style={{fontSize:16,fontWeight:700,color:c}}>#{selA.rank}</span><span style={{fontSize:15,color:'#5A8AAB'}}>\u2192</span><span style={{fontSize:17,fontWeight:700,color:sc>0?'#00E676':sc<0?'#E74C3C':c}}>#{sp?.projRank}</span>{sc!==0&&<span style={{fontSize:14,fontWeight:700,color:sc>0?'#00E676':'#E74C3C'}}>{sc>0?'\u25b2'+sc:'\u25bc'+Math.abs(sc)}</span>}</span>);})()}
         </div>
       </div>
-      <div style={{display:'flex',gap:16,width:'100%'}}><div style={{flex:1,minWidth:0}}><div style={{fontSize:sz(13,20,0.012),color:'#8AAABB',fontWeight:600,letterSpacing:1,padding:'0 6px 5px',borderBottom:'1px solid #0A1E30',marginBottom:4}}>1 \u2014 10</div>{ranking.slice(0,10).map(renderRow)}</div><div style={{flex:1,minWidth:0}}><div style={{fontSize:sz(13,20,0.012),color:'#8AAABB',fontWeight:600,letterSpacing:1,padding:'0 6px 5px',borderBottom:'1px solid #0A1E30',marginBottom:4}}>11 \u2014 20</div>{ranking.slice(10,20).map(renderRow)}</div></div>
+      {mob?(<div style={{width:'100%'}}>{ranking.slice(0,20).map(renderRow)}</div>):(<div style={{display:'flex',gap:16,width:'100%'}}><div style={{flex:1,minWidth:0}}><div style={{fontSize:sz(13,20,0.012),color:'#8AAABB',fontWeight:600,letterSpacing:1,padding:'0 6px 5px',borderBottom:'1px solid #0A1E30',marginBottom:4}}>1 \u2014 10</div>{ranking.slice(0,10).map(renderRow)}</div><div style={{flex:1,minWidth:0}}><div style={{fontSize:sz(13,20,0.012),color:'#8AAABB',fontWeight:600,letterSpacing:1,padding:'0 6px 5px',borderBottom:'1px solid #0A1E30',marginBottom:4}}>11 \u2014 20</div>{ranking.slice(10,20).map(renderRow)}</div></div>)}
     </div>)}
     {selA&&!selA.isBeagle&&(<div style={{margin:'0 8px 8px',background:'#050D1A',border:'1px solid '+lc(selA)+'30',borderLeft:'4px solid '+lc(selA),borderRadius:4,padding:'12px 16px'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
