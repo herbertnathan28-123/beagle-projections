@@ -888,7 +888,7 @@ function App(){
     const bgSV={id:'bgSV',beforeDraw(c){const x=c.ctx;x.save();x.fillStyle='#000000';x.fillRect(0,0,c.width,c.height);x.restore();}};
     const lblSV={id:'lblSV',afterDraw(ch){
       const ctx=ch.ctx,ys=ch.scales.y,ca=ch.chartArea;ctx.save();
-      const xL=zS.minX,xR=zS.maxX;
+      const xL=Math.max(zS.minX,0),xR=Math.min(zS.maxX,days);
       // LEFT labels — track where each line is at the current left edge
       const rawY=svPool.map(a=>ys.getPixelForValue(a.sv+(a.pace||0)*xL));
       const adjY=[...rawY];
@@ -997,7 +997,7 @@ function App(){
         }
         return pts[pts.length-1].y;
       };
-      const xR=zS.maxX;
+      const xR=Math.min(Math.max(zS.maxX,0),days);
       const endRanks=RDS.map(ds=>interpRank(ds,xR));
       const rawY=endRanks.map(r=>ys.getPixelForValue(r));
       const adjY=[...rawY];
