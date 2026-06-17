@@ -714,6 +714,7 @@ function App(){
   useEffect(()=>{const d=document.getElementById('diag');if(d)d.style.display='none';},[]);
   useEffect(()=>{let t;const onResize=()=>{clearTimeout(t);t=setTimeout(()=>forceLayout(n=>n+1),200);};window.addEventListener('resize',onResize);window.addEventListener('orientationchange',onResize);return()=>{clearTimeout(t);window.removeEventListener('resize',onResize);window.removeEventListener('orientationchange',onResize);};},[]);
   const[focus,setFocus]=useState(null);const[full,setFull]=useState(true);const[showR,setShowR]=useState(true);const[yZ,setYZ]=useState(1);const[yP,setYP]=useState(0);const[xZ,setXZ]=useState(1);const[xP,setXP]=useState(0);
+  const[rkTip,setRkTip]=useState(null);const rkDots=useRef([]);
   const svgRef=useRef(null);const pinchDist=useRef(null);const drag=useRef({active:false,x:0,y:0,yp:0,xp:0});const lv=useRef({yP:0,xP:0,days:182.6,yRZ:0,xZ:1});const gapCvs=useRef(null);const gapChart=useRef(null);const gapZI=useRef(null);const gapZO=useRef(null);const gapRZ=useRef(null);const gapPL=useRef(null);const gapPR=useRef(null);const gapPU=useRef(null);const gapPD=useRef(null);const svCvs=useRef(null);const svChart=useRef(null);const svZI=useRef(null);const svZO=useRef(null);const svRZ=useRef(null);const svPL=useRef(null);const svPR=useRef(null);const svPU=useRef(null);const svPD=useRef(null);const rkCvs=useRef(null);const rkChart=useRef(null);const rkZI=useRef(null);const rkZO=useRef(null);const rkRZ=useRef(null);const rkPL=useRef(null);const rkPR=useRef(null);const rkPU=useRef(null);const rkPD=useRef(null);
   const toggle=useCallback(name=>{setAct(prev=>{const n=new Set(prev);if(n.has(name)){n.delete(name);setFocus(f=>f===name?([...n].pop()||null):f);}else{n.add(name);setFocus(name);}return n;});},[]);
   useEffect(()=>{fetch('/api/data').then(r=>r.json()).then(d=>{setApiData(d);setLoading(false);}).catch(()=>setLoading(false));},[]);
@@ -887,36 +888,36 @@ function App(){
     });
     const bgSV={id:'bgSV',beforeDraw(c){const x=c.ctx;x.save();x.fillStyle='#000000';x.fillRect(0,0,c.width,c.height);x.restore();}};
     const lblSV={id:'lblSV',afterDraw(ch){
-      const ctx=ch.ctx,ys=ch.scales.y,ca=ch.chartArea;ctx.save();
+      const ctx=ch.ctx,ys=ch.scales.y,xs=ch.scales.x,ca=ch.chartArea;ctx.save();
       const xL=Math.max(zS.minX,0),xR=Math.min(zS.maxX,days);
-      // LEFT labels — track where each line is at the current left edge
+      const pxL=Math.max(xs.getPixelForValue(xL),ca.left);
+      const pxR=Math.min(xs.getPixelForValue(xR),ca.right);
+      const leftVis=pxL>=ca.left&&pxL<=ca.right;
+      const rightVis=pxR>=ca.left&&pxR<=ca.right;
       const rawY=svPool.map(a=>ys.getPixelForValue(a.sv+(a.pace||0)*xL));
       const adjY=[...rawY];
       for(let i=1;i<adjY.length;i++)for(let j=0;j<i;j++)if(Math.abs(adjY[i]-adjY[j])<14)adjY[i]=adjY[j]+15;
-      // RIGHT labels — predicted SV at current right edge
       const rawYR=svPool.map(a=>ys.getPixelForValue(a.sv+(a.pace||0)*xR));
       const adjYR=[...rawYR];
       for(let i=1;i<adjYR.length;i++)for(let j=0;j<i;j++)if(Math.abs(adjYR[i]-adjYR[j])<14)adjYR[i]=adjYR[j]+15;
       svPool.forEach((a,i)=>{
         const c=getC(a);const isSel=selS===i,hasSel=selS!==null,dim=hasSel&&!isSel&&!a.isBeagle;
         ctx.globalAlpha=dim?.07:1;
-        // LEFT label
-        if(rawY[i]>=ca.top-30&&rawY[i]<=ca.bottom+30){
+        if(leftVis&&rawY[i]>=ca.top-30&&rawY[i]<=ca.bottom+30){
           ctx.fillStyle=a.isBeagle?'#E8B84B':'#FFFFFF';
           ctx.font=(a.isBeagle||isSel?'600':'400')+' 13px '+FF2;
           ctx.textAlign='right';
-          ctx.fillText('#'+a.rank+' '+(a.name.length>17?a.name.slice(0,16)+'\u2026':a.name),ca.left-8,adjY[i]+4);
-          ctx.fillStyle=c;ctx.beginPath();ctx.arc(ca.left-2,rawY[i],isSel?4:2.5,0,Math.PI*2);ctx.fill();
+          ctx.fillText('#'+a.rank+' '+(a.name.length>17?a.name.slice(0,16)+'\u2026':a.name),pxL-8,adjY[i]+4);
+          ctx.fillStyle=c;ctx.beginPath();ctx.arc(pxL-2,rawY[i],isSel?4:2.5,0,Math.PI*2);ctx.fill();
         }
-        // RIGHT label — predicted SV
-        if(rawYR[i]>=ca.top-30&&rawYR[i]<=ca.bottom+30){
+        if(rightVis&&rawYR[i]>=ca.top-30&&rawYR[i]<=ca.bottom+30){
           const svEnd=a.sv+(a.pace||0)*xR;
           const svStr='$'+(svEnd>=1000?(svEnd/1000).toFixed(2)+'B':svEnd.toFixed(1)+'M');
           ctx.fillStyle=a.isBeagle?'#E8B84B':c;
           ctx.font=(a.isBeagle||isSel?'700':'500')+' 12px '+FF2;
           ctx.textAlign='left';
-          ctx.fillText(svStr,ca.right+8,adjYR[i]+4);
-          ctx.fillStyle=c;ctx.beginPath();ctx.arc(ca.right+3,rawYR[i],isSel?3.5:2,0,Math.PI*2);ctx.fill();
+          ctx.fillText(svStr,pxR+8,adjYR[i]+4);
+          ctx.fillStyle=c;ctx.beginPath();ctx.arc(pxR+3,rawYR[i],isSel?3.5:2,0,Math.PI*2);ctx.fill();
         }
       });
       ctx.globalAlpha=1;ctx.restore();
@@ -981,7 +982,28 @@ function App(){
       const data=ptDays.map(d=>{const pr=projR(all,beagle,d);const e=pr.find(r=>r.name===a.name);return{x:d,y:e?.projRank??a.rank};});
       return{label:a.name,data,borderColor:dim?rgba2(c,.06):c,borderWidth:a.isBeagle?3.5:isAct?2.5:1.2,pointRadius:0,showLine:true,tension:0.25,fill:false,_c:c,_beagle:a.isBeagle};
     });
-    const bgRK={id:'bgRK',beforeDraw(c){const x=c.ctx;x.save();x.fillStyle='#000000';x.fillRect(0,0,c.width,c.height);x.restore();}};
+    // Calculate rank crossover events between all pairs
+    const crossovers=[];
+    for(let i=0;i<rkAll.length;i++){for(let j=i+1;j<rkAll.length;j++){
+      for(let k=0;k<RDS[i].data.length-1;k++){
+        const rAk=RDS[i].data[k].y,rAk1=RDS[i].data[k+1].y;
+        const rBk=RDS[j].data[k].y,rBk1=RDS[j].data[k+1].y;
+        const dA=rAk1-rAk,dB=rBk1-rBk;
+        if(Math.sign(rAk-rBk)!==Math.sign(rAk1-rBk1)&&Math.abs(dA-dB)>0.01){
+          const f=(rBk-rAk)/(dA-dB);
+          if(f>0&&f<1){
+            const tx=RDS[i].data[k].x+f*(RDS[i].data[k+1].x-RDS[i].data[k].x);
+            const rv=rAk+f*dA;
+            const aUp=rAk>rBk; // A was lower rank (higher number), now higher
+            crossovers.push({ci:crossovers.length,tx,rv,
+              nameA:rkAll[i].name,paceA:rkAll[i].pace||0,colorA:RDS[i]._c,rankAbefore:Math.round(rAk),rankAafter:Math.round(rAk1),
+              nameB:rkAll[j].name,paceB:rkAll[j].pace||0,colorB:RDS[j]._c,rankBbefore:Math.round(rBk),rankBafter:Math.round(rBk1),
+              aUp});
+          }
+        }
+      }
+    }}
+    const bgRK={id:'bgRK',beforeDraw(c){const x=c.ctx;x.save();x.fillStyle='#000000';x.fillRect(0,0,c.width,c.height);x.restore()}};
     const lblRK={id:'lblRK',afterDraw(ch){
       const ctx=ch.ctx,xs=ch.scales.x,ys=ch.scales.y,ca=ch.chartArea;ctx.save();
       // Interpolate rank at current right edge of zoom window
@@ -1019,6 +1041,18 @@ function App(){
         ctx.globalAlpha=1;ctx.fillStyle='#7AAAC8';ctx.font='300 11px '+FF2;ctx.textAlign='right';
         ctx.fillText('#'+r,ca.left-6,py+4);
       }
+      // Draw crossover dots
+      const dotPx=[];
+      crossovers.forEach(co=>{
+        const px=xs.getPixelForValue(co.tx),py=ys.getPixelForValue(co.rv);
+        if(px>=ca.left&&px<=ca.right&&py>=ca.top&&py<=ca.bottom){
+          ctx.globalAlpha=1;
+          ctx.fillStyle='#FF3333';ctx.strokeStyle='rgba(255,255,255,0.8)';ctx.lineWidth=1.5;
+          ctx.beginPath();ctx.arc(px,py,5,0,Math.PI*2);ctx.fill();ctx.stroke();
+          dotPx.push({...co,px,py});
+        }
+      });
+      rkDots.current=dotPx;
       ctx.globalAlpha=1;ctx.restore();
     }};
     try{rkChart.current=new Chart(rkCvs.current,{type:'scatter',data:{datasets:RDS},plugins:[bgRK,lblRK],
@@ -1063,7 +1097,9 @@ function App(){
     const onTE=e=>{if(e.touches.length<2)td.pd=null;if(e.touches.length===0)td.a=false;};
     const onWH=e=>{e.preventDefault();dZoom(e.deltaY>0?1.25:0.8);};
     cvs.addEventListener('touchstart',onTS,{passive:false});cvs.addEventListener('touchmove',onTM,{passive:false});cvs.addEventListener('touchend',onTE);cvs.addEventListener('wheel',onWH,{passive:false});
-    return()=>{cvs.removeEventListener('touchstart',onTS);cvs.removeEventListener('touchmove',onTM);cvs.removeEventListener('touchend',onTE);cvs.removeEventListener('wheel',onWH);if(rkChart.current){rkChart.current.destroy();rkChart.current=null;}};
+    const onRkClick=e=>{const rect=cvs.getBoundingClientRect();const mx=e.clientX-rect.left;const my=e.clientY-rect.top;const hit=rkDots.current.find(d=>Math.hypot(d.px-mx,d.py-my)<12);if(hit){setRkTip(prev=>prev&&prev.ci===hit.ci?null:{...hit,tipX:rect.left+hit.px,tipY:rect.top+hit.py});}else{setRkTip(null);}};
+    cvs.addEventListener('click',onRkClick);
+    return()=>{cvs.removeEventListener('touchstart',onTS);cvs.removeEventListener('touchmove',onTM);cvs.removeEventListener('touchend',onTE);cvs.removeEventListener('wheel',onWH);cvs.removeEventListener('click',onRkClick);if(rkChart.current){rkChart.current.destroy();rkChart.current=null;}};
   },[mode,all,beagle,days,act,hasAct]);
   const onDblClick=useCallback(e=>{const svg=svgRef.current;if(!svg)return;setZHint(false);const r=svg.getBoundingClientRect();const mx=(e.clientX-r.left-ml*(r.width/W))/(cw*(r.width/W));const my=(e.clientY-r.top-mt*(r.height/H))/(ch*(r.height/H));const clampX=Math.max(0,Math.min(1,mx)),clampY=Math.max(0,Math.min(1,my));const f=2;setYZ(prev=>{const nz=Math.max(1,Math.min(30,prev*f));const oldR=lv.current.yRZ,newR=(yMxB-yMnB)/nz;setYP(p=>p+(oldR-newR)*(0.5-clampY));return nz;});setXZ(prev=>{const nz=Math.max(1,Math.min(30,prev*f));const oldVD=lv.current.days/lv.current.xZ,newVD=lv.current.days/nz;setXP(p=>Math.max(0,Math.min(p+(oldVD-newVD)*clampX,lv.current.days-newVD)));return nz;});},[yMnB,yMxB]);
   const detP=selA?[1,3,6,12].map(mo=>({mo,sv:selA.sv+(selA.pace||0)*MTD[mo],rank:projR(all,beagle,MTD[mo]).findIndex(a=>a.isBeagle)+1})):[];
@@ -1177,7 +1213,27 @@ function App(){
     </div>
     <div style={{padding:'2px 4px 4px',flexShrink:0,touchAction:'auto'}}>
       {portrait&&(<div style={{background:'#0A1520',border:'1px solid #1A3A5A',borderRadius:4,padding:'6px 12px',marginBottom:6,display:'flex',alignItems:'center',gap:8,fontSize:12,color:'#5A8AAB',letterSpacing:'.05em'}}><span style={{fontSize:16}}>&#8635;</span><span>ROTATE DEVICE FOR BEST EXPERIENCE</span></div>)}
-      {mode==='GAP'?(<div style={{width:'100%',height:portrait?'44vh':'38vh',background:'#000000',borderRadius:2}}><canvas ref={gapCvs} style={{width:'100%',height:'100%',display:'block'}}/></div>):mode==='SV'?(<div style={{width:'100%',height:portrait?'44vh':'38vh',background:'#000000',borderRadius:2}}><canvas ref={svCvs} style={{width:'100%',height:'100%',display:'block'}}/></div>):mode==='RANK'?(<div style={{width:'100%',height:portrait?'44vh':'38vh',background:'#000000',borderRadius:2}}><canvas ref={rkCvs} style={{width:'100%',height:'100%',display:'block'}}/></div>):(<svg ref={svgRef} className={'svg-chart'+(zoomed?' zoomed':'')} viewBox={'0 0 '+W+' '+H} style={{width:'100%',maxHeight:'38vh',display:'block',touchAction:'none'}} onMouseDown={onMouseDown} onDoubleClick={onDblClick}>
+      {mode==='GAP'?(<div style={{width:'100%',height:portrait?'44vh':'38vh',background:'#000000',borderRadius:2}}><canvas ref={gapCvs} style={{width:'100%',height:'100%',display:'block'}}/></div>):mode==='SV'?(<div style={{width:'100%',height:portrait?'44vh':'38vh',background:'#000000',borderRadius:2}}><canvas ref={svCvs} style={{width:'100%',height:'100%',display:'block'}}/></div>):mode==='RANK'?(<div style={{width:'100%',height:portrait?'44vh':'38vh',background:'#000000',borderRadius:2,position:'relative'}}>
+  <canvas ref={rkCvs} style={{width:'100%',height:'100%',display:'block'}} onClick={()=>{}}/>
+  {rkTip&&(<div onClick={()=>setRkTip(null)} style={{position:'fixed',left:Math.min(rkTip.tipX+12,window.innerWidth-280),top:Math.max(rkTip.tipY-110,8),zIndex:999,background:'#0A1520',border:'1px solid #1A3A5A',borderRadius:6,padding:'10px 14px',minWidth:240,maxWidth:280,boxShadow:'0 4px 20px rgba(0,0,0,0.7)',cursor:'pointer'}}>
+    <div style={{fontSize:10,color:'#5A8AAB',letterSpacing:'.1em',marginBottom:6}}>RANK CROSSOVER · TAP TO CLOSE</div>
+    <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+      <span style={{width:8,height:8,borderRadius:'50%',background:rkTip.aUp?rkTip.colorA:rkTip.colorB,display:'inline-block'}}/>
+      <span style={{color:'#E2EAF4',fontWeight:700,fontSize:13}}>{rkTip.aUp?rkTip.nameA:rkTip.nameB}</span>
+      <span style={{color:'#00E676',fontWeight:700,fontSize:12}}>▲#{rkTip.aUp?rkTip.rankAbefore:rkTip.rankBbefore}→#{rkTip.aUp?rkTip.rankAafter:rkTip.rankBafter}</span>
+      <span style={{color:'#7AAAC8',fontSize:11,marginLeft:'auto'}}>${(rkTip.aUp?rkTip.paceA:rkTip.paceB).toFixed(2)}/d</span>
+    </div>
+    <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
+      <span style={{width:8,height:8,borderRadius:'50%',background:rkTip.aUp?rkTip.colorB:rkTip.colorA,display:'inline-block'}}/>
+      <span style={{color:'#E2EAF4',fontWeight:700,fontSize:13}}>{rkTip.aUp?rkTip.nameB:rkTip.nameA}</span>
+      <span style={{color:'#E74C3C',fontWeight:700,fontSize:12}}>▼#{rkTip.aUp?rkTip.rankBbefore:rkTip.rankAbefore}→#{rkTip.aUp?rkTip.rankBafter:rkTip.rankAafter}</span>
+      <span style={{color:'#7AAAC8',fontSize:11,marginLeft:'auto'}}>${(rkTip.aUp?rkTip.paceB:rkTip.paceA).toFixed(2)}/d</span>
+    </div>
+    <div style={{fontSize:11,color:'#5A8AAB',borderTop:'1px solid #1A2A3A',paddingTop:6}}>
+      {(()=>{const d=rkTip.tx;const s=d<60?Math.round(d)+'d':Math.round(d/30.4)+'MO';const dt=new Date(Date.now()+d*86400000);const ds=dt.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});return s+' from now · ~'+ds;})()}
+    </div>
+  </div>)}
+</div>):(<svg ref={svgRef} className={'svg-chart'+(zoomed?' zoomed':'')} viewBox={'0 0 '+W+' '+H} style={{width:'100%',maxHeight:'38vh',display:'block',touchAction:'none'}} onMouseDown={onMouseDown} onDoubleClick={onDblClick}>
         <defs><filter id="fg"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="fl"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><clipPath id="cc"><rect x={ml} y={mt} width={cw} height={ch}/></clipPath><style>{'@keyframes pu{0%,100%{r:5;opacity:1}50%{r:9;opacity:0.4}} .pd{animation:pu 1.8s ease-in-out infinite}'}</style></defs>
         <rect x={ml} y={mt} width={cw} height={ch} fill="#030810" rx="2"/>
         {mode==='SV'&&yTks.map(v=>(<g key={v}><line x1={ml} x2={ml+cw} y1={ys(v)} y2={ys(v)} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/><text x={ml-6} y={ys(v)+4} textAnchor="end" fill="#5A8AAB" fontSize="14">{fmtAxis(v)}</text></g>))}
