@@ -1221,13 +1221,13 @@ function App(){
       <span style={{width:8,height:8,borderRadius:'50%',background:rkTip.aUp?rkTip.colorA:rkTip.colorB,display:'inline-block'}}/>
       <span style={{color:'#E2EAF4',fontWeight:700,fontSize:13}}>{rkTip.aUp?rkTip.nameA:rkTip.nameB}</span>
       <span style={{color:'#00E676',fontWeight:700,fontSize:12}}>▲#{rkTip.aUp?rkTip.rankAbefore:rkTip.rankBbefore}→#{rkTip.aUp?rkTip.rankAafter:rkTip.rankBafter}</span>
-      <span style={{color:'#7AAAC8',fontSize:11,marginLeft:'auto'}}>${(rkTip.aUp?rkTip.paceA:rkTip.paceB).toFixed(2)}/d</span>
+      <span style={{color:'#7AAAC8',fontSize:11,marginLeft:'auto'}}>{'$'+(rkTip.aUp?rkTip.paceA:rkTip.paceB).toFixed(2)+'/d'}</span>
     </div>
     <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
       <span style={{width:8,height:8,borderRadius:'50%',background:rkTip.aUp?rkTip.colorB:rkTip.colorA,display:'inline-block'}}/>
       <span style={{color:'#E2EAF4',fontWeight:700,fontSize:13}}>{rkTip.aUp?rkTip.nameB:rkTip.nameA}</span>
       <span style={{color:'#E74C3C',fontWeight:700,fontSize:12}}>▼#{rkTip.aUp?rkTip.rankBbefore:rkTip.rankAbefore}→#{rkTip.aUp?rkTip.rankBafter:rkTip.rankAafter}</span>
-      <span style={{color:'#7AAAC8',fontSize:11,marginLeft:'auto'}}>${(rkTip.aUp?rkTip.paceB:rkTip.paceA).toFixed(2)}/d</span>
+      <span style={{color:'#7AAAC8',fontSize:11,marginLeft:'auto'}}>{'$'+(rkTip.aUp?rkTip.paceB:rkTip.paceA).toFixed(2)+'/d'}</span>
     </div>
     <div style={{fontSize:11,color:'#5A8AAB',borderTop:'1px solid #1A2A3A',paddingTop:6}}>
       {(()=>{const d=rkTip.tx;const s=d<60?Math.round(d)+'d':Math.round(d/30.4)+'MO';const dt=new Date(Date.now()+d*86400000);const ds=dt.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});return s+' from now · ~'+ds;})()}
