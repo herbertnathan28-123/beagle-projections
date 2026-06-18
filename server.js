@@ -1,9 +1,9 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v46
+// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v47
 // Deploy: node server.js
-// GUARD_CHECK_v46_OK
+// GUARD_CHECK_v47_OK
 // Env vars: PROJECTIONS_SECRET, ACCESS_KEY, CONTRIBUTIONS_LOG_IN, PORT,
-//           DISCORD_UPLOAD_WEBHOOK
+//           DISCORD_UPLOAD_WEBHOOK, HUNTER_KEY
 // ═══════════════════════════════════════════════════════════════════════════
 const express = require('express');
 const cors    = require('cors');
@@ -1005,7 +1005,6 @@ function App(){
       const data=ptDays.map(d=>{const pr=projR(all,beagle,d);const e=pr.find(r=>r.name===a.name);return{x:d,y:e?.projRank??a.rank};});
       return{label:a.name,data,borderColor:dim?rgba2(c,.06):c,borderWidth:a.isBeagle?3.5:isAct?2.5:1.2,pointRadius:0,showLine:true,tension:0.25,fill:false,_c:c,_beagle:a.isBeagle};
     });
-    // Calculate rank crossover events between all pairs
     const crossovers=[];
     for(let i=0;i<rkAll.length;i++){for(let j=i+1;j<rkAll.length;j++){
       for(let k=0;k<RDS[i].data.length-1;k++){
@@ -1017,7 +1016,7 @@ function App(){
           if(f>0&&f<1){
             const tx=RDS[i].data[k].x+f*(RDS[i].data[k+1].x-RDS[i].data[k].x);
             const rv=rAk+f*dA;
-            const aUp=rAk>rBk; // A was lower rank (higher number), now higher
+            const aUp=rAk>rBk;
             crossovers.push({ci:crossovers.length,tx,rv,
               nameA:rkAll[i].name,paceA:rkAll[i].pace||0,colorA:RDS[i]._c,rankAbefore:Math.round(rAk),rankAafter:Math.round(rAk1),
               nameB:rkAll[j].name,paceB:rkAll[j].pace||0,colorB:RDS[j]._c,rankBbefore:Math.round(rBk),rankBafter:Math.round(rBk1),
@@ -1029,7 +1028,6 @@ function App(){
     const bgRK={id:'bgRK',beforeDraw(c){const x=c.ctx;x.save();x.fillStyle='#000000';x.fillRect(0,0,c.width,c.height);x.restore()}};
     const lblRK={id:'lblRK',afterDraw(ch){
       const ctx=ch.ctx,xs=ch.scales.x,ys=ch.scales.y,ca=ch.chartArea;ctx.save();
-      // Interpolate rank at current right edge of zoom window
       const interpRank=(ds,T)=>{
         const pts=ds.data;if(!pts.length)return pts[0]?.y??10;
         if(T>=pts[pts.length-1].x)return pts[pts.length-1].y;
@@ -1064,7 +1062,6 @@ function App(){
         ctx.globalAlpha=1;ctx.fillStyle='#7AAAC8';ctx.font='300 11px '+FF2;ctx.textAlign='right';
         ctx.fillText('#'+r,ca.left-6,py+4);
       }
-      // Draw crossover dots
       const dotPx=[];
       crossovers.forEach(co=>{
         const px=xs.getPixelForValue(co.tx),py=ys.getPixelForValue(co.rv);
@@ -1133,7 +1130,7 @@ function App(){
   const ts2=apiData?.timestamp,upl=apiData?.uploader;
   const CHEATERS=new Set(['Dokdo']);
   const paceColor=(pr,total)=>{if(total<=1)return'#00E676';const t=(pr-1)/(total-1);const r=Math.round(0+(58-0)*t),g=Math.round(230+(144-230)*t),b=Math.round(118+(110-118)*t);return'rgb('+r+','+g+','+b+')';};
-  const renderRow=a=>{const isB=a.isBeagle,chg=a.rank-(a.projRank??a.rank),c=isB?'#E8B84B':lc(a),isAct=act.has(a.name),pr=paceRanks.get(a.name),isCheater=CHEATERS.has(a.name),totalPaced=paceRanks.size,pc=pr!=null?paceColor(pr,totalPaced):'#3A6090';return(<div key={a.name} onClick={()=>!isB&&toggle(a.name)} style={{display:'flex',alignItems:'center',gap:8,padding:W2>=1600?'10px 14px':'7px 10px',background:isB?'#1A1000':isAct?c+'22':'transparent',borderRadius:3,borderLeft:isAct?'3px solid '+c:'3px solid transparent',cursor:isB?'default':'pointer',transition:'all 0.1s',opacity:isCheater?0.35:1}}><span style={{fontSize:sz(18,34,0.017),fontWeight:700,color:a.noPace?'#4A7090':isCheater?'#4A5060':c,minWidth:36}}>#{a.projRank}</span><span style={{fontSize:sz(18,30,0.016),color:isB?c:isCheater?'#4A5060':isAct?'#E2EAF4':a.noPace?'#4A7090':'#9AAABB',flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',fontWeight:isAct?600:400}}>{a.name}</span>{pr!=null&&<span style={{fontSize:sz(12,20,0.011),fontWeight:700,color:isCheater?'#4A5060':pc,minWidth:26,textAlign:'center',borderRadius:3,padding:'1px 4px',letterSpacing:0.5}}>{pr}</span>}<span style={{fontSize:sz(13,24,0.013),color:isB?'#C4920A':a.noPace?'#2C4A68':isCheater?'#4A5060':pc,fontWeight:pr!=null&&pr<=3?700:400,minWidth:52,textAlign:'right',whiteSpace:'nowrap',marginRight:4}}>{a.pace!=null?'$'+a.pace.toFixed(2):''}</span><span style={{fontSize:sz(16,28,0.015),fontWeight:600,minWidth:30,textAlign:'right',color:a.noPace?'#4A7090':chg>0?'#00E676':chg<0?'#E74C3C':'#4A7090'}}>{a.noPace?'?':chg>0?'\u25b2'+chg:chg<0?'\u25bc'+Math.abs(chg):isB?'\u2605':'\u2014'}</span></div>);};
+  const renderRow=a=>{const isB=a.isBeagle,chg=a.rank-(a.projRank??a.rank),c=isB?'#E8B84B':lc(a),isAct=act.has(a.name),pr=paceRanks.get(a.name),isCheater=CHEATERS.has(a.name),totalPaced=paceRanks.size,pc=pr!=null?paceColor(pr,totalPaced):'#3A6090';return(<div key={a.name} onClick={()=>!isB&&toggle(a.name)} style={{display:'flex',alignItems:'center',gap:8,padding:W2>=1600?'10px 14px':'7px 10px',background:isB?'#1A1000':isAct?c+'22':'transparent',borderRadius:3,borderLeft:isAct?'3px solid '+c:'3px solid transparent',cursor:isB?'default':'pointer',transition:'all 0.1s',opacity:isCheater?0.35:1}}><span style={{fontSize:sz(18,34,0.017),fontWeight:700,color:a.noPace?'#4A7090':isCheater?'#4A5060':c,minWidth:36}}>#{a.projRank}</span><span style={{fontSize:sz(18,30,0.016),color:isB?c:isCheater?'#4A5060':isAct?'#E2EAF4':a.noPace?'#4A7090':'#9AAABB',flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',fontWeight:isAct?600:400}}>{a.name}</span>{pr!=null&&<span style={{fontSize:sz(12,20,0.011),fontWeight:700,color:isCheater?'#4A5060':pc,minWidth:26,textAlign:'center',borderRadius:3,padding:'1px 4px',letterSpacing:0.5}}>{pr}</span>}<span style={{fontSize:sz(13,24,0.013),color:isB?'#C4920A':a.noPace?'#2C4A68':isCheater?'#4A5060':pc,fontWeight:pr!=null&&pr<=3?700:400,minWidth:52,textAlign:'right',whiteSpace:'nowrap',marginRight:4}}>{a.pace!=null?'$'+a.pace.toFixed(2):''}</span><span style={{fontSize:sz(16,26,0.014),fontWeight:600,minWidth:30,textAlign:'right',color:a.noPace?'#4A7090':chg>0?'#00E676':chg<0?'#E74C3C':'#4A7090'}}>{a.noPace?'?':chg>0?'\u25b2'+chg:chg<0?'\u25bc'+Math.abs(chg):isB?'\u2605':'\u2014'}</span></div>);};
   const nameTag=(name,c)=>name.length>18?name.slice(0,17)+'\u2026':name;
   const renderGAP=()=>{
     const above=[...all].filter(a=>!a.isBeagle&&a.gap>0).sort((x,y)=>y.gap-x.gap);
@@ -1427,11 +1424,7 @@ app.get('/api/calc', (req, res) => {
   const maxRange = ac.maxRange;
   const stopoverMax = Math.min(maxRange * 2, 20000);
 
-  // Single-leg: distances up to maxRange
   const singleDists = ALL_DISTANCES.filter(d => d <= maxRange);
-
-  // Stopover: distances from maxRange+1 to stopoverMax
-  // Contribution calculated for totalDist/2 (each leg of the stopover)
   const stopoverDists = ALL_DISTANCES.filter(d => d > maxRange && d <= stopoverMax);
 
   const singleGrid = CALC_TIMES.map(t => singleDists.map(d => _calc(d, t, speed, mode)));
@@ -1447,9 +1440,23 @@ app.get('/calculator', (req, res) => {
 });
 
 // ── HUNTER ELITE ROUTES ────────────────────────────────────────────────────
+// ▼▼▼ CHANGED in v47: injects HUNTER_KEY env var into hunter-elite.html ▼▼▼
 app.get('/hunter', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'hunter-elite.html'));
+  const key = (process.env.HUNTER_KEY || 'A11').toUpperCase();
+  try {
+    let html = fs.readFileSync(
+      path.join(__dirname, 'public', 'hunter-elite.html'), 'utf8'
+    );
+    html = html.replace('</head>',
+      `<script>window._HUNTER_KEY="${key}";</script></head>`
+    );
+    res.type('html').send(html);
+  } catch (e) {
+    console.error('[HUNTER] Failed to serve hunter-elite.html:', e.message);
+    res.status(500).send('Hunter dashboard unavailable');
+  }
 });
+// ▲▲▲ END v47 change ▲▲▲
 
 app.post('/api/hunter-update', (req, res) => {
   try {
