@@ -1305,6 +1305,745 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </body>
 </html>`;
 
+// ── HUNTER ELITE HTML ────────────────────────────────────────────────────
+const HUNTER_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hunter Elite — Behavioral Forensics</title>
+<style>
+/* ═══════════════════════════════════════════════
+   BEAGLE PALETTE — exact match to Alliance Projections
+   ═══════════════════════════════════════════════ */
+:root {
+  --bg:      #030B17;
+  --bg1:     #04101E;
+  --bg2:     #0A1C32;
+  --bg3:     #040C18;
+  --bg4:     #050D1A;
+  --bg5:     #06121E;
+  --bdr:     #0A1E30;
+  --bdr2:    #162030;
+  --bdr3:    #1A3050;
+  --gold:    #E8B84B;
+  --gold2:   #C4920A;
+  --txt:     #E2EAF4;
+  --txt2:    #8AAABB;
+  --txt3:    #4A7090;
+  --red:     #E74C3C;
+  --amber:   #F9A825;
+  --amber2:  #F57F17;
+  --green:   #00E676;
+  --green2:  #69F0AE;
+  --slate:   #3A6090;
+  --mono: 'Consolas','Courier New',monospace;
+  --sans: 'Segoe UI',Calibri,sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--txt); font-family: var(--sans); }
+::-webkit-scrollbar { width: 4px; background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--bdr2); border-radius: 2px; }
+
+/* ═══════════════════════════════════════════════
+   LOCK SCREEN
+   ═══════════════════════════════════════════════ */
+#lock {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh;
+}
+.lock-card {
+  width: 380px; text-align: center;
+  background: linear-gradient(160deg, var(--bg1) 0%, var(--bg2) 100%);
+  border: 1px solid var(--bdr2); border-top: 2px solid var(--gold2);
+  border-radius: 4px; padding: 44px 36px 40px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+}
+.lock-diamond {
+  font-size: 13px; font-weight: 700; color: var(--gold);
+  letter-spacing: 4px; margin-bottom: 18px; display: block;
+}
+.lock-title {
+  font-size: 22px; font-weight: 700; color: var(--gold);
+  letter-spacing: 4px; text-transform: uppercase; margin-bottom: 4px;
+}
+.lock-sub {
+  font-size: 9px; color: var(--txt3); letter-spacing: 2.5px;
+  text-transform: uppercase; margin-bottom: 34px;
+}
+.lock-input {
+  width: 100%; background: var(--bg5); border: 1px solid var(--bdr3);
+  color: var(--gold); font-family: var(--mono); font-size: 16px;
+  padding: 13px; text-align: center; letter-spacing: 4px;
+  border-radius: 3px; outline: none; margin-bottom: 10px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.lock-input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232,184,75,.12); }
+.lock-input::placeholder { color: var(--txt3); letter-spacing: 2px; font-size: 11px; }
+.lock-btn {
+  width: 100%; background: var(--gold2); color: #000;
+  border: none; border-radius: 3px; padding: 13px;
+  font-size: 10px; font-weight: 700; letter-spacing: 3px;
+  text-transform: uppercase; cursor: pointer; transition: opacity .15s;
+}
+.lock-btn:hover { opacity: .88; }
+.lock-err {
+  font-size: 10px; color: var(--red); margin-top: 12px;
+  letter-spacing: 1px; display: none;
+}
+
+/* ═══════════════════════════════════════════════
+   HEADER — matches Alliance Projections exactly
+   ═══════════════════════════════════════════════ */
+.hdr {
+  background: linear-gradient(90deg, var(--bg1), var(--bg2));
+  border-bottom: 2px solid var(--gold2);
+  position: sticky; top: 0; z-index: 100;
+}
+.hdr-top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 20px;
+}
+.hdr-brand {
+  font-size: 20px; font-weight: 700; color: var(--gold);
+  letter-spacing: 2px;
+}
+.hdr-brand span { color: var(--txt2); font-size: 14px; font-weight: 400; }
+.hdr-meta {
+  font-size: 11px; color: var(--txt2); letter-spacing: 1px;
+}
+.hdr-right {
+  display: flex; align-items: center; gap: 16px;
+}
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 0 rgba(0,214,143,.4);
+  animation: livepulse 2s infinite;
+  display: inline-block; margin-right: 5px;
+}
+@keyframes livepulse {
+  0%   { box-shadow: 0 0 0 0 rgba(0,214,143,.4); }
+  70%  { box-shadow: 0 0 0 7px rgba(0,214,143,0); }
+  100% { box-shadow: 0 0 0 0 rgba(0,214,143,0); }
+}
+.live-lbl { font-size: 10px; font-weight: 700; color: var(--green); letter-spacing: 2px; }
+.scan-lbl { font-size: 10px; color: var(--txt3); }
+
+/* ═══════════════════════════════════════════════
+   STATS BAR
+   ═══════════════════════════════════════════════ */
+.stats-bar {
+  display: flex; background: var(--bg3);
+  border-bottom: 1px solid var(--bdr);
+}
+.stat-cell {
+  flex: 1; padding: 8px 16px; border-right: 1px solid var(--bdr);
+  display: flex; flex-direction: column; align-items: center;
+}
+.stat-cell:last-child { border-right: none; }
+.stat-n {
+  font-family: var(--mono); font-size: 24px; font-weight: 700;
+  line-height: 1;
+}
+.stat-l {
+  font-size: 8px; color: var(--txt3); letter-spacing: 2px;
+  text-transform: uppercase; margin-top: 3px;
+}
+.c-gold .stat-n { color: var(--gold); }
+.c-red  .stat-n { color: var(--red);  }
+.c-amb  .stat-n { color: var(--amber);}
+.c-grn  .stat-n { color: var(--green);}
+.c-sl   .stat-n { color: var(--slate);}
+
+/* ═══════════════════════════════════════════════
+   NAV / TAB BAR — matches Alliance Projections mode buttons
+   ═══════════════════════════════════════════════ */
+.nav-bar {
+  display: flex; align-items: center; gap: 4px;
+  padding: 5px 12px; background: var(--bg3);
+  border-bottom: 1px solid var(--bdr);
+  flex-wrap: wrap;
+}
+.tab-btn {
+  padding: 5px 12px; border-radius: 3px; font-size: 13px;
+  font-weight: 700; letter-spacing: 1px; cursor: pointer;
+  background: transparent; border: 1px solid var(--bdr2);
+  color: var(--txt3); transition: all .12s;
+}
+.tab-btn:hover { color: var(--txt2); border-color: var(--bdr3); }
+.tab-btn.on {
+  background: #0D2240; border-color: var(--bdr3);
+  color: var(--gold);
+}
+.tab-btn.on.danger { background: #1C0606; border-color: rgba(231,76,60,.3); color: var(--red); }
+.tab-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  background: var(--bdr2); border-radius: 8px;
+  font-size: 9px; font-weight: 800; margin-left: 5px;
+}
+.tab-btn.on.danger .tab-badge { background: var(--red); color: #fff; }
+.nav-right { margin-left: auto; font-size: 9px; color: var(--txt3); letter-spacing: 1px; }
+
+/* ═══════════════════════════════════════════════
+   CONTENT PANELS
+   ═══════════════════════════════════════════════ */
+.content { padding: 16px 16px 48px; max-width: 1400px; margin: 0 auto; }
+.panel { display: none; }
+.panel.on { display: block; }
+.section-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.section-lbl {
+  font-size: 9px; font-weight: 700; letter-spacing: 2.5px;
+  text-transform: uppercase; color: var(--txt3);
+}
+
+/* ═══════════════════════════════════════════════
+   ALLIANCE BLOCK
+   ═══════════════════════════════════════════════ */
+.ablock {
+  background: var(--bg4); border: 1px solid var(--bdr);
+  border-radius: 3px; margin-bottom: 10px; overflow: hidden;
+}
+.ahdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 18px; cursor: pointer; user-select: none;
+  border-bottom: 1px solid var(--bdr); transition: background .12s;
+}
+.ahdr:hover { background: var(--bg5); }
+.aname { font-size: 13px; font-weight: 700; letter-spacing: .5px; }
+.a-sub { font-size: 9px; color: var(--txt3); letter-spacing: 1px; margin-top: 2px; }
+.a-pills { display: flex; align-items: center; gap: 8px; }
+.a-pill {
+  font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  display: flex; align-items: center; gap: 4px;
+}
+.dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.dot-r { background: var(--red); box-shadow: 0 0 4px var(--red); }
+.dot-a { background: var(--amber); }
+.dot-g { background: var(--green); }
+.dot-s { background: var(--slate); }
+.chev { font-size: 10px; color: var(--txt3); margin-left: 12px; transition: transform .18s; }
+.ablock.col .chev { transform: rotate(-90deg); }
+.ablock.col .pgrid, .ablock.col .dep-row { display: none; }
+
+/* ═══════════════════════════════════════════════
+   PLAYER CARD GRID
+   ═══════════════════════════════════════════════ */
+.pgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 10px; padding: 12px;
+}
+
+/* ═══════════════════════════════════════════════
+   PLAYER CARD
+   ═══════════════════════════════════════════════ */
+.pcard {
+  background: var(--bg5); border: 1px solid var(--bdr);
+  border-radius: 3px; overflow: hidden;
+  border-left: 3px solid var(--bdr2);
+  transition: border-color .15s, transform .12s;
+}
+.pcard:hover { transform: translateY(-1px); }
+.pcard.R { border-left-color: var(--red); background: linear-gradient(160deg,rgba(231,76,60,.06) 0%,var(--bg5) 40%); }
+.pcard.A { border-left-color: var(--amber); background: linear-gradient(160deg,rgba(249,160,37,.04) 0%,var(--bg5) 40%); }
+.pcard.L { border-left-color: var(--amber2); }
+.pcard.G { border-left-color: var(--green); }
+.pcard.U { border-left-color: var(--bdr2); }
+.pcard:hover.R { border-color: rgba(231,76,60,.35); }
+.pcard:hover.A { border-color: rgba(249,160,37,.35); }
+
+/* ── Card header ── */
+.ctop {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; padding: 14px 15px 11px;
+}
+.c-name {
+  font-family: var(--mono); font-size: 14px; font-weight: 700;
+  letter-spacing: .5px; color: var(--txt);
+}
+.c-ally { font-size: 9px; color: var(--txt3); letter-spacing: 1px; margin-top: 3px; text-transform: uppercase; }
+.lvl-badge {
+  font-size: 9px; font-weight: 900; letter-spacing: 2px;
+  text-transform: uppercase; padding: 3px 9px; border-radius: 2px;
+  flex-shrink: 0; margin-top: 1px;
+}
+.lvl-RED    { color: var(--red);   background: rgba(231,76,60,.15);  border: 1px solid rgba(231,76,60,.3); box-shadow: 0 0 10px rgba(231,76,60,.2); }
+.lvl-AMBER  { color: var(--amber); background: rgba(249,160,37,.12); border: 1px solid rgba(249,160,37,.25); }
+.lvl-LOW    { color: var(--amber2);background: rgba(245,127,23,.1);  border: 1px solid rgba(245,127,23,.2); }
+.lvl-GREEN  { color: var(--green); background: rgba(0,214,143,.1);   border: 1px solid rgba(0,214,143,.2); }
+.lvl-UNRATED{ color: var(--txt3);  background: var(--bdr);           border: 1px solid var(--bdr2); }
+
+/* ═══════════════════════════════════════════════
+   CHEAT METER — the centrepiece
+   ═══════════════════════════════════════════════ */
+.meter-wrap {
+  padding: 4px 15px 13px; border-bottom: 1px solid var(--bdr);
+}
+.meter-head {
+  display: flex; align-items: baseline;
+  justify-content: space-between; margin-bottom: 8px;
+}
+.meter-lbl {
+  font-size: 8px; font-weight: 700; letter-spacing: 2.5px;
+  text-transform: uppercase; color: var(--txt3);
+}
+.meter-status {
+  font-size: 12px; font-weight: 900; letter-spacing: 3px;
+  text-transform: uppercase;
+}
+.meter-track {
+  position: relative; height: 12px; border-radius: 6px;
+  background: linear-gradient(to right,
+    #00E676 0%,
+    #69F0AE 18%,
+    #E8B84B 38%,
+    #F9A825 55%,
+    #F57F17 74%,
+    #E74C3C 100%
+  );
+  box-shadow: 0 2px 10px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.08);
+}
+.meter-ball {
+  position: absolute; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px; height: 20px; border-radius: 50%;
+  background: linear-gradient(145deg, #ffffff, #c8d4e0);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.7), 0 0 0 2px rgba(255,255,255,0.25);
+  pointer-events: none;
+}
+.meter-ticks {
+  position: relative; height: 14px; margin-top: 5px;
+}
+.meter-ticks span {
+  position: absolute; transform: translateX(-50%);
+  font-size: 8px; color: var(--txt3); letter-spacing: .3px;
+}
+.meter-ticks::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 4px;
+  background:
+    repeating-linear-gradient(90deg,
+      var(--bdr3) 0px, var(--bdr3) 1px,
+      transparent 1px, transparent calc(25% - 1px)
+    );
+}
+
+/* tick marks at band boundaries */
+.meter-tick {
+  position: absolute; top: 0;
+  width: 1px; height: 4px; background: var(--bdr3);
+}
+.meter-val {
+  font-size: 11px; font-weight: 700; font-family: var(--mono);
+  color: var(--txt2); margin-top: 2px;
+}
+
+/* ═══════════════════════════════════════════════
+   METRICS ROW
+   ═══════════════════════════════════════════════ */
+.cmetrics {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 1px; background: var(--bdr); border-bottom: 1px solid var(--bdr);
+}
+.cm { background: var(--bg3); padding: 9px 10px; text-align: center; }
+.cmv { font-family: var(--mono); font-size: 13px; font-weight: 700; }
+.cmv.up { color: var(--red); }
+.cmv.dn { color: var(--green); }
+.cml { font-size: 8px; color: var(--txt3); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
+
+/* ═══════════════════════════════════════════════
+   FLAGS
+   ═══════════════════════════════════════════════ */
+.cflags { padding: 10px 14px 2px; }
+.flag-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 10px; margin-bottom: 6px;
+  background: rgba(231,76,60,.05);
+  border: 1px solid rgba(231,76,60,.15); border-radius: 2px;
+}
+.flag-name {
+  font-family: var(--mono); font-size: 8.5px; font-weight: 900;
+  color: var(--red); letter-spacing: 1px; flex-shrink: 0;
+  margin-top: 1px; min-width: 98px;
+}
+.flag-detail { font-size: 11px; color: rgba(226,194,194,.8); line-height: 1.5; }
+.flag-conf {
+  display: inline-block; font-size: 8px; font-weight: 700;
+  letter-spacing: .5px; padding: 1px 6px; border-radius: 2px;
+  margin-top: 3px;
+}
+.fc-watch { background: rgba(245,160,37,.15); color: var(--amber); }
+.fc-mon   { background: rgba(231,76,60,.15);  color: var(--red); }
+.fc-est   { background: rgba(231,76,60,.3);   color: #fff; }
+
+/* ═══════════════════════════════════════════════
+   CARD FOOTER
+   ═══════════════════════════════════════════════ */
+.cftr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 14px 8px; border-top: 1px solid var(--bdr);
+  font-size: 9.5px; color: var(--txt3);
+}
+.snap-lbl {
+  font-size: 9px; font-weight: 700; letter-spacing: 1px; color: var(--txt3);
+}
+.new-badge {
+  font-size: 8px; font-weight: 800; letter-spacing: 1px;
+  padding: 2px 7px; border-radius: 2px;
+  background: rgba(59,130,246,.15); color: #7AAAF0;
+  border: 1px solid rgba(59,130,246,.25);
+}
+
+/* ═══════════════════════════════════════════════
+   DEPARTED ROW
+   ═══════════════════════════════════════════════ */
+.dep-row {
+  padding: 8px 18px 12px; border-top: 1px solid var(--bdr);
+  background: var(--bg4);
+}
+.dep-lbl { font-size: 8px; color: var(--txt3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
+.dep-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.dep-tag {
+  font-family: var(--mono); font-size: 9px; color: var(--txt3);
+  padding: 2px 8px; border: 1px solid var(--bdr); border-radius: 2px;
+  text-decoration: line-through;
+}
+
+/* ═══════════════════════════════════════════════
+   EMPTY STATE
+   ═══════════════════════════════════════════════ */
+.empty { text-align: center; padding: 80px 20px; }
+.empty h3 { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--txt2); margin-bottom: 10px; }
+.empty p { font-size: 12px; color: var(--txt3); }
+
+/* ═══════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════ */
+@media (max-width: 700px) {
+  .stats-bar { flex-wrap: wrap; }
+  .stat-cell { min-width: 50%; }
+  .pgrid { grid-template-columns: 1fr; }
+  .cmetrics { grid-template-columns: repeat(2,1fr); }
+  .hdr-top { flex-wrap: wrap; gap: 6px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LOCK SCREEN ══ -->
+<div id="lock">
+  <div class="lock-card">
+    <span class="lock-diamond">◆ ◆ ◆</span>
+    <div class="lock-title">Hunter Elite</div>
+    <div class="lock-sub">Behavioral Forensics · Restricted Access</div>
+    <input type="password" class="lock-input" id="ki" placeholder="ACCESS KEY"
+      onkeydown="if(event.key==='Enter')auth()"/>
+    <button class="lock-btn" onclick="auth()">AUTHENTICATE</button>
+    <div class="lock-err" id="kerr">ACCESS DENIED — INVALID KEY</div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app" style="display:none;">
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="hdr-top">
+      <div>
+        <div class="hdr-brand">◆ HUNTER ELITE <span>— BEHAVIORAL FORENSICS</span></div>
+        <div class="hdr-meta" id="hdr-sub">BEAGLE GLOBAL · AM4 ANTI-CHEAT INTELLIGENCE</div>
+      </div>
+      <div class="hdr-right">
+        <span class="live-dot"></span><span class="live-lbl">LIVE</span>
+        <span class="scan-lbl" id="lastscan">—</span>
+      </div>
+    </div>
+    <!-- STATS BAR -->
+    <div class="stats-bar">
+      <div class="stat-cell c-gold"><div class="stat-n" id="s-tot">—</div><div class="stat-l">Subjects</div></div>
+      <div class="stat-cell c-red"> <div class="stat-n" id="s-red">—</div><div class="stat-l">Red Flag</div></div>
+      <div class="stat-cell c-amb"> <div class="stat-n" id="s-amb">—</div><div class="stat-l">Amber Watch</div></div>
+      <div class="stat-cell c-grn"> <div class="stat-n" id="s-grn">—</div><div class="stat-l">Clear</div></div>
+      <div class="stat-cell c-sl">  <div class="stat-n" id="s-ali">—</div><div class="stat-l">Alliances</div></div>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <div class="nav-bar">
+    <button class="tab-btn on"    onclick="sw('all',this)">All Subjects</button>
+    <button class="tab-btn danger" onclick="sw('red',this)">Red Flags <span class="tab-badge" id="rc">0</span></button>
+    <button class="tab-btn"       onclick="sw('ali',this)">By Alliance</button>
+    <button class="tab-btn"       onclick="sw('ind',this)">Individuals</button>
+    <span class="nav-right" id="ts">—</span>
+  </div>
+
+  <!-- PANELS -->
+  <div class="content">
+    <div class="panel on" id="p-all">
+      <div class="section-hdr"><div class="section-lbl">All Monitored Subjects</div></div>
+      <div id="c-all"></div>
+    </div>
+    <div class="panel" id="p-red">
+      <div class="section-hdr"><div class="section-lbl" style="color:var(--red)">Red Flag Queue — Immediate Review Required</div></div>
+      <div id="c-red"></div>
+    </div>
+    <div class="panel" id="p-ali">
+      <div class="section-hdr"><div class="section-lbl">Monitored Alliances</div></div>
+      <div id="c-ali"></div>
+    </div>
+    <div class="panel" id="p-ind">
+      <div class="section-hdr"><div class="section-lbl">Individual Subjects</div></div>
+      <div id="c-ind"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const HKEY=(window._HUNTER_KEY||'A11').toUpperCase();
+
+/* ── AUTH ── */
+function auth(){
+  const v=(document.getElementById('ki').value||'').trim().toUpperCase();
+  const uk=(new URLSearchParams(location.search).get('k')||'').toUpperCase();
+  if(v===HKEY||uk===HKEY){
+    document.getElementById('lock').style.display='none';
+    document.getElementById('app').style.display='block';
+    load();
+  } else {
+    const e=document.getElementById('kerr');
+    e.style.display='block';
+    setTimeout(()=>e.style.display='none',3000);
+  }
+}
+addEventListener('DOMContentLoaded',()=>{
+  const k=(new URLSearchParams(location.search).get('k')||'').toUpperCase();
+  if(k===HKEY){
+    document.getElementById('lock').style.display='none';
+    document.getElementById('app').style.display='block';
+    load();
+  }
+});
+
+/* ── TABS ── */
+function sw(name,el){
+  document.querySelectorAll('.tab-btn').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('p-'+name).classList.add('on');
+}
+
+/* ── ALLIANCE TOGGLE ── */
+function tog(el){el.closest('.ablock').classList.toggle('col');}
+
+/* ── DATA LOAD ── */
+async function load(){
+  try{
+    const r=await fetch('/api/hunter-data');
+    if(!r.ok)throw new Error();
+    render(await r.json());
+  }catch{
+    document.getElementById('c-all').innerHTML=empty('CONNECTION LOST','Could not reach the detection server. Retrying...');
+  }
+  setTimeout(load,180000);
+}
+
+/* ── UTILS ── */
+const fm=v=>{
+  if(!v&&v!==0)return'—';
+  if(v>=1e6)return'$'+(v/1e6).toFixed(2)+'M';
+  if(v>=1e3)return'$'+(v/1e3).toFixed(0)+'K';
+  return'$'+Math.round(v).toLocaleString();
+};
+
+function ago(iso){
+  if(!iso)return'—';
+  const m=Math.floor((Date.now()-new Date(iso))/60000);
+  if(m<1)return'Just now';
+  if(m<60)return m+'m ago';
+  const h=Math.floor(m/60);
+  if(h<24)return h+'h ago';
+  return Math.floor(h/24)+'d ago';
+}
+
+const empty=(h,s)=>\`<div class="empty"><h3>\${h}</h3><p>\${s}</p></div>\`;
+
+/* ── CHEAT METER ── */
+function cdToPct(cd){
+  if(cd<=0)return 2;
+  if(cd<200000)  return 2  + (cd/200000)*16;
+  if(cd<550000)  return 18 + ((cd-200000)/350000)*20;
+  if(cd<900000)  return 38 + ((cd-550000)/350000)*17;
+  if(cd<3500000) return 55 + ((cd-900000)/2600000)*33;
+  return 93;
+}
+
+function bandInfo(cd){
+  if(cd<200000)  return{label:'NORMAL',     color:'#00E676'};
+  if(cd<550000)  return{label:'GOOD',       color:'#69F0AE'};
+  if(cd<900000)  return{label:'ELITE',      color:'#E8B84B'};
+  if(cd<3500000) return{label:'SUSPICIOUS', color:'#F9A825'};
+  return            {label:'IMPOSSIBLE',  color:'#E74C3C'};
+}
+
+function cheatMeter(cd){
+  const pct=Math.min(95,Math.max(4,cdToPct(cd||0)));
+  const bi=bandInfo(cd||0);
+  const cdStr=fm(cd||0);
+  return\`<div class="meter-wrap">
+  <div class="meter-head">
+    <span class="meter-lbl">C/D SCORING BAND</span>
+    <span class="meter-status" style="color:\${bi.color}">\${bi.label}</span>
+  </div>
+  <div class="meter-track">
+    <div class="meter-ball" style="left:\${pct}%"></div>
+  </div>
+  <div class="meter-ticks">
+    <span style="left:18%">$200K</span>
+    <span style="left:38%">$550K</span>
+    <span style="left:55%">$900K</span>
+    <span style="left:88%">$3.5M</span>
+  </div>
+  <div class="meter-val" style="color:\${bi.color}">\${cdStr} / day</div>
+</div>\`;
+}
+
+/* ── CONFIDENCE BADGE ── */
+function confBadge(n){
+  if(n<5)  return\`<span class="flag-conf fc-watch">\${n} snaps — watch only</span>\`;
+  if(n<10) return\`<span class="flag-conf fc-mon">\${n} snaps — pattern emerging</span>\`;
+  return      \`<span class="flag-conf fc-est">\${n} snaps — established</span>\`;
+}
+
+/* ── PLAYER CARD ── */
+function card(p){
+  const lv=p.level||'UNRATED';
+  const lc={RED:'R',AMBER:'A',LOW:'L',GREEN:'G',UNRATED:'U'}[lv]||'U';
+  const ally=p.alliance_name&&p.alliance_name!=='UNKNOWN'?p.alliance_name:'Independent';
+  const cdDir=(p.cd_trend||0)>500?'up':(p.cd_trend||0)<-500?'dn':'';
+
+  let flagsHtml='';
+  if(p.flag_details&&p.flag_details.length){
+    flagsHtml=\`<div class="cflags">\${p.flag_details.map(f=>\`
+      <div class="flag-row">
+        <div class="flag-name">\${f.flag}</div>
+        <div>
+          <div class="flag-detail">\${f.detail.replace(/\\[.*?\\]/g,'').trim()}</div>
+          \${confBadge(p.snap_count||0)}
+        </div>
+      </div>\`).join('')}</div>\`;
+  }
+
+  const newBadge=p.roster_status==='NEW'?'<span class="new-badge">NEW ENTRANT</span>':'';
+
+  return\`<div class="pcard \${lc}">
+  <div class="ctop">
+    <div>
+      <div class="c-name">\${p.airline_name}</div>
+      <div class="c-ally">\${ally}</div>
+    </div>
+    <span class="lvl-badge lvl-\${lv}">\${lv}</span>
+  </div>
+  \${cheatMeter(p.cd_value)}
+  <div class="cmetrics">
+    <div class="cm"><div class="cmv\${cdDir?' '+cdDir:''}">\${fm(p.cd_value)}</div><div class="cml">C / Day</div></div>
+    <div class="cm"><div class="cmv">\${fm(p.sv)}</div><div class="cml">Share Value</div></div>
+    <div class="cm"><div class="cmv">\${p.snap_count||0}</div><div class="cml">Snapshots</div></div>
+    <div class="cm"><div class="cmv">\${p.days_tracked>0?p.days_tracked.toFixed(1)+'d':'<1d'}</div><div class="cml">Tracked</div></div>
+  </div>
+  \${flagsHtml}
+  <div class="cftr">
+    <span>\${ago(p.lastUpdated)}</span>
+    \${newBadge}
+  </div>
+</div>\`;
+}
+
+/* ── ALLIANCE BLOCK ── */
+function ablock(a){
+  const pl=a.players||[], dep=a.departed||[];
+  const rc=pl.filter(p=>p.level==='RED').length;
+  const ac=pl.filter(p=>p.level==='AMBER'||p.level==='LOW').length;
+  const gc=pl.filter(p=>p.level==='GREEN').length;
+  const uc=pl.filter(p=>p.level==='UNRATED').length;
+  const sorted=[...pl].sort((a,b)=>
+    ({RED:0,AMBER:1,LOW:2,GREEN:3,UNRATED:4}[a.level]||4)-
+    ({RED:0,AMBER:1,LOW:2,GREEN:3,UNRATED:4}[b.level]||4));
+  const pills=[
+    rc?\`<span class="a-pill"><span class="dot dot-r"></span><span style="color:#E74C3C">\${rc} RED</span></span>\`:'',
+    ac?\`<span class="a-pill"><span class="dot dot-a"></span><span style="color:#F9A825">\${ac} AMBER</span></span>\`:'',
+    gc?\`<span class="a-pill"><span class="dot dot-g"></span><span style="color:#00E676">\${gc} CLEAR</span></span>\`:'',
+    uc?\`<span class="a-pill"><span class="dot dot-s"></span><span style="color:#4A7090">\${uc}</span></span>\`:''
+  ].filter(Boolean).join('');
+  const depHtml=dep.length?\`<div class="dep-row"><div class="dep-lbl">Departed (\${dep.length})</div><div class="dep-tags">\${dep.map(n=>\`<span class="dep-tag">\${n}</span>\`).join('')}</div></div>\`:'';
+  return\`<div class="ablock">
+  <div class="ahdr" onclick="tog(this)">
+    <div>
+      <div class="aname">\${a.allianceName}</div>
+      <div class="a-sub">\${pl.length} subjects monitored\${dep.length?' · '+dep.length+' departed':''}</div>
+    </div>
+    <div style="display:flex;align-items:center;">
+      <div class="a-pills">\${pills}</div>
+      <span class="chev">▾</span>
+    </div>
+  </div>
+  <div class="pgrid">\${sorted.map(card).join('')}</div>
+  \${depHtml}
+</div>\`;
+}
+
+/* ── RENDER ── */
+function render(data){
+  if(!data)return;
+  const alliances=data.alliances||[];
+  const individuals=data.individuals||[];
+  const all=[...alliances.flatMap(a=>a.players||[]),...individuals];
+  const rc=all.filter(p=>p.level==='RED').length;
+  const ac=all.filter(p=>p.level==='AMBER'||p.level==='LOW').length;
+  const gc=all.filter(p=>p.level==='GREEN').length;
+
+  document.getElementById('s-tot').textContent=all.length||'—';
+  document.getElementById('s-red').textContent=rc||'—';
+  document.getElementById('s-amb').textContent=ac||'—';
+  document.getElementById('s-grn').textContent=gc||'—';
+  document.getElementById('s-ali').textContent=alliances.length||'—';
+  document.getElementById('rc').textContent=rc;
+
+  if(data.lastUpdated){
+    document.getElementById('lastscan').textContent='Last scan '+ago(data.lastUpdated);
+    document.getElementById('ts').textContent=new Date(data.lastUpdated).toISOString().replace('T',' ').slice(0,16)+' UTC';
+  }
+
+  // All panel
+  let allH=alliances.map(ablock).join('');
+  if(individuals.length){
+    allH+=\`<div class="section-hdr" style="margin-top:20px;"><div class="section-lbl">Individual Subjects</div></div>
+      <div class="pgrid" style="padding:0;">\${individuals.map(card).join('')}</div>\`;
+  }
+  document.getElementById('c-all').innerHTML=allH||empty('NO SUBJECTS ON FILE','Submit a paste via Discord to begin monitoring.');
+
+  // Red panel
+  const rp=all.filter(p=>p.level==='RED');
+  const ap=all.filter(p=>p.level==='AMBER'||p.level==='LOW');
+  let redH='';
+  if(rp.length)redH+=\`<div class="section-hdr"><div class="section-lbl" style="color:#E74C3C">Confirmed Red — Immediate Review</div></div>
+    <div class="pgrid" style="padding:0;">\${rp.map(card).join('')}</div>\`;
+  if(ap.length)redH+=\`<div class="section-hdr" style="margin-top:20px;"><div class="section-lbl" style="color:#F9A825">Amber Watch</div></div>
+    <div class="pgrid" style="padding:0;">\${ap.map(card).join('')}</div>\`;
+  document.getElementById('c-red').innerHTML=redH||empty('ALL CLEAR','No subjects currently flagged.');
+
+  document.getElementById('c-ali').innerHTML=alliances.length?alliances.map(ablock).join(''):empty('NO ALLIANCES','No alliance pastes received yet.');
+  document.getElementById('c-ind').innerHTML=individuals.length?\`<div class="pgrid" style="padding:0;">\${individuals.map(card).join('')}</div>\`:empty('NO INDIVIDUALS','No individual subjects logged yet.');
+}
+</script>
+</body>
+</html>
+`;
+
 // ── Pre-compile JSX at startup (avoids in-browser Babel regex/division bug) ─
 function precompileJSX(html) {
   return html.replace(
@@ -1440,21 +2179,13 @@ app.get('/calculator', (req, res) => {
 });
 
 // ── HUNTER ELITE ROUTES ────────────────────────────────────────────────────
-// ▼▼▼ CHANGED in v47: injects HUNTER_KEY env var into hunter-elite.html ▼▼▼
+// ▼▼▼ CHANGED in v47: HUNTER_HTML embedded, key injected server-side ▼▼▼
 app.get('/hunter', (req, res) => {
   const key = (process.env.HUNTER_KEY || 'A11').toUpperCase();
-  try {
-    let html = fs.readFileSync(
-      path.join(__dirname, 'public', 'hunter-elite.html'), 'utf8'
-    );
-    html = html.replace('</head>',
-      `<script>window._HUNTER_KEY="${key}";</script></head>`
-    );
-    res.type('html').send(html);
-  } catch (e) {
-    console.error('[HUNTER] Failed to serve hunter-elite.html:', e.message);
-    res.status(500).send('Hunter dashboard unavailable');
-  }
+  const html = HUNTER_HTML.replace('</head>',
+    `<script>window._HUNTER_KEY="${key}";</script></head>`
+  );
+  res.type('html').send(html);
 });
 // ▲▲▲ END v47 change ▲▲▲
 
