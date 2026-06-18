@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HUNTER ELITE — Intelligence Dashboard</title>
+<style>
+:root {
+  --bg:#08090F; --surface:#0F1219; --surface2:#161B26; --border:#1E2535;
+  --gold:#C9A84C; --gold-dim:#3D2E0F; --gold-text:#E8C97A;
+  --red:#EF233C; --red-dim:#2A060C; --red-border:rgba(239,35,60,0.25);
+  --amber:#F59E0B; --amber-dim:#2A1C00; --amber-border:rgba(245,158,11,0.25);
+  --green:#10B981; --green-dim:#051F14; --green-border:rgba(16,185,129,0.25);
+  --blue:#3B82F6; --blue-dim:#0A1628;
+  --text:#E2E8F0; --text-dim:#64748B; --text-muted:#2D3748;
+  --mono:'Courier New',Menlo,monospace; --sans:'Inter','Helvetica Neue',Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;}
+.lock{display:flex;align-items:center;justify-content:center;min-height:100vh;}
+.lock-card{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--gold);border-radius:8px;padding:48px 40px;width:360px;text-align:center;}
+.lock-emblem{width:48px;height:48px;background:var(--gold-dim);border:2px solid var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:20px;}
+.lock-title{font-size:20px;font-weight:800;color:var(--gold);letter-spacing:3px;margin-bottom:4px;}
+.lock-sub{font-size:10px;color:var(--text-dim);letter-spacing:2px;margin-bottom:28px;}
+.lock-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:14px;padding:13px;text-align:center;letter-spacing:3px;outline:none;margin-bottom:12px;transition:border-color .15s;}
+.lock-input:focus{border-color:var(--gold);}
+.lock-btn{width:100%;background:var(--gold);color:#08090F;border:none;border-radius:5px;padding:13px;font-size:11px;font-weight:800;letter-spacing:2px;cursor:pointer;}
+.lock-error{font-size:11px;color:var(--red);margin-top:10px;display:none;}
+.header{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border);}
+.brand{display:flex;align-items:center;gap:12px;}
+.brand-badge{background:var(--red);color:white;font-size:8px;font-weight:800;letter-spacing:2px;padding:3px 7px;border-radius:2px;}
+.brand-title{font-size:16px;font-weight:800;color:var(--gold);letter-spacing:3px;}
+.brand-sub{font-size:9px;color:var(--text-dim);letter-spacing:1.5px;margin-top:1px;}
+.live-group{display:flex;align-items:center;gap:14px;font-size:10px;color:var(--text-dim);}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(16,185,129,.4);}50%{opacity:.6;box-shadow:0 0 0 4px rgba(16,185,129,0);}}
+.live-label{color:var(--green);font-weight:700;letter-spacing:1.5px;}
+.stats-bar{display:flex;align-items:center;padding:10px 20px;}
+.stat{display:flex;align-items:center;gap:10px;padding:0 24px 0 0;margin-right:24px;border-right:1px solid var(--border);}
+.stat:last-child{border-right:none;}
+.stat-val{font-size:22px;font-weight:800;font-family:var(--mono);}
+.stat-lbl{font-size:9px;color:var(--text-dim);letter-spacing:1.5px;text-transform:uppercase;}
+.s-red .stat-val{color:var(--red);} .s-amber .stat-val{color:var(--amber);} .s-green .stat-val{color:var(--green);} .s-gold .stat-val{color:var(--gold);}
+.nav{background:var(--surface);border-bottom:2px solid var(--border);display:flex;padding:0 20px;overflow-x:auto;}
+.tab{padding:12px 18px;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:all .15s;}
+.tab:hover{color:var(--text);} .tab.on{color:var(--gold);border-bottom-color:var(--gold);} .tab.on.red{color:var(--red);border-bottom-color:var(--red);}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;border-radius:8px;font-size:9px;font-weight:800;margin-left:5px;padding:0 4px;background:var(--border);}
+.tab.on.red .badge{background:var(--red);color:white;}
+.main{padding:20px;max-width:1200px;margin:0 auto;}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.sec-title{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);}
+.panel{display:none;} .panel.on{display:block;}
+.ablock{background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:14px;overflow:hidden;}
+.ahdr{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;user-select:none;transition:background .15s;}
+.ahdr:hover{background:var(--surface2);}
+.aname{font-size:13px;font-weight:700;letter-spacing:.5px;}
+.ameta{font-size:10px;color:var(--text-dim);margin-top:3px;}
+.apills{display:flex;align-items:center;gap:5px;}
+.pill{padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700;}
+.pill-r{background:rgba(239,35,60,.15);color:var(--red);} .pill-a{background:rgba(245,158,11,.15);color:var(--amber);} .pill-g{background:rgba(16,185,129,.15);color:var(--green);} .pill-u{background:var(--border);color:var(--text-dim);}
+.chev{font-size:11px;transition:transform .2s;margin-left:10px;}
+.ablock.col .chev{transform:rotate(-90deg);}
+.ablock.col .pgrid,.ablock.col .dep-section{display:none;}
+.pgrid{padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;}
+.pcard{background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--border);border-radius:5px;overflow:hidden;}
+.pcard.R{border-left-color:var(--red);} .pcard.A,.pcard.L{border-left-color:var(--amber);} .pcard.G{border-left-color:var(--green);} .pcard.U{border-left-color:var(--text-muted);}
+.ctop{display:flex;align-items:flex-start;justify-content:space-between;padding:12px 14px 10px;}
+.cname{font-family:var(--mono);font-size:13px;font-weight:700;}
+.calliance{font-size:10px;color:var(--text-dim);margin-top:2px;}
+.rbadge{padding:3px 9px;border-radius:3px;font-size:8px;font-weight:800;letter-spacing:1.5px;flex-shrink:0;margin-top:1px;}
+.rbadge.RED{background:var(--red);color:white;} .rbadge.AMBER,.rbadge.LOW{background:var(--amber-dim);color:var(--amber);border:1px solid var(--amber-border);} .rbadge.GREEN{background:var(--green-dim);color:var(--green);} .rbadge.UNRATED{background:var(--border);color:var(--text-dim);}
+.cmetrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);}
+.cm{background:var(--surface2);padding:8px 10px;text-align:center;}
+.cmv{font-family:var(--mono);font-size:12px;font-weight:700;}
+.cml{font-size:8px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;margin-top:2px;}
+.up{color:var(--red);} .dn{color:var(--green);}
+.cflags{padding:10px 14px;}
+.flag-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;padding:8px 10px;background:var(--red-dim);border:1px solid var(--red-border);border-radius:4px;}
+.flag-tag{font-family:var(--mono);font-size:9px;font-weight:800;color:var(--red);letter-spacing:1px;flex-shrink:0;margin-top:1px;min-width:80px;}
+.flag-txt{font-size:11px;color:#FCA5A5;line-height:1.55;}
+.cftr{display:flex;align-items:center;justify-content:space-between;padding:7px 14px;border-top:1px solid var(--border);font-size:10px;color:var(--text-dim);}
+.nbadge{padding:2px 6px;border-radius:3px;font-size:8px;font-weight:700;letter-spacing:1px;}
+.nbadge.NEW{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(59,130,246,.3);}
+.dep-section{padding:10px 16px 14px;border-top:1px solid var(--border);}
+.dep-lbl{font-size:9px;color:var(--text-muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;}
+.dep-tags{display:flex;flex-wrap:wrap;gap:5px;}
+.dep-tag{font-family:var(--mono);font-size:10px;color:var(--text-muted);padding:2px 8px;border:1px solid var(--border);border-radius:3px;text-decoration:line-through;}
+.empty{text-align:center;padding:60px 20px;color:var(--text-dim);}
+.empty h3{font-size:12px;letter-spacing:2.5px;margin-bottom:8px;text-transform:uppercase;}
+.empty p{font-size:11px;}
+@media(max-width:600px){.stats-bar{flex-wrap:wrap;gap:8px;}.stat{border-right:none;padding-right:0;margin-right:0;}.pgrid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="lock" id="lock">
+  <div class="lock-card">
+    <div class="lock-emblem">🔐</div>
+    <div class="lock-title">HUNTER ELITE</div>
+    <div class="lock-sub">BEHAVIORAL FORENSICS · RESTRICTED ACCESS</div>
+    <input type="password" class="lock-input" id="ki" placeholder="ACCESS KEY" onkeydown="if(event.key==='Enter')auth()"/>
+    <button class="lock-btn" onclick="auth()">AUTHENTICATE</button>
+    <div class="lock-error" id="kerr">ACCESS DENIED — INVALID KEY</div>
+  </div>
+</div>
+<div id="app" style="display:none;">
+  <div class="header">
+    <div class="header-top">
+      <div class="brand">
+        <span class="brand-badge">RESTRICTED</span>
+        <div>
+          <div class="brand-title">HUNTER ELITE</div>
+          <div class="brand-sub">BEHAVIORAL FORENSICS · AM4 ANTI-CHEAT INTELLIGENCE</div>
+        </div>
+      </div>
+      <div class="live-group">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="live-dot"></div>
+          <span class="live-label">LIVE</span>
+        </div>
+        <span id="lastscan" style="font-size:10px;color:var(--text-dim);">Loading...</span>
+      </div>
+    </div>
+    <div class="stats-bar">
+      <div class="stat"><div><div class="stat-val" id="s-total">—</div><div class="stat-lbl">Subjects</div></div></div>
+      <div class="stat s-red"><div><div class="stat-val" id="s-red">—</div><div class="stat-lbl">Red Flag</div></div></div>
+      <div class="stat s-amber"><div><div class="stat-val" id="s-amb">—</div><div class="stat-lbl">Amber Watch</div></div></div>
+      <div class="stat s-green"><div><div class="stat-val" id="s-grn">—</div><div class="stat-lbl">Clear</div></div></div>
+      <div class="stat s-gold"><div><div class="stat-val" id="s-all">—</div><div class="stat-lbl">Alliances</div></div></div>
+    </div>
+  </div>
+  <div class="nav">
+    <button class="tab on" onclick="sw('all',this)">All Subjects</button>
+    <button class="tab red" onclick="sw('red',this)">Red Flags <span class="badge" id="rc">0</span></button>
+    <button class="tab" onclick="sw('ali',this)">By Alliance</button>
+    <button class="tab" onclick="sw('ind',this)">Individuals</button>
+  </div>
+  <div class="main">
+    <div class="panel on" id="p-all">
+      <div class="sec-hdr"><div class="sec-title">All Monitored Subjects</div><div style="font-size:10px;color:var(--text-dim);" id="ts"></div></div>
+      <div id="c-all"></div>
+    </div>
+    <div class="panel" id="p-red">
+      <div class="sec-hdr"><div class="sec-title" style="color:var(--red);">Red Flag Queue — Immediate Review Required</div></div>
+      <div id="c-red"></div>
+    </div>
+    <div class="panel" id="p-ali">
+      <div class="sec-hdr"><div class="sec-title">Monitored Alliances</div></div>
+      <div id="c-ali"></div>
+    </div>
+    <div class="panel" id="p-ind">
+      <div class="sec-hdr"><div class="sec-title">Individual Subjects</div></div>
+      <div id="c-ind"></div>
+    </div>
+  </div>
+</div>
+<script>
+const HKEY='HUNTER-JUN26';
+function auth(){
+  const v=(document.getElementById('ki').value||'').trim().toUpperCase();
+  const uk=(new URLSearchParams(location.search).get('k')||'').toUpperCase();
+  if(v===HKEY||uk===HKEY){document.getElementById('lock').style.display='none';document.getElementById('app').style.display='block';load();}
+  else document.getElementById('kerr').style.display='block';
+}
+addEventListener('DOMContentLoaded',()=>{
+  const k=(new URLSearchParams(location.search).get('k')||'').toUpperCase();
+  if(k===HKEY){document.getElementById('lock').style.display='none';document.getElementById('app').style.display='block';load();}
+});
+function sw(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('p-'+name).classList.add('on');
+}
+function tog(el){el.closest('.ablock').classList.toggle('col');}
+async function load(){
+  try{const r=await fetch('/api/hunter-data');if(!r.ok)throw new Error();render(await r.json());}
+  catch{document.getElementById('c-all').innerHTML=empty('NO DATA YET','No scans received. Submit a paste via Discord to begin monitoring.');}
+  setTimeout(load,180000);
+}
+const fm=v=>{if(!v&&v!==0)return'—';if(v>=1e6)return'$'+(v/1e6).toFixed(2)+'M';if(v>=1e3)return'$'+(v/1e3).toFixed(0)+'K';return'$'+Math.round(v).toLocaleString();};
+function ago(iso){if(!iso)return'—';const m=Math.floor((Date.now()-new Date(iso))/60000);if(m<1)return'Just now';if(m<60)return m+'m ago';const h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago';}
+const empty=(h,s)=>`<div class="empty"><h3>${h}</h3><p>${s}</p></div>`;
+function card(p){
+  const lv=p.level||'UNRATED';
+  const lc={RED:'R',AMBER:'A',LOW:'L',GREEN:'G',UNRATED:'U'}[lv]||'U';
+  const cdDir=(p.cd_trend||0)>500?'<span class="up"> ▲</span>':(p.cd_trend||0)<-500?'<span class="dn"> ▼</span>':'';
+  let flagHtml='';
+  if(p.flag_details&&p.flag_details.length){
+    flagHtml='<div class="cflags">'+p.flag_details.map(f=>`<div class="flag-row"><span class="flag-tag">${f.flag}</span><span class="flag-txt">${f.detail}</span></div>`).join('')+'</div>';
+  }
+  const nb=p.roster_status==='NEW'?'<span class="nbadge NEW">NEW ENTRANT</span>':'';
+  return`<div class="pcard ${lc}">
+    <div class="ctop"><div><div class="cname">${p.airline_name}</div><div class="calliance">${p.alliance_name&&p.alliance_name!=='UNKNOWN'?p.alliance_name:'Individual Subject'}</div></div><span class="rbadge ${lv}">${lv}</span></div>
+    <div class="cmetrics">
+      <div class="cm"><div class="cmv">${fm(p.cd_value)}${cdDir}</div><div class="cml">C/D · ${p.cd_band||'—'}</div></div>
+      <div class="cm"><div class="cmv">${fm(p.sv)}</div><div class="cml">SV</div></div>
+      <div class="cm"><div class="cmv">${p.snap_count||0}</div><div class="cml">Snaps · ${p.days_tracked>0?p.days_tracked.toFixed(1)+'d':'Day 1'}</div></div>
+    </div>
+    ${flagHtml}
+    <div class="cftr"><span>${p.snap_count>=2?p.days_tracked.toFixed(1)+' days tracked':'Baseline — building'}</span><div style="display:flex;align-items:center;gap:6px;">${nb}<span>${ago(p.lastUpdated)}</span></div></div>
+  </div>`;
+}
+function ablock(a){
+  const pl=a.players||[],dep=a.departed||[];
+  const rc=pl.filter(p=>p.level==='RED').length,ac=pl.filter(p=>p.level==='AMBER'||p.level==='LOW').length,gc=pl.filter(p=>p.level==='GREEN').length,uc=pl.filter(p=>p.level==='UNRATED').length;
+  const sorted=[...pl].sort((a,b)=>({RED:0,AMBER:1,LOW:1,GREEN:2,UNRATED:3}[a.level]||3)-({RED:0,AMBER:1,LOW:1,GREEN:2,UNRATED:3}[b.level]||3));
+  const pills=[rc?`<span class="pill pill-r">🔴 ${rc} RED</span>`:'',ac?`<span class="pill pill-a">🟡 ${ac} AMBER</span>`:'',gc?`<span class="pill pill-g">🟢 ${gc} CLEAR</span>`:'',uc?`<span class="pill pill-u">⚪ ${uc}</span>`:''].filter(Boolean).join('');
+  const depHtml=dep.length?`<div class="dep-section"><div class="dep-lbl">Departed since last scan (${dep.length})</div><div class="dep-tags">${dep.map(n=>`<span class="dep-tag">${n}</span>`).join('')}</div></div>`:'';
+  return`<div class="ablock">
+    <div class="ahdr" onclick="tog(this)"><div><div class="aname">${a.allianceName}</div><div class="ameta">${pl.length} subjects monitored${dep.length?' · '+dep.length+' departed':''}</div></div><div style="display:flex;align-items:center;"><div class="apills">${pills}</div><span class="chev">▾</span></div></div>
+    <div class="pgrid">${sorted.map(card).join('')}</div>
+    ${depHtml}
+  </div>`;
+}
+function render(data){
+  if(!data)return;
+  const alliances=data.alliances||[],individuals=data.individuals||[];
+  const all=[...alliances.flatMap(a=>a.players||[]),...individuals];
+  const rc=all.filter(p=>p.level==='RED').length,ac=all.filter(p=>p.level==='AMBER'||p.level==='LOW').length,gc=all.filter(p=>p.level==='GREEN').length;
+  document.getElementById('s-total').textContent=all.length;
+  document.getElementById('s-red').textContent=rc;
+  document.getElementById('s-amb').textContent=ac;
+  document.getElementById('s-grn').textContent=gc;
+  document.getElementById('s-all').textContent=alliances.length;
+  document.getElementById('rc').textContent=rc;
+  if(data.lastUpdated){document.getElementById('lastscan').textContent='Last scan: '+ago(data.lastUpdated);document.getElementById('ts').textContent=new Date(data.lastUpdated).toISOString().replace('T',' ').substring(0,16)+' UTC';}
+  let allH=alliances.map(ablock).join('');
+  if(individuals.length)allH+=`<div class="sec-hdr" style="margin-top:20px;"><div class="sec-title">Individual Subjects</div></div><div class="pgrid" style="padding:0;">${individuals.map(card).join('')}</div>`;
+  document.getElementById('c-all').innerHTML=allH||empty('NO SUBJECTS ON FILE','Submit a paste via Discord to begin monitoring.');
+  const rp=all.filter(p=>p.level==='RED'),ap=all.filter(p=>p.level==='AMBER'||p.level==='LOW');
+  let redH='';
+  if(rp.length)redH+=`<div class="sec-hdr"><div class="sec-title" style="color:var(--red)">🔴 Confirmed Red</div></div><div class="pgrid" style="padding:0;">${rp.map(card).join('')}</div>`;
+  if(ap.length)redH+=`<div class="sec-hdr" style="margin-top:20px;"><div class="sec-title" style="color:var(--amber)">🟡 Amber Watch</div></div><div class="pgrid" style="padding:0;">${ap.map(card).join('')}</div>`;
+  document.getElementById('c-red').innerHTML=redH||empty('ALL CLEAR','No subjects currently flagged.');
+  document.getElementById('c-ali').innerHTML=alliances.length?alliances.map(ablock).join(''):empty('NO ALLIANCES','No alliance pastes received yet.');
+  document.getElementById('c-ind').innerHTML=individuals.length?`<div class="pgrid" style="padding:0;">${individuals.map(card).join('')}</div>`:empty('NO INDIVIDUALS','No individual subjects logged yet.');
+}
+</script>
+</body>
+</html>
