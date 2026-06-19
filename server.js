@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v47
+// BEAGLE GLOBAL — ALLIANCE PROJECTIONS SERVICE — v48
 // Deploy: node server.js
-// GUARD_CHECK_v47_OK
+// GUARD_CHECK_v48_OK
 // Env vars: PROJECTIONS_SECRET, ACCESS_KEY, CONTRIBUTIONS_LOG_IN, PORT,
 //           DISCORD_UPLOAD_WEBHOOK, HUNTER_KEY
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1496,6 +1496,14 @@ html,body{background:var(--bg);color:var(--txt);font-family:var(--sans);}
 
 /* FLAGS */
 .cflags{padding:9px 14px 4px;}
+.chk-section{padding:10px 14px 4px;border-top:1px solid var(--bdr);}
+.chk-title{font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--txt3);margin-bottom:8px;font-weight:700;}
+.chk-list{display:flex;flex-direction:column;gap:5px;}
+.chk-row{display:flex;align-items:flex-start;gap:8px;}
+.chk-icon{font-size:11px;margin-top:1px;min-width:12px;}
+.chk-lbl{font-family:var(--mono);font-size:10px;color:var(--txt2);line-height:1.3;}
+.chk-detail{font-size:10px;color:var(--txt3);line-height:1.4;margin-top:1px;}
+.chk-profile-note{font-size:9px;color:var(--txt3);margin-top:8px;padding-top:6px;border-top:1px solid var(--bdr);}
 .flag-row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:7px 9px;margin-bottom:5px;background:rgba(249,160,37,.03);border-left:2px solid rgba(249,160,37,.2);cursor:pointer;transition:background .1s;}
 .flag-row:hover{background:rgba(249,160,37,.07);}
 .flag-inner{display:grid;grid-template-columns:118px 1fr;gap:8px;}
@@ -1797,6 +1805,7 @@ function card(p){
   const newBadge=p.roster_status==='NEW'?'<span class="fnew">NEW ENTRANT</span>':'';
   const anomCount=p.flags?.length||0;
   const pSub=anomCount?\`\${anomCount} anomal\${anomCount===1?'y':'ies'}\`:'No anomalies';
+  const showChecks=(lv==='GREEN'||lv==='UNRATED')?checksPassedSection(p):'';
   return\`<div class="pcard \${lc}">
 <div class="ctop" onclick="histModal(\${JSON.stringify(p).replace(/</g,'\\\\u003c')})">
 <div><div class="cname">\${p.airline_name}</div><div class="cally">\${ally} · \${p.snap_count||0} readings · \${p.days_tracked||0}d</div></div>
@@ -1809,7 +1818,7 @@ function card(p){
 <div class="cm"><div class="cmv">\${p.snap_count||0}</div><div class="cml">Readings</div></div>
 <div class="cm"><div class="cmv">\${p.days_tracked>0?p.days_tracked.toFixed(1)+'d':'<1d'}</div><div class="cml">Tracked</div></div>
 </div>
-\${flagSection}
+\${flagSection}\${showChecks}
 <div class="cftr"><span>\${ago(p.lastUpdated)}</span>\${newBadge}</div>
 </div>\`;
 }
@@ -1817,13 +1826,88 @@ function card(p){
 /* COMPACT ROW */
 function compactRow(p){
   const bi=bandInfo(p.cd_value||0);
-  return\`<div class="compact-row">
+  const safe=p.airline_name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  return\`<div class="compact-row" onclick="showPlayerDetail('\${safe}')" style="cursor:pointer" title="Click to view full assessment">
 <div class="cmp-name">\${p.airline_name}</div>
 <div class="cmp-band"><span class="band-dot" style="background:\${bi.color}"></span><span style="color:\${bi.color}">\${bi.label.replace(' MONITORING','')}</span></div>
 <div class="cmp-cd">\${fm(p.cd_value)}</div>
 <div class="cmp-reads">\${p.snap_count||0} readings</div>
-<div class="cmp-ago">\${ago(p.lastUpdated)}</div>
+<div class="cmp-ago">\${ago(p.lastUpdated)}&nbsp;›</div>
 </div>\`;
+}
+
+/* CHECKS PASSED SECTION — shown on CLEAR cards and player detail modal */
+function checksPassedSection(p){
+  const active=new Set(p.flags||[]);
+  const hasProfile=p.profile&&p.profile.on_file;
+  const insufficient=(p.snap_count||0)<2;
+  const checks=[
+    {flag:'CD_IMPOSSIBLE',label:'Extreme Output',pass:'Below extreme threshold ($3.5M/day)',always:true},
+    {flag:'CD_SUSPICIOUS',label:'High Output Band',pass:'Below high-scrutiny threshold ($900K/day)',always:true},
+    {flag:'OFFLINE_OUTPUT',label:'Output vs Presence',pass:'Output is consistent with observed play time'},
+    {flag:'SV_BURST',label:'Share Value Growth',pass:'SV growth within normal range for this group'},
+    {flag:'CONT_BURST',label:'Contribution Acceleration',pass:'Contribution pace within normal range'},
+    {flag:'CONT_Z_SCORE',label:'Statistical Comparison',pass:'Within normal statistical range for this group'},
+  ];
+  if(hasProfile){
+    checks.push(
+      {flag:'FLEET_CEILING_BREACH',label:'Fleet Ceiling',pass:'Output within theoretical fleet maximum ('+fm(p.profile.theoretical_max_cd)+')'},
+      {flag:'IMPOSSIBLE_FLIGHT_DENSITY',label:'Flight Rate — Physical Limit',pass:'Historical flight rate within physical limits'},
+      {flag:'HIGH_FLIGHT_DENSITY',label:'Flight Rate — Concorde Benchmark',pass:'Historical flight rate below Concorde + 4x ceiling'}
+    );
+  }
+  const rows=checks.map(c=>{
+    if(active.has(c.flag))return''; // flagged — already shown in anomaly section
+    const pending=insufficient&&!c.always;
+    const icon=pending?'\u23f3':'✓';
+    const iconColor=pending?'var(--txt3)':'var(--green)';
+    const detail=pending?'Needs 2+ readings to assess':c.pass;
+    const detailColor=pending?'var(--txt3)':'var(--txt3)';
+    return\`<div class="chk-row">
+<span class="chk-icon" style="color:\${iconColor}">\${icon}</span>
+<div><div class="chk-lbl">\${c.label}</div><div class="chk-detail" style="color:\${detailColor}">\${detail}</div></div>
+</div>\`;
+  }).filter(Boolean).join('');
+  if(!rows)return'';
+  return\`<div class="chk-section">
+<div class="chk-title">Parameters checked</div>
+<div class="chk-list">\${rows}</div>
+\${hasProfile?\`<div class="chk-profile-note">\u{1F4CC} Profile on file \u00b7 Fleet \${p.profile.fleet_total}\${p.profile.level_am4?' \u00b7 Lvl '+p.profile.level_am4:''}\${p.profile.aircraft_class?' \u00b7 '+p.profile.aircraft_class:''}</div>\`:''}
+</div>\`;
+}
+
+/* PLAYER DETAIL MODAL — triggered by compact row click */
+function playerDetailHtml(p){
+  const bi=bandInfo(p.cd_value||0);
+  const lv=p.level||'UNRATED';
+  const ll=levelLabel(lv);
+  const lc=lvlClass(lv);
+  const ally=p.alliance_name&&p.alliance_name!=='UNKNOWN'?p.alliance_name:'Independent';
+  const flags=(p.flag_details||[]).map(flagHtml).join('');
+  const flagSection=flags?\`<div class="cflags" style="margin:0 -20px;padding:12px 20px;border-top:1px solid var(--bdr)">\${flags}</div>\`:'';
+  return\`<div style="margin:-4px 0 8px">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+<div style="font-size:9px;color:var(--txt3);letter-spacing:1.5px;text-transform:uppercase">\${ally} \u00b7 \${p.snap_count||0} readings \u00b7 \${p.days_tracked||0}d tracked</div>
+<div class="clevel-txt \${lc}" style="font-size:13px">\${ll}</div>
+</div>
+\${meterHtml(p.cd_value)}
+<div class="cmetrics" style="border:none;padding:12px 0 8px">
+<div class="cm"><div class="cmv" style="color:\${bi.color}">\${fm(p.cd_value)}</div><div class="cml">C / Day</div></div>
+<div class="cm"><div class="cmv">\${fm(p.sv)}</div><div class="cml">Share Value</div></div>
+<div class="cm"><div class="cmv">\${p.snap_count||0}</div><div class="cml">Readings</div></div>
+<div class="cm"><div class="cmv">\${p.days_tracked>0?p.days_tracked.toFixed(1)+'d':'<1d'}</div><div class="cml">Tracked</div></div>
+</div>
+\${flagSection}
+\${checksPassedSection(p)}
+<div style="margin-top:12px"><button class="clear-toggle" onclick="histModal(\${JSON.stringify(p).replace(/</g,'\\\\u003c')});closeModal()" style="width:100%;justify-content:center">View reading history \u2192</button></div>
+</div>\`;
+}
+
+function showPlayerDetail(name){
+  const all=getAllPlayers();
+  const p=all.find(pl=>pl.airline_name===name);
+  if(!p)return;
+  showModal(p.airline_name,playerDetailHtml(p));
 }
 
 /* ALLIANCE BLOCK */
