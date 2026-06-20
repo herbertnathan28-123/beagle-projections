@@ -2111,6 +2111,21 @@ function precompileJSX(html) {
 
 const HTML_COMPILED = precompileJSX(HTML);
 const FUEL_SETUP_HTML = `<!DOCTYPE html>
+```
+
+Select from that line all the way down to the line that contains only:
+```
+`;
+```
+(the closing backtick and semicolon that ends the template literal)
+
+Replace the entire block — from `const FUEL_SETUP_HTML =` through the closing `` `; `` — with the content below.
+
+---
+
+## Replacement content — paste this in full:
+
+const FUEL_SETUP_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2119,51 +2134,53 @@ const FUEL_SETUP_HTML = `<!DOCTYPE html>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{height:-webkit-fill-available}
-body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;font-size:14px;min-height:100vh;min-height:-webkit-fill-available}
+body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;font-size:18px;min-height:100vh;min-height:-webkit-fill-available}
 ::-webkit-scrollbar{width:4px;background:#040C18}
 ::-webkit-scrollbar-thumb{background:#1A3050;border-radius:2px}
 .hdr{background:linear-gradient(90deg,#04101E,#0A1C32);border-bottom:2px solid #C4920A;padding:11px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-.brand{font-size:20px;font-weight:700;color:#E8B84B;letter-spacing:2px}
-.brand-sub{font-size:9px;color:#4A6070;letter-spacing:3px;text-transform:uppercase;margin-top:2px}
-.hdr-note{font-size:10px;color:#4A6070;border:1px solid #162030;padding:5px 12px;border-radius:2px;letter-spacing:.5px}
+.brand{font-size:26px;font-weight:700;color:#E8B84B;letter-spacing:2px}
+.brand-sub{font-size:12px;color:#4A6070;letter-spacing:3px;text-transform:uppercase;margin-top:2px}
+.hdr-note{font-size:13px;color:#4A6070;border:1px solid #162030;padding:5px 12px;border-radius:2px;letter-spacing:.5px}
 .container{max-width:860px;margin:0 auto;padding:24px 16px 80px}
-.notice{background:#06101C;border:1px solid #0A2040;border-left:3px solid #E8B84B;border-radius:2px;padding:12px 16px;margin-bottom:20px;font-size:11px;color:#8AAABB;line-height:1.7}
+.notice{background:#06101C;border:1px solid #0A2040;border-left:3px solid #E8B84B;border-radius:2px;padding:14px 18px;margin-bottom:20px;font-size:15px;color:#8AAABB;line-height:1.8}
 .card{background:#04101E;border:1px solid #0A1E30;border-radius:3px;margin-bottom:14px;overflow:hidden}
-.card-title{font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#5A8AAB;padding:11px 20px;border-bottom:1px solid #0A1E30;background:#030B17}
+.card-title{font-size:14px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#5A8AAB;padding:12px 20px;border-bottom:1px solid #0A1E30;background:#030B17}
 .card-body{padding:18px 20px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
-.field{display:flex;flex-direction:column;gap:5px}
-.field label{font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#3A5070}
-.warn{font-size:9px;color:#E8B84B;font-weight:400;letter-spacing:0;text-transform:none;margin-left:5px}
-input[type=text],input[type=number],input[type=time],select,input[type=search]{background:#06121E;border:1px solid #1A2840;color:#E2EAF4;padding:9px 11px;border-radius:2px;font-family:inherit;font-size:13px;width:100%;outline:none;transition:border-color .12s}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;font-weight:600;letter-spacing:.5px;color:#5A8AAB}
+.warn{font-size:12px;color:#E8B84B;font-weight:400;letter-spacing:0;text-transform:none;margin-left:5px}
+input[type=text],input[type=number],input[type=time],select{background:#06121E;border:1px solid #1A2840;color:#E2EAF4;padding:11px 13px;border-radius:2px;font-family:inherit;font-size:17px;width:100%;outline:none;transition:border-color .12s}
 input:focus,select:focus{border-color:#2A5080;box-shadow:0 0 0 2px rgba(42,80,128,.15)}
 input::placeholder{color:#1E3050}
 select option{background:#040C18;color:#E2EAF4}
 .toggle-wrap{display:inline-flex;border-radius:2px;overflow:hidden;border:1px solid #1A2840}
-.tbtn{padding:8px 22px;background:#040C18;border:none;color:#3A5070;font-size:10px;font-weight:700;letter-spacing:1.5px;cursor:pointer;font-family:inherit;transition:all .12s}
+.tbtn{padding:11px 28px;background:#040C18;border:none;color:#3A5070;font-size:15px;font-weight:700;letter-spacing:1.5px;cursor:pointer;font-family:inherit;transition:all .12s}
 .tbtn.on{background:#0E2235;color:#E8B84B}
 .tbtn:not(:last-child){border-right:1px solid #1A2840}
-.dep-wrap{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #0A1E30}
-.dep-wrap label{font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#3A5070;white-space:nowrap;min-width:120px}
-.dep-wrap input[type=time]{max-width:130px}
-.dep-tz{font-size:10px;color:#2A4060;white-space:nowrap}
+.dep-wrap{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #0A1E30;flex-wrap:wrap}
+.dep-wrap label{font-size:13px;font-weight:600;letter-spacing:.5px;color:#5A8AAB;white-space:nowrap;min-width:130px}
+.dep-wrap input[type=time]{max-width:140px;font-size:17px}
+.dep-tz{font-size:14px;color:#2A5070;white-space:nowrap}
+.now-btn{height:44px;min-width:56px;background:#0D2818;border:2px solid #23A55A;border-radius:3px;color:#23A55A;font-size:26px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;line-height:1}
+.now-btn:hover{background:#1A4028;border-color:#00E676;color:#00E676;transform:scale(1.05)}
+.now-btn:active{transform:scale(.95)}
 .fleet-list{display:flex;flex-direction:column;gap:0}
-.fleet-row{display:grid;grid-template-columns:2fr 80px 1fr 1fr 36px;gap:8px;align-items:end;padding:12px 0;border-bottom:1px solid #06101C}
+.fleet-row{display:grid;grid-template-columns:2fr 90px 1fr 1fr 44px;gap:8px;align-items:end;padding:14px 0;border-bottom:1px solid #06101C}
 .fleet-row:last-child{border-bottom:none}
-.fleet-row .field label{font-size:8px}
-.rm-btn{height:36px;background:transparent;border:1px solid #1E1020;border-radius:2px;color:#6A2030;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0}
+.fleet-row .field label{font-size:12px}
+.rm-btn{height:44px;background:transparent;border:1px solid #1E1020;border-radius:2px;color:#6A2030;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0}
 .rm-btn:hover{background:#1A0610;border-color:#E74C3C;color:#E74C3C}
-.add-btn{margin-top:12px;padding:8px 14px;background:transparent;border:1px solid #1A2840;color:#3A6080;font-size:9px;font-weight:700;letter-spacing:2px;cursor:pointer;border-radius:2px;font-family:inherit;transition:all .12s;width:100%}
+.add-btn{margin-top:12px;padding:11px 14px;background:transparent;border:1px solid #1A2840;color:#3A6080;font-size:14px;font-weight:700;letter-spacing:1px;cursor:pointer;border-radius:2px;font-family:inherit;transition:all .12s;width:100%}
 .add-btn:hover{border-color:#2A5080;color:#5A8AAB;background:#040C18}
-.hint{font-size:10px;color:#1E3050;margin-top:4px;line-height:1.4}
-.submit-btn{width:100%;padding:15px;background:#C4920A;color:#000;border:none;border-radius:2px;font-size:10px;font-weight:900;letter-spacing:3px;cursor:pointer;font-family:inherit;transition:opacity .15s;margin-top:8px}
+.hint{font-size:14px;color:#2A4060;margin-top:5px;line-height:1.5}
+.submit-btn{width:100%;padding:16px;background:#C4920A;color:#000;border:none;border-radius:2px;font-size:14px;font-weight:900;letter-spacing:2px;cursor:pointer;font-family:inherit;transition:opacity .15s;margin-top:8px}
 .submit-btn:hover:not(:disabled){opacity:.88}
 .submit-btn:disabled{opacity:.35;cursor:default}
-.success-box{background:#04120A;border:1px solid #23A55A;border-radius:3px;padding:28px 24px;text-align:center;color:#23A55A;font-size:14px;line-height:2;margin-top:12px;display:none}
-.success-box code{background:#040C18;padding:4px 10px;border-radius:2px;font-family:monospace;color:#E8B84B;font-size:12px;display:inline-block;margin:4px 0}
-.err-box{background:#120408;border:1px solid #E74C3C;border-radius:2px;padding:10px 14px;color:#E74C3C;font-size:11px;margin-top:10px;display:none}
-@media(max-width:640px){.g2,.g3{grid-template-columns:1fr}.fleet-row{grid-template-columns:1fr 70px;grid-template-rows:auto auto auto;gap:6px}.dep-wrap{flex-wrap:wrap}}
+.success-box{background:#04120A;border:1px solid #23A55A;border-radius:3px;padding:28px 24px;text-align:center;color:#23A55A;font-size:17px;line-height:2;margin-top:12px;display:none}
+.success-box code{background:#040C18;padding:5px 12px;border-radius:2px;font-family:monospace;color:#E8B84B;font-size:14px;display:inline-block;margin:4px 0}
+.err-box{background:#120408;border:1px solid #E74C3C;border-radius:2px;padding:12px 16px;color:#E74C3C;font-size:14px;margin-top:10px;display:none}
+@media(max-width:640px){.g2{grid-template-columns:1fr}.fleet-row{grid-template-columns:1fr 80px;grid-template-rows:auto auto auto;gap:8px}.dep-wrap{flex-wrap:wrap}}
 </style>
 </head>
 <body>
@@ -2176,11 +2193,11 @@ select option{background:#040C18;color:#E2EAF4}
     This form is <strong>private</strong>. Your fleet composition, reserves and strategy never appear on Discord. Fill this out once and the fuel bot uses your settings automatically every time you run <strong>!fuelplan</strong>. You can update it anytime by re-submitting.
   </div>
   <form id="f" autocomplete="off">
- 
+
     <div class="card">
       <div class="card-title">Your Identity</div>
       <div class="card-body">
-        <div class="g2" style="margin-bottom:14px">
+        <div class="g2" style="margin-bottom:16px">
           <div class="field">
             <label>Discord ID <span class="warn">&#9888; Copy from Discord &mdash; never from a spreadsheet</span></label>
             <input id="discord_id" type="text" inputmode="numeric" placeholder="18-digit number" required>
@@ -2190,7 +2207,7 @@ select option{background:#040C18;color:#E2EAF4}
             <input id="discord_name" type="text" placeholder="e.g. atlas.4693" required>
           </div>
         </div>
-        <div class="field" style="max-width:300px">
+        <div class="field" style="max-width:320px">
           <label>Your Timezone</label>
           <select id="timezone">
             <option value="UTC-12">UTC-12</option>
@@ -2202,14 +2219,14 @@ select option{background:#040C18;color:#E2EAF4}
             <option value="UTC-6">UTC-6 (Chicago / CST)</option>
             <option value="UTC-5">UTC-5 (New York / EST)</option>
             <option value="UTC-4">UTC-4 (Atlantic)</option>
-            <option value="UTC-3">UTC-3 (São Paulo)</option>
+            <option value="UTC-3">UTC-3 (Sao Paulo)</option>
             <option value="UTC-2">UTC-2</option>
             <option value="UTC-1">UTC-1 (Azores)</option>
             <option value="UTC+0">UTC+0 (London / GMT)</option>
-            <option value="UTC+1">UTC+1 (Paris / CET)</option>
-            <option value="UTC+2">UTC+2 (Cairo / EET)</option>
-            <option value="UTC+3">UTC+3 (Moscow / Dubai)</option>
-            <option value="UTC+4">UTC+4 (Dubai / GST)</option>
+            <option value="UTC+1">UTC+1 (Paris / CET / Game Time)</option>
+            <option value="UTC+2">UTC+2 (Cairo / EET / Game Time Summer)</option>
+            <option value="UTC+3">UTC+3 (Moscow)</option>
+            <option value="UTC+4">UTC+4 (Dubai)</option>
             <option value="UTC+5">UTC+5 (Karachi)</option>
             <option value="UTC+5.5">UTC+5:30 (India / IST)</option>
             <option value="UTC+6">UTC+6 (Dhaka)</option>
@@ -2225,7 +2242,7 @@ select option{background:#040C18;color:#E2EAF4}
         </div>
       </div>
     </div>
- 
+
     <div class="card">
       <div class="card-title">Tank Limits</div>
       <div class="card-body">
@@ -2243,115 +2260,116 @@ select option{background:#040C18;color:#E2EAF4}
         </div>
       </div>
     </div>
- 
+
     <div class="card">
       <div class="card-title">Game Speed</div>
       <div class="card-body">
         <div class="toggle-wrap">
-          <button type="button" id="btn-1x" class="tbtn on" onclick="setSp(false)">1&times; REALISM</button>
-          <button type="button" id="btn-4x" class="tbtn" onclick="setSp(true)">4&times; EASY</button>
+          <button type="button" id="btn-rl" class="tbtn on" onclick="setSp(false)">REALISM</button>
+          <button type="button" id="btn-ez" class="tbtn" onclick="setSp(true)">EASY</button>
         </div>
-        <div class="hint" style="margin-top:10px">Select the mode your server plays on &mdash; affects flight cycle duration.</div>
+        <div class="hint" style="margin-top:12px">Select your game mode. Speed modification (1.1&times;) is assumed for all aircraft. Easy mode is 1.5&times; faster than Realism.</div>
       </div>
     </div>
- 
+
     <div class="card">
       <div class="card-title">3.5 Hour Cycle &mdash; Concorde &amp; Fast Short-Haul</div>
       <div class="card-body">
         <div class="dep-wrap">
           <label>Default Departure</label>
           <input type="time" id="dep_3h">
-          <span class="dep-tz">Enter in UTC</span>
+          <button type="button" class="now-btn" onclick="depNow('dep_3h')" title="Departing now">&#10003;</button>
+          <span class="dep-tz">or tap &#10003; for Game Time now (Denmark)</span>
         </div>
         <div class="fleet-list" id="fleet-3h"></div>
         <button type="button" class="add-btn" onclick="addRow('3h')">+ ADD AIRCRAFT TO THIS GROUP</button>
       </div>
     </div>
- 
+
     <div class="card">
       <div class="card-title">14 Hour Cycle &mdash; A380 / Freighters / Mid-Long Haul</div>
       <div class="card-body">
         <div class="dep-wrap">
           <label>Default Departure</label>
           <input type="time" id="dep_14h">
-          <span class="dep-tz">Enter in UTC</span>
+          <button type="button" class="now-btn" onclick="depNow('dep_14h')" title="Departing now">&#10003;</button>
+          <span class="dep-tz">or tap &#10003; for Game Time now (Denmark)</span>
         </div>
         <div class="fleet-list" id="fleet-14h"></div>
         <button type="button" class="add-btn" onclick="addRow('14h')">+ ADD AIRCRAFT TO THIS GROUP</button>
       </div>
     </div>
- 
+
     <div class="card">
       <div class="card-title">21 Hour Cycle &mdash; Long Haul</div>
       <div class="card-body">
         <div class="dep-wrap">
           <label>Default Departure</label>
           <input type="time" id="dep_21h">
-          <span class="dep-tz">Enter in UTC</span>
+          <button type="button" class="now-btn" onclick="depNow('dep_21h')" title="Departing now">&#10003;</button>
+          <span class="dep-tz">or tap &#10003; for Game Time now (Denmark)</span>
         </div>
         <div class="fleet-list" id="fleet-21h"></div>
         <button type="button" class="add-btn" onclick="addRow('21h')">+ ADD AIRCRAFT TO THIS GROUP</button>
       </div>
     </div>
- 
+
     <button type="submit" class="submit-btn" id="sub-btn">SAVE PROFILE</button>
     <div class="err-box" id="err-box"></div>
   </form>
- 
+
   <div class="success-box" id="ok-box">
     &#10003; Profile saved.<br><br>
-    You're set. Next time your aircraft land, run:<br>
+    You are set. Next time your aircraft land, run:<br>
     <code>!fuelplan reserves:XXXXXXXX co2:XXXXXXXX</code><br><br>
     Your departure times and fleet load automatically from this profile.<br>
     Override departure times anytime: <code>dep3h:HH:MM dep14h:HH:MM dep21h:HH:MM</code>
   </div>
 </div>
- 
+
 <datalist id="act">
   <option>A380-800</option><option>Concorde</option><option>A380-800F</option>
   <option>B747-8F</option><option>B747-8</option><option>A330-900neo</option>
-  <option>A380-800 (LH)</option><option>A380-800 LH</option>
-  <option>A350-900</option><option>A350-1000</option><option>A350-900R</option><option>A350-900ULR</option>
-  <option>B777-9X</option><option>B777-300LR</option><option>B777-300ER</option><option>B777-300</option>
-  <option>B777-200LR</option><option>B777-200ER</option><option>B777-200</option>
-  <option>B777 Freighter</option><option>Boeing 777-300ERSF</option>
+  <option>A380-800 LH</option><option>A350-900</option><option>A350-1000</option>
+  <option>A350-900R</option><option>A350-900ULR</option>
+  <option>B777-9X</option><option>B777-300LR</option><option>B777-300ER</option>
+  <option>B777-300</option><option>B777-200LR</option><option>B777-200ER</option>
+  <option>B777-200</option><option>B777 Freighter</option><option>Boeing 777-300ERSF</option>
   <option>B787-10</option><option>B787-9</option><option>B787-8</option>
   <option>A340-600</option><option>A340-500</option><option>A340-300</option><option>A340-200</option>
   <option>A330-300</option><option>A330-200</option><option>A330-200F</option><option>A330-800neo</option>
   <option>A321-NEO</option><option>A321-200</option><option>A321-XLR</option>
-  <option>A320-NEO</option><option>A320-200</option>
-  <option>A319NEO</option><option>A319-200</option>
+  <option>A320-NEO</option><option>A320-200</option><option>A319NEO</option><option>A319-200</option>
   <option>A318-100</option><option>A220-300</option><option>A220-100</option>
   <option>B747-400F</option><option>B747-400</option><option>B747-400ER</option>
-  <option>B747-400C</option><option>B747-400D</option><option>B747-400B</option>
+  <option>B747-400C</option><option>B747-400D</option>
   <option>B737 MAX 10</option><option>B737 MAX 9</option><option>B737 MAX 8</option><option>B737 MAX 7</option>
   <option>B737-900ER</option><option>B737-900</option><option>B737-800</option>
   <option>B737-700ER</option><option>B737-700</option><option>B737-600</option>
-  <option>B737-500</option><option>B737-400</option><option>B737-300</option>
   <option>B757-300</option><option>B757-200</option><option>B757-200F</option>
   <option>B767-300F</option><option>B767-300ER</option><option>B767-200ER</option>
   <option>A350F</option><option>An-124</option><option>AN-225</option>
   <option>C-17A</option><option>Il-76D</option><option>Il-96T</option>
   <option>A300-600F</option><option>A300-600ST</option>
-  <option>B747SP</option><option>B707</option>
   <option>MC-21-400</option><option>MC-21-300</option><option>MC-21-200</option>
-  <option>C919</option><option>A380-800F (Charter)</option>
+  <option>C919</option><option>B707</option>
   <option>MD-11</option><option>MD-11C</option><option>MD-11ER</option>
   <option>DC-10-40</option><option>DC-10-30</option><option>DC-10-15</option>
   <option>B727-200F</option><option>B727-200</option><option>B727-100</option>
 </datalist>
- 
+
 <script>
 let spd4x=false;
-function setSp(v){spd4x=v;document.getElementById('btn-1x').classList.toggle('on',!v);document.getElementById('btn-4x').classList.toggle('on',v);}
+function setSp(v){spd4x=v;document.getElementById('btn-rl').classList.toggle('on',!v);document.getElementById('btn-ez').classList.toggle('on',v);}
+function depNow(id){const dk=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Copenhagen',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());document.getElementById(id).value=dk;}
 function addRow(g){
   const list=document.getElementById('fleet-'+g);
   const d=document.createElement('div');
   d.className='fleet-row';
   d.innerHTML='<div class="field"><label>Aircraft Type</label><input type="text" class="ac-t" list="act" placeholder="Type name or select..." required></div>'+
     '<div class="field"><label>Count</label><input type="number" class="ac-n" min="1" placeholder="0" required></div>'+
-    '<div class="field"><label>Fuel / AC / Cycle (Lbs)</label><input type="number" class="ac-f" min="0" placeholder="From game screen"></div>'+
-    '<div class="field"><label>CO&#8322; / AC / Cycle (Quotas)</label><input type="number" class="ac-c" min="0" placeholder="From game screen"></div>'+
+    '<div class="field"><label>Fuel / AC / Cycle (Lbs)</label><input type="number" class="ac-f" min="0" placeholder="From game"></div>'+
+    '<div class="field"><label>CO&#8322; / AC / Cycle (Quotas)</label><input type="number" class="ac-c" min="0" placeholder="From game"></div>'+
     '<button type="button" class="rm-btn" onclick="this.closest(\'.fleet-row\').remove()" title="Remove">&#10005;</button>';
   list.appendChild(d);
 }
@@ -2371,10 +2389,10 @@ document.getElementById('f').addEventListener('submit',async e=>{
   err.style.display='none';
   const did=document.getElementById('discord_id').value.trim();
   if(!did.match(/^\d{17,19}$/)){
-    err.textContent='Discord ID must be a 17\u201319 digit number. Copy it from Discord \u2014 right-click your name \u2192 Copy User ID.';
+    err.textContent='Discord ID must be a 17-19 digit number. Copy it from Discord — right-click your name then Copy User ID.';
     err.style.display='block';return;
   }
-  btn.textContent='SAVING\u2026';btn.disabled=true;
+  btn.textContent='SAVING...';btn.disabled=true;
   const profile={
     discord_id:did,
     discord_name:document.getElementById('discord_name').value.trim(),
@@ -2393,7 +2411,7 @@ document.getElementById('f').addEventListener('submit',async e=>{
     const d=await r.json();
     if(d.ok){document.getElementById('f').style.display='none';document.getElementById('ok-box').style.display='block';window.scrollTo(0,0);}
     else{err.textContent='Error: '+(d.error||'Save failed');err.style.display='block';btn.textContent='SAVE PROFILE';btn.disabled=false;}
-  }catch(ex){err.textContent='Connection error \u2014 try again.';err.style.display='block';btn.textContent='SAVE PROFILE';btn.disabled=false;}
+  }catch(ex){err.textContent='Connection error — try again.';err.style.display='block';btn.textContent='SAVE PROFILE';btn.disabled=false;}
 });
 </script>
 </body>
