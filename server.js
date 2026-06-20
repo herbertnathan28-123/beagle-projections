@@ -2132,6 +2132,7 @@ body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;
 .card-title{font-size:14px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#5A8AAB;padding:12px 20px;border-bottom:1px solid #0A1E30;background:#030B17}
 .card-body{padding:18px 20px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
 .field{display:flex;flex-direction:column;gap:6px}
 .field label{font-size:13px;font-weight:600;letter-spacing:.5px;color:#5A8AAB}
 .warn{font-size:12px;color:#E8B84B;font-weight:400;letter-spacing:0;text-transform:none;margin-left:5px}
@@ -2150,10 +2151,16 @@ select option{background:#040C18;color:#E2EAF4}
 .now-btn{height:44px;min-width:56px;background:#0D2818;border:2px solid #23A55A;border-radius:3px;color:#23A55A;font-size:26px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;line-height:1}
 .now-btn:hover{background:#1A4028;border-color:#00E676;color:#00E676;transform:scale(1.05)}
 .now-btn:active{transform:scale(.95)}
+.master-dep-btn{width:100%;padding:14px;background:#0D2818;border:2px solid #23A55A;border-radius:3px;color:#23A55A;font-size:16px;font-weight:700;letter-spacing:1.5px;cursor:pointer;font-family:inherit;transition:all .15s;margin-bottom:18px}
+.master-dep-btn:hover{background:#1A4028;border-color:#00E676;color:#00E676;transform:scale(1.02)}
+.master-dep-btn:active{transform:scale(.98)}
 .fleet-list{display:flex;flex-direction:column;gap:0}
-.fleet-row{display:grid;grid-template-columns:2fr 90px 1fr 1fr 44px;gap:8px;align-items:end;padding:14px 0;border-bottom:1px solid #06101C}
-.fleet-row:last-child{border-bottom:none}
-.fleet-row .field label{font-size:12px}
+.fleet-group-row{display:grid;grid-template-columns:2fr 1fr 1fr 44px;gap:8px;align-items:end;padding:14px 0;border-bottom:1px solid #06101C}
+.fleet-group-row:last-child{border-bottom:none}
+.fleet-group-row .field label{font-size:12px}
+.cal-row{display:grid;grid-template-columns:1fr 1fr 1fr 44px;gap:8px;align-items:end;padding:10px 0;border-bottom:1px solid #06101C}
+.cal-row:last-child{border-bottom:none}
+.cal-row .field label{font-size:12px}
 .rm-btn{height:44px;background:transparent;border:1px solid #1E1020;border-radius:2px;color:#6A2030;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0}
 .rm-btn:hover{background:#1A0610;border-color:#E74C3C;color:#E74C3C}
 .add-btn{margin-top:12px;padding:11px 14px;background:transparent;border:1px solid #1A2840;color:#3A6080;font-size:14px;font-weight:700;letter-spacing:1px;cursor:pointer;border-radius:2px;font-family:inherit;transition:all .12s;width:100%}
@@ -2165,7 +2172,14 @@ select option{background:#040C18;color:#E2EAF4}
 .success-box{background:#04120A;border:1px solid #23A55A;border-radius:3px;padding:28px 24px;text-align:center;color:#23A55A;font-size:17px;line-height:2;margin-top:12px;display:none}
 .success-box code{background:#040C18;padding:5px 12px;border-radius:2px;font-family:monospace;color:#E8B84B;font-size:14px;display:inline-block;margin:4px 0}
 .err-box{background:#120408;border:1px solid #E74C3C;border-radius:2px;padding:12px 16px;color:#E74C3C;font-size:14px;margin-top:10px;display:none}
-@media(max-width:640px){.g2{grid-template-columns:1fr}.fleet-row{grid-template-columns:1fr 80px;grid-template-rows:auto auto auto;gap:8px}.dep-wrap{flex-wrap:wrap}}
+.radio-group{display:flex;gap:0;border:1px solid #1A2840;border-radius:2px;overflow:hidden;margin-top:6px}
+.radio-group label{flex:1;text-align:center;padding:11px 14px;background:#040C18;color:#3A5070;font-size:14px;font-weight:700;letter-spacing:1px;cursor:pointer;border-right:1px solid #1A2840;transition:all .12s}
+.radio-group label:last-child{border-right:none}
+.radio-group input[type=radio]{display:none}
+.radio-group input[type=radio]:checked+span{background:#0E2235;color:#E8B84B}
+.radio-group label:has(input:checked){background:#0E2235;color:#E8B84B}
+.buffer-note{background:#06101C;border:1px solid #0A2040;border-radius:2px;padding:14px 18px;margin-top:14px;font-size:13px;color:#4A6070;line-height:1.7}
+@media(max-width:640px){.g2,.g3{grid-template-columns:1fr}.fleet-group-row{grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:8px}.cal-row{grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:8px}.dep-wrap{flex-wrap:wrap}}
 </style>
 </head>
 <body>
@@ -2258,44 +2272,63 @@ select option{background:#040C18;color:#E2EAF4}
     </div>
 
     <div class="card">
-      <div class="card-title">3.5 Hour Cycle &mdash; Concorde &amp; Fast Short-Haul</div>
+      <div class="card-title">Fleet Groups</div>
       <div class="card-body">
+        <div class="hint" style="margin-bottom:12px">Add each aircraft type in your fleet. Enter the flight time in hours (e.g. 3.5 for Concorde, 14 for A380).</div>
+        <div class="fleet-list" id="fleet-groups"></div>
+        <button type="button" class="add-btn" onclick="addFleetGroup()">+ ADD AIRCRAFT GROUP</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Departure Calibration</div>
+      <div class="card-body">
+        <div class="hint" style="margin-bottom:12px">Read these figures from your departure screen after each flight. Minimum 1 entry required. Up to 10 for best accuracy &mdash; system averages automatically.</div>
+        <div id="cal-list"></div>
+        <button type="button" class="add-btn" id="cal-add-btn" onclick="addCalRow()">+ ADD CALIBRATION ENTRY</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Departure Times &mdash; Game Time (Denmark)</div>
+      <div class="card-body">
+        <button type="button" class="master-dep-btn" onclick="depNowAll()">&#10003; DEPARTING ALL NOW</button>
+
         <div class="dep-wrap">
-          <label>Default Departure</label>
+          <label>3.5h Cycle</label>
           <input type="time" id="dep_3h">
           <button type="button" class="now-btn" onclick="depNow('dep_3h')" title="Departing now">&#10003;</button>
-          <span class="dep-tz">or tap &#10003; for Game Time now (Denmark)</span>
+          <span class="dep-tz">Concorde &amp; Fast Short-Haul</span>
         </div>
-        <div class="fleet-list" id="fleet-3h"></div>
-        <button type="button" class="add-btn" onclick="addRow('3h')">+ ADD AIRCRAFT TO THIS GROUP</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">14 Hour Cycle &mdash; A380 / Freighters / Mid-Long Haul</div>
-      <div class="card-body">
         <div class="dep-wrap">
-          <label>Default Departure</label>
+          <label>14h Cycle</label>
           <input type="time" id="dep_14h">
           <button type="button" class="now-btn" onclick="depNow('dep_14h')" title="Departing now">&#10003;</button>
-          <span class="dep-tz">or tap &#10003; for Game Time now (Denmark)</span>
+          <span class="dep-tz">A380 / Freighters / Mid-Long Haul</span>
         </div>
-        <div class="fleet-list" id="fleet-14h"></div>
-        <button type="button" class="add-btn" onclick="addRow('14h')">+ ADD AIRCRAFT TO THIS GROUP</button>
+        <div class="dep-wrap" style="border-bottom:none;margin-bottom:0;padding-bottom:0">
+          <label>21h Cycle</label>
+          <input type="time" id="dep_21h">
+          <button type="button" class="now-btn" onclick="depNow('dep_21h')" title="Departing now">&#10003;</button>
+          <span class="dep-tz">Long Haul</span>
+        </div>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-title">21 Hour Cycle &mdash; Long Haul</div>
+      <div class="card-title">4X Speed Boost</div>
       <div class="card-body">
-        <div class="dep-wrap">
-          <label>Default Departure</label>
-          <input type="time" id="dep_21h">
-          <button type="button" class="now-btn" onclick="depNow('dep_21h')" title="Departing now">&#10003;</button>
-          <span class="dep-tz">or tap &#10003; for Game Time now (Denmark)</span>
+        <div class="dep-wrap" style="border-bottom:none;margin-bottom:0;padding-bottom:0">
+          <label>Activated At</label>
+          <input type="time" id="boost_time">
+          <button type="button" class="now-btn" onclick="depNow('boost_time')" title="Activating now">&#10003;</button>
+          <span class="dep-tz">Tap &#10003; when activating, select duration</span>
         </div>
-        <div class="fleet-list" id="fleet-21h"></div>
-        <button type="button" class="add-btn" onclick="addRow('21h')">+ ADD AIRCRAFT TO THIS GROUP</button>
+        <div class="radio-group" style="margin-top:14px">
+          <label><input type="radio" name="boost_dur" value="1"><span>1 HOUR</span></label>
+          <label><input type="radio" name="boost_dur" value="4"><span>4 HOURS</span></label>
+          <label><input type="radio" name="boost_dur" value="24"><span>24 HOURS</span></label>
+        </div>
       </div>
     </div>
 
@@ -2309,6 +2342,11 @@ select option{background:#040C18;color:#E2EAF4}
     <code>!fuelplan reserves:XXXXXXXX co2:XXXXXXXX</code><br><br>
     Your departure times and fleet load automatically from this profile.<br>
     Override departure times anytime: <code>dep3h:HH:MM dep14h:HH:MM dep21h:HH:MM</code>
+  </div>
+
+  <div class="buffer-note">
+    Purchase buffers are applied automatically based on your fleet size:<br>
+    under 500 aircraft = 2 min &middot; 501&ndash;1,200 = 3 min &middot; above 1,200 = 4 min
   </div>
 </div>
 
@@ -2347,25 +2385,44 @@ select option{background:#040C18;color:#E2EAF4}
 let spd4x=false;
 function setSp(v){spd4x=v;document.getElementById('btn-rl').classList.toggle('on',!v);document.getElementById('btn-ez').classList.toggle('on',v);}
 function depNow(id){const dk=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Copenhagen',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());document.getElementById(id).value=dk;}
-function addRow(g){
-  const list=document.getElementById('fleet-'+g);
+function depNowAll(){const dk=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Copenhagen',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());['dep_3h','dep_14h','dep_21h'].forEach(id=>{document.getElementById(id).value=dk;});}
+function addFleetGroup(){
+  const list=document.getElementById('fleet-groups');
   const d=document.createElement('div');
-  d.className='fleet-row';
-  d.innerHTML='<div class="field"><label>Aircraft Type</label><input type="text" class="ac-t" list="act" placeholder="Type name or select..." required></div>'+
-    '<div class="field"><label>Count</label><input type="number" class="ac-n" min="1" placeholder="0" required></div>'+
-    '<div class="field"><label>Fuel / AC / Cycle (Lbs)</label><input type="number" class="ac-f" min="0" placeholder="From game"></div>'+
-    '<div class="field"><label>CO&#8322; / AC / Cycle (Quotas)</label><input type="number" class="ac-c" min="0" placeholder="From game"></div>'+
-    '<button type="button" class="rm-btn" onclick="this.closest(\'.fleet-row\').remove()" title="Remove">&#10005;</button>';
+  d.className='fleet-group-row';
+  d.innerHTML='<div class="field"><label>Aircraft Type</label><input type="text" class="ac-type" list="act" placeholder="Type name or select..." required></div>'+
+    '<div class="field"><label>Total Aircraft</label><input type="number" class="ac-total" min="1" placeholder="0" required></div>'+
+    '<div class="field"><label>Flight Time (Hours)</label><input type="number" class="ac-hours" min="0" step="0.5" placeholder="e.g. 3.5"></div>'+
+    '<button type="button" class="rm-btn" onclick="this.closest(\'.fleet-group-row\').remove()" title="Remove">&#10005;</button>';
   list.appendChild(d);
 }
-function collectFleet(g,dg){
-  return[...document.querySelectorAll('#fleet-'+g+' .fleet-row')].map(r=>({
-    type:r.querySelector('.ac-t').value.trim(),
-    count:parseInt(r.querySelector('.ac-n').value)||0,
-    fuel_per_ac:parseInt(r.querySelector('.ac-f').value)||0,
-    co2_per_ac:parseInt(r.querySelector('.ac-c').value)||0,
-    dep_group:dg
-  })).filter(a=>a.type&&a.count>0);
+function addCalRow(){
+  const list=document.getElementById('cal-list');
+  if(list.querySelectorAll('.cal-row').length>=10)return;
+  const d=document.createElement('div');
+  d.className='cal-row';
+  d.innerHTML='<div class="field"><label>Aircraft Departed</label><input type="number" class="cal-dep" min="1" placeholder="Count"></div>'+
+    '<div class="field"><label>Fuel Used (Lbs)</label><input type="text" class="cal-fuel" placeholder="From departure screen"></div>'+
+    '<div class="field"><label>CO\\u2082 Quotas</label><input type="text" class="cal-co2" placeholder="From departure screen"></div>'+
+    '<button type="button" class="rm-btn" onclick="rmCal(this)" title="Remove">&#10005;</button>';
+  list.appendChild(d);
+  updateCalBtn();
+}
+function rmCal(btn){btn.closest('.cal-row').remove();updateCalBtn();}
+function updateCalBtn(){const n=document.querySelectorAll('#cal-list .cal-row').length;document.getElementById('cal-add-btn').style.display=n>=10?'none':'block';}
+function collectFleetGroups(){
+  return[...document.querySelectorAll('.fleet-group-row')].map(r=>({
+    type:r.querySelector('.ac-type').value.trim(),
+    total_aircraft:parseInt(r.querySelector('.ac-total').value)||0,
+    flight_hours:parseFloat(r.querySelector('.ac-hours').value)||0
+  })).filter(r=>r.type&&r.total_aircraft>0&&r.flight_hours>0);
+}
+function collectCalibration(){
+  return[...document.querySelectorAll('.cal-row')].map(r=>({
+    departed:parseInt(r.querySelector('.cal-dep').value)||0,
+    fuel_used:parseInt(r.querySelector('.cal-fuel').value.replace(/,/g,''))||0,
+    co2_quotas:parseInt(r.querySelector('.cal-co2').value.replace(/,/g,''))||0
+  })).filter(r=>r.departed>0&&r.fuel_used>0);
 }
 document.getElementById('f').addEventListener('submit',async e=>{
   e.preventDefault();
@@ -2388,7 +2445,12 @@ document.getElementById('f').addEventListener('submit',async e=>{
     dep_default_3h:document.getElementById('dep_3h').value||null,
     dep_default_14h:document.getElementById('dep_14h').value||null,
     dep_default_21h:document.getElementById('dep_21h').value||null,
-    fleet:[...collectFleet('3h','3.5h'),...collectFleet('14h','14h'),...collectFleet('21h','21h')],
+    fleet:collectFleetGroups(),
+    calibration:collectCalibration(),
+    boost_4x:{
+      activated_at:document.getElementById('boost_time').value||null,
+      duration_hours:parseInt(document.querySelector('input[name="boost_dur"]:checked')?.value)||null
+    },
     setup_complete:1
   };
   try{
