@@ -2111,21 +2111,6 @@ function precompileJSX(html) {
 
 const HTML_COMPILED = precompileJSX(HTML);
 const FUEL_SETUP_HTML = `<!DOCTYPE html>
-```
-
-Select from that line all the way down to the line that contains only:
-```
-`;
-```
-(the closing backtick and semicolon that ends the template literal)
-
-Replace the entire block — from `const FUEL_SETUP_HTML =` through the closing `` `; `` — with the content below.
-
----
-
-## Replacement content — paste this in full:
-
-const FUEL_SETUP_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
