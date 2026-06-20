@@ -1574,20 +1574,8 @@ html,body{background:var(--bg);color:var(--txt);font-family:var(--sans);}
 </head>
 <body>
 
-<!-- LOCK -->
-<div id="lock">
-  <div class="lock-card">
-    <span class="lock-diamond">◆ ◆ ◆</span>
-    <div class="lock-title">Hunter</div>
-    <div class="lock-sub">Behavioral Forensics · Restricted</div>
-    <input type="password" class="lock-input" id="ki" placeholder="ACCESS KEY" onkeydown="if(event.key==='Enter')auth()"/>
-    <button class="lock-btn" onclick="auth()">AUTHENTICATE</button>
-    <div class="lock-err" id="kerr">ACCESS DENIED</div>
-  </div>
-</div>
-
 <!-- APP -->
-<div id="app" style="display:none;">
+<div id="app">
 
 <!-- MODAL -->
 <div class="modal-bg" id="modal" onclick="if(event.target===this)closeModal()">
@@ -1668,21 +1656,9 @@ html,body{background:var(--bg);color:var(--txt);font-family:var(--sans);}
 </div><!-- /app -->
 
 <script>
-const HKEY=(window._HUNTER_KEY||'A11').toUpperCase();
-let _data=null;
 
-/* AUTH */
-function auth(){
-  const v=(document.getElementById('ki').value||'').trim().toUpperCase();
-  const uk=(new URLSearchParams(location.search).get('k')||'').toUpperCase();
-  if(v===HKEY||uk===HKEY){go();}
-  else{const e=document.getElementById('kerr');e.style.display='block';setTimeout(()=>e.style.display='none',3000);}
-}
-function go(){document.getElementById('lock').style.display='none';document.getElementById('app').style.display='block';load();}
-addEventListener('DOMContentLoaded',()=>{
-  const k=(new URLSearchParams(location.search).get('k')||'').toUpperCase();
-  if(k===HKEY)go();
-});
+let _data=null;
+addEventListener('DOMContentLoaded',load);
 
 /* TABS */
 function sw(name,el){
