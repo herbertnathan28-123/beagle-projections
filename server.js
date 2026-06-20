@@ -2119,13 +2119,13 @@ const FUEL_SETUP_HTML = `<!DOCTYPE html>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{height:-webkit-fill-available}
-body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;font-size:18px;min-height:100vh;min-height:-webkit-fill-available}
+body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;font-size:18px;min-height:100vh}
 ::-webkit-scrollbar{width:4px;background:#040C18}
 ::-webkit-scrollbar-thumb{background:#1A3050;border-radius:2px}
 .hdr{background:linear-gradient(90deg,#04101E,#0A1C32);border-bottom:2px solid #C4920A;padding:11px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
 .brand{font-size:26px;font-weight:700;color:#E8B84B;letter-spacing:2px}
 .brand-sub{font-size:12px;color:#4A6070;letter-spacing:3px;text-transform:uppercase;margin-top:2px}
-.hdr-note{font-size:13px;color:#4A6070;border:1px solid #162030;padding:5px 12px;border-radius:2px;letter-spacing:.5px}
+.hdr-note{font-size:13px;color:#4A6070;border:1px solid #162030;padding:5px 12px;border-radius:2px}
 .container{max-width:860px;margin:0 auto;padding:24px 16px 80px}
 .notice{background:#06101C;border:1px solid #0A2040;border-left:3px solid #E8B84B;border-radius:2px;padding:14px 18px;margin-bottom:20px;font-size:15px;color:#8AAABB;line-height:1.8}
 .card{background:#04101E;border:1px solid #0A1E30;border-radius:3px;margin-bottom:14px;overflow:hidden}
@@ -2133,39 +2133,62 @@ body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;
 .card-body{padding:18px 20px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .field{display:flex;flex-direction:column;gap:6px}
-.field label{font-size:13px;font-weight:600;letter-spacing:.5px;color:#5A8AAB}
-.warn{font-size:12px;color:#E8B84B;font-weight:400;letter-spacing:0;text-transform:none;margin-left:5px}
+.field label{font-size:13px;font-weight:600;color:#5A8AAB}
+.warn{font-size:12px;color:#E8B84B;font-weight:400;margin-left:5px}
 input[type=text],input[type=number],input[type=time],select{background:#06121E;border:1px solid #1A2840;color:#E2EAF4;padding:11px 13px;border-radius:2px;font-family:inherit;font-size:17px;width:100%;outline:none;transition:border-color .12s}
-input:focus,select:focus{border-color:#2A5080;box-shadow:0 0 0 2px rgba(42,80,128,.15)}
+input:focus,select:focus{border-color:#2A5080}
 input::placeholder{color:#1E3050}
 select option{background:#040C18;color:#E2EAF4}
 .toggle-wrap{display:inline-flex;border-radius:2px;overflow:hidden;border:1px solid #1A2840}
 .tbtn{padding:11px 28px;background:#040C18;border:none;color:#3A5070;font-size:15px;font-weight:700;letter-spacing:1.5px;cursor:pointer;font-family:inherit;transition:all .12s}
 .tbtn.on{background:#0E2235;color:#E8B84B}
 .tbtn:not(:last-child){border-right:1px solid #1A2840}
+.hint{font-size:14px;color:#2A4060;margin-top:5px;line-height:1.5}
+/* Master button */
+.master-btn{width:100%;padding:16px;background:#0D2818;border:2px solid #23A55A;border-radius:3px;color:#23A55A;font-size:16px;font-weight:700;letter-spacing:2px;cursor:pointer;font-family:inherit;transition:all .15s;margin-bottom:16px}
+.master-btn:hover{background:#1A4028;border-color:#00E676;color:#00E676}
+.master-btn:active{transform:scale(.98)}
+/* Departure rows */
 .dep-wrap{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #0A1E30;flex-wrap:wrap}
-.dep-wrap label{font-size:13px;font-weight:600;letter-spacing:.5px;color:#5A8AAB;white-space:nowrap;min-width:130px}
+.dep-wrap label{font-size:13px;font-weight:600;color:#5A8AAB;white-space:nowrap;min-width:130px}
 .dep-wrap input[type=time]{max-width:140px;font-size:17px}
-.dep-tz{font-size:14px;color:#2A5070;white-space:nowrap}
+.dep-tz{font-size:14px;color:#2A5070}
 .now-btn{height:44px;min-width:56px;background:#0D2818;border:2px solid #23A55A;border-radius:3px;color:#23A55A;font-size:26px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;line-height:1}
-.now-btn:hover{background:#1A4028;border-color:#00E676;color:#00E676;transform:scale(1.05)}
+.now-btn:hover{background:#1A4028;border-color:#00E676;color:#00E676}
 .now-btn:active{transform:scale(.95)}
-.fleet-list{display:flex;flex-direction:column;gap:0}
-.fleet-row{display:grid;grid-template-columns:2fr 90px 1fr 1fr 44px;gap:8px;align-items:end;padding:14px 0;border-bottom:1px solid #06101C}
+/* Fleet rows */
+.fleet-row{display:grid;grid-template-columns:2fr 1fr 1fr 44px;gap:8px;align-items:end;padding:12px 0;border-bottom:1px solid #06101C}
 .fleet-row:last-child{border-bottom:none}
 .fleet-row .field label{font-size:12px}
 .rm-btn{height:44px;background:transparent;border:1px solid #1E1020;border-radius:2px;color:#6A2030;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0}
 .rm-btn:hover{background:#1A0610;border-color:#E74C3C;color:#E74C3C}
 .add-btn{margin-top:12px;padding:11px 14px;background:transparent;border:1px solid #1A2840;color:#3A6080;font-size:14px;font-weight:700;letter-spacing:1px;cursor:pointer;border-radius:2px;font-family:inherit;transition:all .12s;width:100%}
 .add-btn:hover{border-color:#2A5080;color:#5A8AAB;background:#040C18}
-.hint{font-size:14px;color:#2A4060;margin-top:5px;line-height:1.5}
+/* Calibration rows */
+.cal-row{display:grid;grid-template-columns:1fr 1fr 1fr 44px;gap:8px;align-items:end;padding:12px 0;border-bottom:1px solid #06101C}
+.cal-row:last-child{border-bottom:none}
+.cal-row .field label{font-size:12px}
+.cal-count{font-size:12px;color:#3A5070;margin-top:6px}
+/* Boost duration */
+.dur-wrap{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+.dur-opt{display:flex;align-items:center;gap:6px;cursor:pointer}
+.dur-opt input[type=radio]{width:18px;height:18px;accent-color:#23A55A;cursor:pointer;flex-shrink:0}
+.dur-opt span{font-size:15px;color:#E2EAF4;font-weight:600}
+/* Footer */
+.footer-note{font-size:13px;color:#2A4060;margin-top:16px;padding:12px 16px;border:1px solid #0A1E30;border-radius:2px;line-height:1.7}
+/* Submit */
 .submit-btn{width:100%;padding:16px;background:#C4920A;color:#000;border:none;border-radius:2px;font-size:14px;font-weight:900;letter-spacing:2px;cursor:pointer;font-family:inherit;transition:opacity .15s;margin-top:8px}
 .submit-btn:hover:not(:disabled){opacity:.88}
 .submit-btn:disabled{opacity:.35;cursor:default}
 .success-box{background:#04120A;border:1px solid #23A55A;border-radius:3px;padding:28px 24px;text-align:center;color:#23A55A;font-size:17px;line-height:2;margin-top:12px;display:none}
 .success-box code{background:#040C18;padding:5px 12px;border-radius:2px;font-family:monospace;color:#E8B84B;font-size:14px;display:inline-block;margin:4px 0}
 .err-box{background:#120408;border:1px solid #E74C3C;border-radius:2px;padding:12px 16px;color:#E74C3C;font-size:14px;margin-top:10px;display:none}
-@media(max-width:640px){.g2{grid-template-columns:1fr}.fleet-row{grid-template-columns:1fr 80px;grid-template-rows:auto auto auto;gap:8px}.dep-wrap{flex-wrap:wrap}}
+@media(max-width:640px){
+  .g2{grid-template-columns:1fr}
+  .fleet-row{grid-template-columns:1fr 80px;grid-template-rows:auto auto auto;gap:8px}
+  .cal-row{grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:8px}
+  .dep-wrap{flex-wrap:wrap}
+}
 </style>
 </head>
 <body>
@@ -2179,6 +2202,7 @@ select option{background:#040C18;color:#E2EAF4}
   </div>
   <form id="f" autocomplete="off">
 
+    <!-- IDENTITY -->
     <div class="card">
       <div class="card-title">Your Identity</div>
       <div class="card-body">
@@ -2208,8 +2232,8 @@ select option{background:#040C18;color:#E2EAF4}
             <option value="UTC-2">UTC-2</option>
             <option value="UTC-1">UTC-1 (Azores)</option>
             <option value="UTC+0">UTC+0 (London / GMT)</option>
-            <option value="UTC+1">UTC+1 (Paris / CET / Game Time)</option>
-            <option value="UTC+2">UTC+2 (Cairo / EET / Game Time Summer)</option>
+            <option value="UTC+1">UTC+1 (Paris / CET / Game Time Winter)</option>
+            <option value="UTC+2">UTC+2 (Game Time Summer)</option>
             <option value="UTC+3">UTC+3 (Moscow)</option>
             <option value="UTC+4">UTC+4 (Dubai)</option>
             <option value="UTC+5">UTC+5 (Karachi)</option>
@@ -2228,6 +2252,7 @@ select option{background:#040C18;color:#E2EAF4}
       </div>
     </div>
 
+    <!-- TANK LIMITS -->
     <div class="card">
       <div class="card-title">Tank Limits</div>
       <div class="card-body">
@@ -2246,6 +2271,7 @@ select option{background:#040C18;color:#E2EAF4}
       </div>
     </div>
 
+    <!-- GAME SPEED -->
     <div class="card">
       <div class="card-title">Game Speed</div>
       <div class="card-body">
@@ -2257,49 +2283,78 @@ select option{background:#040C18;color:#E2EAF4}
       </div>
     </div>
 
+    <!-- FLEET -->
     <div class="card">
-      <div class="card-title">3.5 Hour Cycle &mdash; Concorde &amp; Fast Short-Haul</div>
+      <div class="card-title">Your Fleet</div>
       <div class="card-body">
+        <div class="hint" style="margin-bottom:14px">Add each group of aircraft. Enter the aircraft type, total number you own, and your actual flight time in hours (e.g. 3.5, 14, 21).</div>
+        <div id="fleet-list"></div>
+        <button type="button" class="add-btn" onclick="addFleetRow()">+ ADD AIRCRAFT GROUP</button>
+      </div>
+    </div>
+
+    <!-- DEPARTURE CALIBRATION -->
+    <div class="card">
+      <div class="card-title">Departure Calibration</div>
+      <div class="card-body">
+        <div class="hint" style="margin-bottom:14px">After each departure, read the figures from your departure screen. Enter up to 10 departures &mdash; the system averages them for accuracy. Minimum 1 required.</div>
+        <div id="cal-list"></div>
+        <div class="cal-count" id="cal-count">0 / 10 entries</div>
+        <button type="button" class="add-btn" id="cal-add-btn" onclick="addCalRow()">+ ADD DEPARTURE ENTRY</button>
+      </div>
+    </div>
+
+    <!-- DEPARTURE TIMES -->
+    <div class="card">
+      <div class="card-title">Departure Times</div>
+      <div class="card-body">
+        <button type="button" class="master-btn" onclick="depNowAll()">&#9651; DEPARTING ALL NOW &mdash; TAP TO LOG CURRENT GAME TIME</button>
         <div class="dep-wrap">
-          <label>Default Departure</label>
+          <label>3.5 Hour Cycle</label>
           <input type="time" id="dep_3h">
-          <button type="button" class="now-btn" onclick="depNow('dep_3h')" title="Departing now">&#10003;</button>
+          <button type="button" class="now-btn" onclick="depNow('dep_3h')" title="Log current Game Time">&#10003;</button>
           <span class="dep-tz">or tap &#10003; for Game Time now (Denmark)</span>
         </div>
-        <div class="fleet-list" id="fleet-3h"></div>
-        <button type="button" class="add-btn" onclick="addRow('3h')">+ ADD AIRCRAFT TO THIS GROUP</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">14 Hour Cycle &mdash; A380 / Freighters / Mid-Long Haul</div>
-      <div class="card-body">
         <div class="dep-wrap">
-          <label>Default Departure</label>
+          <label>14 Hour Cycle</label>
           <input type="time" id="dep_14h">
-          <button type="button" class="now-btn" onclick="depNow('dep_14h')" title="Departing now">&#10003;</button>
+          <button type="button" class="now-btn" onclick="depNow('dep_14h')" title="Log current Game Time">&#10003;</button>
           <span class="dep-tz">or tap &#10003; for Game Time now (Denmark)</span>
         </div>
-        <div class="fleet-list" id="fleet-14h"></div>
-        <button type="button" class="add-btn" onclick="addRow('14h')">+ ADD AIRCRAFT TO THIS GROUP</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">21 Hour Cycle &mdash; Long Haul</div>
-      <div class="card-body">
-        <div class="dep-wrap">
-          <label>Default Departure</label>
+        <div class="dep-wrap" style="border-bottom:none;margin-bottom:0;padding-bottom:0">
+          <label>21 Hour Cycle</label>
           <input type="time" id="dep_21h">
-          <button type="button" class="now-btn" onclick="depNow('dep_21h')" title="Departing now">&#10003;</button>
+          <button type="button" class="now-btn" onclick="depNow('dep_21h')" title="Log current Game Time">&#10003;</button>
           <span class="dep-tz">or tap &#10003; for Game Time now (Denmark)</span>
         </div>
-        <div class="fleet-list" id="fleet-21h"></div>
-        <button type="button" class="add-btn" onclick="addRow('21h')">+ ADD AIRCRAFT TO THIS GROUP</button>
       </div>
     </div>
 
-    <button type="submit" class="submit-btn" id="sub-btn">SAVE PROFILE</button>
+    <!-- 4X BOOST -->
+    <div class="card">
+      <div class="card-title">4X Speed Boost</div>
+      <div class="card-body">
+        <div class="hint" style="margin-bottom:12px">Tap &#10003; when you activate 4x speed. Select how long it lasts.</div>
+        <div class="dep-wrap" style="border-bottom:none;margin-bottom:0;padding-bottom:0">
+          <label>Activated at</label>
+          <input type="time" id="boost_time">
+          <button type="button" class="now-btn" onclick="depNow('boost_time')" title="Log current Game Time">&#10003;</button>
+          <span class="dep-tz">Game Time (Denmark)</span>
+        </div>
+        <div class="dur-wrap">
+          <label class="dur-opt"><input type="radio" name="boost_dur" value="1"><span>1 HOUR</span></label>
+          <label class="dur-opt"><input type="radio" name="boost_dur" value="4"><span>4 HOURS</span></label>
+          <label class="dur-opt"><input type="radio" name="boost_dur" value="24"><span>24 HOURS</span></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      &#9432; Purchase buffers are applied automatically based on your total fleet size:<br>
+      Under 500 aircraft = 2 min buffer &nbsp;&middot;&nbsp; 501&ndash;1,200 = 3 min buffer &nbsp;&middot;&nbsp; Above 1,200 = 4 min buffer
+    </div>
+
+    <button type="submit" class="submit-btn" id="sub-btn" style="margin-top:16px">SAVE PROFILE</button>
     <div class="err-box" id="err-box"></div>
   </form>
 
@@ -2345,28 +2400,84 @@ select option{background:#040C18;color:#E2EAF4}
 
 <script>
 let spd4x=false;
-function setSp(v){spd4x=v;document.getElementById('btn-rl').classList.toggle('on',!v);document.getElementById('btn-ez').classList.toggle('on',v);}
-function depNow(id){const dk=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Copenhagen',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());document.getElementById(id).value=dk;}
-function addRow(g){
-  const list=document.getElementById('fleet-'+g);
+
+function setSp(v){
+  spd4x=v;
+  document.getElementById('btn-rl').classList.toggle('on',!v);
+  document.getElementById('btn-ez').classList.toggle('on',v);
+}
+
+function getDK(){
+  return new Intl.DateTimeFormat('en-GB',{
+    timeZone:'Europe/Copenhagen',
+    hour:'2-digit',minute:'2-digit',hour12:false
+  }).format(new Date());
+}
+
+function depNow(id){document.getElementById(id).value=getDK();}
+
+function depNowAll(){
+  const t=getDK();
+  ['dep_3h','dep_14h','dep_21h'].forEach(id=>document.getElementById(id).value=t);
+}
+
+// FLEET
+function addFleetRow(){
+  const list=document.getElementById('fleet-list');
   const d=document.createElement('div');
   d.className='fleet-row';
-  d.innerHTML='<div class="field"><label>Aircraft Type</label><input type="text" class="ac-t" list="act" placeholder="Type name or select..." required></div>'+
-    '<div class="field"><label>Count</label><input type="number" class="ac-n" min="1" placeholder="0" required></div>'+
-    '<div class="field"><label>Fuel / AC / Cycle (Lbs)</label><input type="number" class="ac-f" min="0" placeholder="From game"></div>'+
-    '<div class="field"><label>CO&#8322; / AC / Cycle (Quotas)</label><input type="number" class="ac-c" min="0" placeholder="From game"></div>'+
+  d.innerHTML=
+    '<div class="field"><label>Aircraft Type</label><input type="text" class="ac-type" list="act" placeholder="Type or select..." required></div>'+
+    '<div class="field"><label>Total Aircraft</label><input type="number" class="ac-total" min="1" placeholder="0" required></div>'+
+    '<div class="field"><label>Flight Time (hrs)</label><input type="number" class="ac-hours" min="0.5" step="0.5" placeholder="e.g. 14" required></div>'+
     '<button type="button" class="rm-btn" onclick="this.closest(\'.fleet-row\').remove()" title="Remove">&#10005;</button>';
   list.appendChild(d);
 }
-function collectFleet(g,dg){
-  return[...document.querySelectorAll('#fleet-'+g+' .fleet-row')].map(r=>({
-    type:r.querySelector('.ac-t').value.trim(),
-    count:parseInt(r.querySelector('.ac-n').value)||0,
-    fuel_per_ac:parseInt(r.querySelector('.ac-f').value)||0,
-    co2_per_ac:parseInt(r.querySelector('.ac-c').value)||0,
-    dep_group:dg
-  })).filter(a=>a.type&&a.count>0);
+
+function collectFleet(){
+  return [...document.querySelectorAll('.fleet-row')].map(r=>({
+    type:r.querySelector('.ac-type').value.trim(),
+    total_aircraft:parseInt(r.querySelector('.ac-total').value)||0,
+    flight_hours:parseFloat(r.querySelector('.ac-hours').value)||0
+  })).filter(r=>r.type&&r.total_aircraft>0&&r.flight_hours>0);
 }
+
+// CALIBRATION
+function addCalRow(){
+  const list=document.getElementById('cal-list');
+  const current=list.querySelectorAll('.cal-row').length;
+  if(current>=10)return;
+  const d=document.createElement('div');
+  d.className='cal-row';
+  d.innerHTML=
+    '<div class="field"><label>Aircraft Departed</label><input type="number" class="cal-dep" min="1" placeholder="e.g. 20" required></div>'+
+    '<div class="field"><label>Fuel Used (Lbs)</label><input type="text" class="cal-fuel" placeholder="e.g. 5906755"></div>'+
+    '<div class="field"><label>CO&#8322; Quotas</label><input type="text" class="cal-co2" placeholder="e.g. 24112962"></div>'+
+    '<button type="button" class="rm-btn" onclick="removeCalRow(this)" title="Remove">&#10005;</button>';
+  list.appendChild(d);
+  updateCalCount();
+}
+
+function removeCalRow(btn){
+  btn.closest('.cal-row').remove();
+  updateCalCount();
+}
+
+function updateCalCount(){
+  const n=document.getElementById('cal-list').querySelectorAll('.cal-row').length;
+  document.getElementById('cal-count').textContent=n+' / 10 entries';
+  document.getElementById('cal-add-btn').style.display=n>=10?'none':'block';
+}
+
+function collectCal(){
+  return [...document.querySelectorAll('.cal-row')].map(r=>({
+    departed:parseInt(r.querySelector('.cal-dep').value)||0,
+    fuel_used:parseInt((r.querySelector('.cal-fuel').value||'').replace(/,/g,''))||0,
+    co2_quotas:parseInt((r.querySelector('.cal-co2').value||'').replace(/,/g,''))||0
+  })).filter(r=>r.departed>0&&r.fuel_used>0);
+}
+
+// SUBMIT
 document.getElementById('f').addEventListener('submit',async e=>{
   e.preventDefault();
   const btn=document.getElementById('sub-btn');
@@ -2374,10 +2485,16 @@ document.getElementById('f').addEventListener('submit',async e=>{
   err.style.display='none';
   const did=document.getElementById('discord_id').value.trim();
   if(!did.match(/^\d{17,19}$/)){
-    err.textContent='Discord ID must be a 17-19 digit number. Copy it from Discord — right-click your name then Copy User ID.';
+    err.textContent='Discord ID must be a 17-19 digit number. Copy it from Discord - right-click your name then Copy User ID.';
+    err.style.display='block';return;
+  }
+  const cal=collectCal();
+  if(cal.length===0){
+    err.textContent='Please add at least 1 departure calibration entry.';
     err.style.display='block';return;
   }
   btn.textContent='SAVING...';btn.disabled=true;
+  const dur=document.querySelector('input[name="boost_dur"]:checked');
   const profile={
     discord_id:did,
     discord_name:document.getElementById('discord_name').value.trim(),
@@ -2388,15 +2505,29 @@ document.getElementById('f').addEventListener('submit',async e=>{
     dep_default_3h:document.getElementById('dep_3h').value||null,
     dep_default_14h:document.getElementById('dep_14h').value||null,
     dep_default_21h:document.getElementById('dep_21h').value||null,
-    fleet:[...collectFleet('3h','3.5h'),...collectFleet('14h','14h'),...collectFleet('21h','21h')],
+    fleet:collectFleet(),
+    calibration:cal,
+    boost_4x:{
+      activated_at:document.getElementById('boost_time').value||null,
+      duration_hours:dur?parseInt(dur.value):null
+    },
     setup_complete:1
   };
   try{
     const r=await fetch('/api/fuel-setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(profile)});
-    const d=await r.json();
-    if(d.ok){document.getElementById('f').style.display='none';document.getElementById('ok-box').style.display='block';window.scrollTo(0,0);}
-    else{err.textContent='Error: '+(d.error||'Save failed');err.style.display='block';btn.textContent='SAVE PROFILE';btn.disabled=false;}
-  }catch(ex){err.textContent='Connection error — try again.';err.style.display='block';btn.textContent='SAVE PROFILE';btn.disabled=false;}
+    const data=await r.json();
+    if(data.ok){
+      document.getElementById('f').style.display='none';
+      document.getElementById('ok-box').style.display='block';
+      window.scrollTo(0,0);
+    } else {
+      err.textContent='Error: '+(data.error||'Save failed');
+      err.style.display='block';btn.textContent='SAVE PROFILE';btn.disabled=false;
+    }
+  }catch(ex){
+    err.textContent='Connection error - try again.';
+    err.style.display='block';btn.textContent='SAVE PROFILE';btn.disabled=false;
+  }
 });
 </script>
 </body>
