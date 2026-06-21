@@ -2739,19 +2739,58 @@ app.post('/api/hunter-update', (req, res) => {
 });
 
 app.get('/api/hunter-data', (req, res) => {
-  if (hunterData) {
-    return res.json(hunterData);
-  }
-  // Try disk as fallback
-  if (fs.existsSync(HUNTER_DATA_FILE)) {
+  // Load from disk as fallback if not in memory
+  if (!hunterData && fs.existsSync(HUNTER_DATA_FILE)) {
     try {
       hunterData = JSON.parse(fs.readFileSync(HUNTER_DATA_FILE, 'utf8'));
-      return res.json(hunterData);
     } catch (e) {
       return res.status(500).json({ error: 'Failed to load hunter data' });
     }
   }
-  res.status(404).json({ error: 'No hunter data yet' });
+  if (!hunterData) {
+    return res.status(404).json({ error: 'No hunter data yet' });
+  }
+  try {
+    const all = hunterData.players || [];
+    const allianceMap = {};
+    const individuals = [];
+    for (const p of all) {
+      const aName = p.alliance_name;
+      const isInd = !aName || aName === 'UNKNOWN' || aName === 'INDIVIDUAL' || aName === 'UNAFFILIATED';
+      if (isInd) {
+        individuals.push(p);
+      } else {
+        if (!allianceMap[aName])
+          allianceMap[aName] = { allianceName: aName, players: [], departed: [] };
+        if (p.roster_status === 'DEPARTED')
+          allianceMap[aName].departed.push(p.airline_name);
+        else
+          allianceMap[aName].players.push(p);
+      }
+    }
+    for (const name of (hunterData.departed || [])) {
+      for (const key of Object.keys(allianceMap)) {
+        const idx = allianceMap[key].players.findIndex(p => p.airline_name === name);
+        if (idx !== -1) {
+          allianceMap[key].players.splice(idx, 1);
+          allianceMap[key].departed.push(name);
+        }
+      }
+    }
+    const alliances = Object.values(allianceMap).sort((a, b) => {
+      const ar = a.players.filter(p => p.level === 'RED').length;
+      const br = b.players.filter(p => p.level === 'RED').length;
+      return br - ar;
+    });
+    res.json({
+      lastUpdated: hunterData.lastUpdated,
+      totalPlayers: all.filter(p => p.roster_status !== 'DEPARTED').length,
+      alliances,
+      individuals,
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load hunter data' });
+  }
 });
 app.get('/fuel-setup', (req, res) => {
   logVisit(req);
