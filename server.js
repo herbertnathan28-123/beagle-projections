@@ -123,7 +123,7 @@ let liveData = loadState();
 // ── BEAGLE HQ — IN-MEMORY STORE ───────────────────────────────────────────
 let hqData = loadHqState();
 const FUEL_PROFILES_FILE = '/data/fuel_profiles.json';
-const HUNTER_DATA_FILE = path.join(__dirname, 'data', 'hunter_data.json');
+const HUNTER_DATA_FILE = '/data/hunter_data.json';
 let fuelProfiles = {};
 try {
   if (fs.existsSync(FUEL_PROFILES_FILE)) {
@@ -2726,8 +2726,8 @@ app.post('/api/hunter-update', (req, res) => {
     hunterData = req.body;
     const total = hunterData?.players?.length || 0;
     // Persist to disk
-    if (!fs.existsSync(path.join(__dirname, 'data'))) {
-      fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
+    if (!fs.existsSync('/data')) {
+      fs.mkdirSync('/data', { recursive: true });
     }
     fs.writeFileSync(HUNTER_DATA_FILE, JSON.stringify(hunterData), 'utf8');
     console.log('[HUNTER] Data persisted to disk — ' + total + ' players');
