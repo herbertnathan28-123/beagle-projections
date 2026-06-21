@@ -123,6 +123,7 @@ let liveData = loadState();
 // ── BEAGLE HQ — IN-MEMORY STORE ───────────────────────────────────────────
 let hqData = loadHqState();
 const FUEL_PROFILES_FILE = '/data/fuel_profiles.json';
+const HUNTER_DATA_FILE = path.join(__dirname, 'data', 'hunter_data.json');
 let fuelProfiles = {};
 try {
   if (fs.existsSync(FUEL_PROFILES_FILE)) {
@@ -130,6 +131,16 @@ try {
     console.log('[STARTUP] Fuel profiles loaded: ' + Object.keys(fuelProfiles).length);
   }
 } catch(e) { console.error('[STARTUP] Fuel profiles load error:', e.message); }
+
+let hunterData = null;
+if (fs.existsSync(HUNTER_DATA_FILE)) {
+  try {
+    hunterData = JSON.parse(fs.readFileSync(HUNTER_DATA_FILE, 'utf8'));
+    console.log('[HUNTER] Loaded persisted data from disk');
+  } catch (e) {
+    console.error('[HUNTER] Failed to load persisted data:', e.message);
+  }
+}
  
 function saveFuelProfiles() {
   try { fs.writeFileSync(FUEL_PROFILES_FILE, JSON.stringify(fuelProfiles), 'utf8'); }
@@ -2712,64 +2723,35 @@ app.get('/hunter', (req, res) => {
 
 app.post('/api/hunter-update', (req, res) => {
   try {
-    const { players = [], departed = [], lastUpdated } = req.body;
-    for (const p of players) {
-      if (!p.airline_name) continue;
-      hunterStore.players[p.airline_name] = {
-        ...p,
-        roster_status: p.roster_status || 'RETURNING',
-        lastUpdated: lastUpdated || new Date().toISOString(),
-      };
+    hunterData = req.body;
+    const total = hunterData?.players?.length || 0;
+    // Persist to disk
+    if (!fs.existsSync(path.join(__dirname, 'data'))) {
+      fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
     }
-    for (const name of departed) {
-      if (hunterStore.players[name]) {
-        hunterStore.players[name].roster_status = 'DEPARTED';
-        hunterStore.players[name].departed_at =
-          lastUpdated || new Date().toISOString();
-      }
-    }
-    hunterStore.lastUpdated = lastUpdated || new Date().toISOString();
-    saveHunter();
-    res.json({ ok: true, total: Object.keys(hunterStore.players).length });
+    fs.writeFileSync(HUNTER_DATA_FILE, JSON.stringify(hunterData), 'utf8');
+    console.log('[HUNTER] Data persisted to disk — ' + total + ' players');
+    res.json({ ok: true, total });
   } catch (e) {
-    console.error('Hunter update error:', e);
-    res.status(500).json({ ok: false });
+    console.error('[HUNTER] Update error:', e.message);
+    res.status(500).json({ ok: false, error: e.message });
   }
 });
 
 app.get('/api/hunter-data', (req, res) => {
-  try {
-    const all = Object.values(hunterStore.players || {});
-    const allianceMap = {};
-    const individuals = [];
-    for (const p of all) {
-      const aName = p.alliance_name;
-      const isInd = !aName || aName === 'UNKNOWN' || aName === 'INDIVIDUAL';
-      if (isInd) {
-        individuals.push(p);
-      } else {
-        if (!allianceMap[aName])
-          allianceMap[aName] = { allianceName: aName, players: [], departed: [] };
-        if (p.roster_status === 'DEPARTED')
-          allianceMap[aName].departed.push(p.airline_name);
-        else
-          allianceMap[aName].players.push(p);
-      }
-    }
-    const alliances = Object.values(allianceMap).sort((a, b) => {
-      const ar = a.players.filter(p => p.level === 'RED').length;
-      const br = b.players.filter(p => p.level === 'RED').length;
-      return br - ar;
-    });
-    res.json({
-      lastUpdated: hunterStore.lastUpdated,
-      totalPlayers: all.filter(p => p.roster_status !== 'DEPARTED').length,
-      alliances,
-      individuals,
-    });
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to load hunter data' });
+  if (hunterData) {
+    return res.json(hunterData);
   }
+  // Try disk as fallback
+  if (fs.existsSync(HUNTER_DATA_FILE)) {
+    try {
+      hunterData = JSON.parse(fs.readFileSync(HUNTER_DATA_FILE, 'utf8'));
+      return res.json(hunterData);
+    } catch (e) {
+      return res.status(500).json({ error: 'Failed to load hunter data' });
+    }
+  }
+  res.status(404).json({ error: 'No hunter data yet' });
 });
 app.get('/fuel-setup', (req, res) => {
   logVisit(req);
