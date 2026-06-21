@@ -1826,7 +1826,7 @@ function card(p){
 /* COMPACT ROW */
 function compactRow(p){
   const bi=bandInfo(p.cd_value||0);
-  const safe=p.airline_name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  const safe=p.airline_name.replace(/\\\\/g,'\\\\\\\\').replace(/'/g,"\\\\'");
   return\`<div class="compact-row" onclick="showPlayerDetail('\${safe}')" style="cursor:pointer" title="Click to view full assessment">
 <div class="cmp-name">\${p.airline_name}</div>
 <div class="cmp-band"><span class="band-dot" style="background:\${bi.color}"></span><span style="color:\${bi.color}">\${bi.label.replace(' MONITORING','')}</span></div>
