@@ -2147,26 +2147,27 @@ body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;
 .warn{font-size:12px;color:#E8B84B;font-weight:400;margin-left:5px}
 input[type=text],input[type=number],input[type=time],select{background:#06121E;border:1px solid #1A2840;color:#E2EAF4;padding:11px 13px;border-radius:2px;font-family:inherit;font-size:17px;width:100%;outline:none;transition:border-color .12s}
 input:focus,select:focus{border-color:#2A5080}
-input::placeholder{color:#1E3050}
+input::placeholder{color:#4A6580}
 select option{background:#040C18;color:#E2EAF4}
 .toggle-wrap{display:inline-flex;border-radius:2px;overflow:hidden;border:1px solid #1A2840}
-.tbtn{padding:11px 28px;background:#040C18;border:none;color:#3A5070;font-size:15px;font-weight:700;letter-spacing:1.5px;cursor:pointer;font-family:inherit;transition:all .12s}
+.tbtn{padding:11px 28px;background:#040C18;border:none;color:#3A5070;font-size:15px;font-weight:700;letter-spacing:1.5px;cursor:pointer;font-family:inherit;transition:all .12s;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .tbtn.on{background:#0E2235;color:#E8B84B}
 .tbtn:not(:last-child){border-right:1px solid #1A2840}
-.hint{font-size:14px;color:#2A4060;margin-top:5px;line-height:1.5}
+.hint{font-size:14px;color:#7A9AB0;margin-top:5px;line-height:1.5}
 
 /* SELECT ALL — compact, not dominant */
 .select-all-btn{
   display:inline-flex;align-items:center;gap:8px;
   padding:9px 18px;
-  background:transparent;
-  border:1px solid #1A4030;
+  background:#06121E;
+  border:1px solid #1A5A3A;
   border-radius:2px;
-  color:#2A7A4A;
+  color:#3AAA6A;
   font-size:13px;font-weight:700;letter-spacing:1.5px;
   cursor:pointer;font-family:inherit;
   transition:all .15s;
   margin-bottom:16px;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
 }
 .select-all-btn:hover{border-color:#23A55A;color:#23A55A;background:#040C18}
 .select-all-btn:active{transform:scale(.98)}
@@ -2176,35 +2177,36 @@ select option{background:#040C18;color:#E2EAF4}
 .dep-wrap:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
 .dep-wrap label{font-size:13px;font-weight:600;color:#5A8AAB;white-space:nowrap;min-width:100px}
 .dep-wrap input[type=time]{max-width:140px;font-size:17px}
-.dep-tz{font-size:13px;color:#2A4050}
-.now-btn{height:44px;min-width:56px;background:#0D2818;border:2px solid #23A55A;border-radius:3px;color:#23A55A;font-size:26px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;line-height:1}
+.dep-tz{font-size:13px;color:#6A8A9B}
+.now-btn{height:44px;min-width:56px;background:#0D2818;border:2px solid #23A55A;border-radius:3px;color:#23A55A;font-size:26px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;line-height:1;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .now-btn:hover{background:#1A4028;border-color:#00E676;color:#00E676}
 .now-btn:active{transform:scale(.95)}
-.dep-empty{font-size:13px;color:#1E3050;padding:8px 0;font-style:italic}
+.dep-empty{font-size:13px;color:#5A7A8B;padding:8px 0;font-style:italic}
 
 /* Fleet rows */
 .fleet-row{display:grid;grid-template-columns:2fr 1fr 1fr 44px;gap:8px;align-items:end;padding:12px 0;border-bottom:1px solid #06101C}
 .fleet-row:last-child{border-bottom:none}
 .fleet-row .field label{font-size:12px}
-.rm-btn{height:44px;background:transparent;border:1px solid #1E1020;border-radius:2px;color:#6A2030;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0}
+.rm-btn{height:44px;background:transparent;border:1px solid #1E1020;border-radius:2px;color:#6A2030;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .rm-btn:hover{background:#1A0610;border-color:#E74C3C;color:#E74C3C}
-.add-btn{margin-top:12px;padding:11px 14px;background:transparent;border:1px solid #1A2840;color:#3A6080;font-size:14px;font-weight:700;letter-spacing:1px;cursor:pointer;border-radius:2px;font-family:inherit;transition:all .12s;width:100%}
-.add-btn:hover{border-color:#2A5080;color:#5A8AAB;background:#040C18}
+.add-btn{margin-top:12px;padding:11px 14px;background:#06121E;border:1px solid #2A4A6A;color:#7AAABB;font-size:14px;font-weight:700;letter-spacing:1px;cursor:pointer;border-radius:2px;font-family:inherit;transition:all .12s;width:100%;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.add-btn:hover{border-color:#3A6A8A;color:#9ACABB;background:#081828}
+.add-btn:active{background:#0A2038;transform:scale(.98)}
 
 /* Calibration rows */
 .cal-row{display:grid;grid-template-columns:1fr 1fr 1fr 44px;gap:8px;align-items:end;padding:12px 0;border-bottom:1px solid #06101C}
 .cal-row:last-child{border-bottom:none}
 .cal-row .field label{font-size:12px}
-.cal-count{font-size:12px;color:#3A5070;margin-top:6px}
+.cal-count{font-size:12px;color:#6A8A9B;margin-top:6px}
 
-/* Boost duration — muted labels */
-.dur-wrap{display:flex;gap:14px;margin-top:10px;flex-wrap:wrap}
-.dur-opt{display:flex;align-items:center;gap:6px;cursor:pointer}
-.dur-opt input[type=radio]{width:16px;height:16px;accent-color:#23A55A;cursor:pointer;flex-shrink:0}
-.dur-opt span{font-size:13px;color:#3A5570;font-weight:600;letter-spacing:1px}
+/* Boost duration — toggle buttons */
+.dur-wrap{display:flex;gap:0;margin-top:10px;flex-wrap:wrap;border-radius:2px;overflow:hidden;border:1px solid #1A2840;display:inline-flex}
+.dur-btn{padding:11px 24px;background:#040C18;border:none;color:#3A5070;font-size:15px;font-weight:700;letter-spacing:1.5px;cursor:pointer;font-family:inherit;transition:all .12s;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.dur-btn.on{background:#0D2818;color:#23A55A}
+.dur-btn:not(:last-child){border-right:1px solid #1A2840}
 
 /* Footer */
-.footer-note{font-size:13px;color:#2A4060;margin-top:16px;padding:12px 16px;border:1px solid #0A1E30;border-radius:2px;line-height:1.7}
+.footer-note{font-size:13px;color:#7A9AB0;margin-top:16px;padding:12px 16px;border:1px solid #0A1E30;border-radius:2px;line-height:1.7}
 
 /* Submit */
 .submit-btn{width:100%;padding:16px;background:#C4920A;color:#000;border:none;border-radius:2px;font-size:14px;font-weight:900;letter-spacing:2px;cursor:pointer;font-family:inherit;transition:opacity .15s;margin-top:8px}
@@ -2264,14 +2266,20 @@ select option{background:#040C18;color:#E2EAF4}
             <option value="UTC+1">UTC+1 (Paris / CET / Game Time Winter)</option>
             <option value="UTC+2">UTC+2 (Game Time Summer)</option>
             <option value="UTC+3">UTC+3 (Moscow)</option>
+            <option value="UTC+3.5">UTC+3:30 (Tehran)</option>
             <option value="UTC+4">UTC+4 (Dubai)</option>
+            <option value="UTC+4.5">UTC+4:30 (Kabul)</option>
             <option value="UTC+5">UTC+5 (Karachi)</option>
             <option value="UTC+5.5">UTC+5:30 (India / IST)</option>
+            <option value="UTC+5.75">UTC+5:45 (Nepal / Kathmandu)</option>
             <option value="UTC+6">UTC+6 (Dhaka)</option>
+            <option value="UTC+6.5">UTC+6:30 (Yangon)</option>
             <option value="UTC+7">UTC+7 (Bangkok)</option>
             <option value="UTC+8" selected>UTC+8 (Perth / Singapore / AWST)</option>
             <option value="UTC+9">UTC+9 (Tokyo / JST)</option>
+            <option value="UTC+9.5">UTC+9:30 (Adelaide / ACST)</option>
             <option value="UTC+10">UTC+10 (Sydney / AEST)</option>
+            <option value="UTC+10.5">UTC+10:30 (Lord Howe Is.)</option>
             <option value="UTC+11">UTC+11</option>
             <option value="UTC+12">UTC+12 (Auckland)</option>
             <option value="UTC+13">UTC+13</option>
@@ -2295,6 +2303,18 @@ select option{background:#040C18;color:#E2EAF4}
             <label>CO&#8322; Tank Capacity (Quotas)</label>
             <input id="co2_tank" type="number" min="0" placeholder="e.g. 2438330000">
             <span class="hint">CO&#8322; purchase screen &rarr; Capacity field</span>
+          </div>
+        </div>
+        <div class="g2" style="margin-top:16px">
+          <div class="field">
+            <label>Current Fuel Reserves (Lbs)</label>
+            <input id="fuel_reserves" type="number" min="0" placeholder="e.g. 800000000">
+            <span class="hint">Your current fuel stock &mdash; enter from fuel screen</span>
+          </div>
+          <div class="field">
+            <label>Current CO&#8322; Reserves (Quotas)</label>
+            <input id="co2_reserves" type="number" min="0" placeholder="e.g. 1200000000">
+            <span class="hint">Your current CO&#8322; stock &mdash; enter from CO&#8322; screen</span>
           </div>
         </div>
       </div>
@@ -2356,9 +2376,9 @@ select option{background:#040C18;color:#E2EAF4}
           <span class="dep-tz">Game Time (Denmark)</span>
         </div>
         <div class="dur-wrap">
-          <label class="dur-opt"><input type="radio" name="boost_dur" value="1"><span>1 HOUR</span></label>
-          <label class="dur-opt"><input type="radio" name="boost_dur" value="4"><span>4 HOURS</span></label>
-          <label class="dur-opt"><input type="radio" name="boost_dur" value="24"><span>24 HOURS</span></label>
+          <button type="button" class="dur-btn" onclick="setDur(1)">1 HOUR</button>
+          <button type="button" class="dur-btn" onclick="setDur(4)">4 HOURS</button>
+          <button type="button" class="dur-btn" onclick="setDur(24)">24 HOURS</button>
         </div>
       </div>
     </div>
@@ -2414,11 +2434,19 @@ select option{background:#040C18;color:#E2EAF4}
 
 <script>
 let spd4x=false;
+let boostDur=null;
 
 function setSp(v){
   spd4x=v;
   document.getElementById('btn-rl').classList.toggle('on',!v);
   document.getElementById('btn-ez').classList.toggle('on',v);
+}
+
+function setDur(v){
+  boostDur=(boostDur===v)?null:v;
+  document.querySelectorAll('.dur-btn').forEach(b=>{
+    b.classList.toggle('on',parseInt(b.textContent)===boostDur);
+  });
 }
 
 function getDK(){
@@ -2485,11 +2513,16 @@ function updateDepTimes(){
     div.innerHTML=
       '<label>'+h+'h Cycle</label>'+
       '<input type="time" id="'+id+'" value="'+(existing[hKey]||'')+'">'+
-      '<button type="button" class="now-btn" onclick="depNow(\''+id+'\')" title="Log current Game Time">&#10003;</button>'+
+      '<button type="button" class="now-btn" data-depid="'+id+'" title="Log current Game Time">&#10003;</button>'+
       '<span class="dep-tz">Game Time (Denmark)</span>';
     container.appendChild(div);
   });
 }
+
+document.getElementById('dep-times-rows').addEventListener('click',function(e){
+  var btn=e.target.closest('.now-btn[data-depid]');
+  if(btn) depNow(btn.getAttribute('data-depid'));
+});
 
 function collectDepTimes(){
   const result={};
@@ -2561,20 +2594,22 @@ document.getElementById('f').addEventListener('submit',async e=>{
     err.style.display='block';return;
   }
   btn.textContent='SAVING...';btn.disabled=true;
-  const dur=document.querySelector('input[name="boost_dur"]:checked');
+  const dur=boostDur;
   const profile={
     discord_id:did,
     discord_name:document.getElementById('discord_name').value.trim(),
     timezone:document.getElementById('timezone').value,
     fuel_tank_capacity:parseInt(document.getElementById('fuel_tank').value)||0,
     co2_tank_capacity:parseInt(document.getElementById('co2_tank').value)||0,
+    fuel_reserves:parseInt(document.getElementById('fuel_reserves').value)||0,
+    co2_reserves:parseInt(document.getElementById('co2_reserves').value)||0,
     speed_4x:spd4x?1:0,
     departure_times:collectDepTimes(),
     fleet:collectFleet(),
     calibration:cal,
     boost_4x:{
       activated_at:document.getElementById('boost_time').value||null,
-      duration_hours:dur?parseInt(dur.value):null
+      duration_hours:dur||null
     },
     setup_complete:1
   };
