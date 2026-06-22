@@ -2596,8 +2596,9 @@ document.getElementById('f').addEventListener('submit',async e=>{
   const btn=document.getElementById('sub-btn');
   const err=document.getElementById('err-box');
   err.style.display='none';
-  const did=document.getElementById('discord_id').value.trim();
-  if(!did.match(/^\d{17,19}$/)){
+  const did=document.getElementById('discord_id').value.replace(/[^0-9]/g,'');
+  document.getElementById('discord_id').value=did;
+  if(!(/^\d{17,19}$/).test(did)){
     err.textContent='Discord ID must be a 17-19 digit number. Copy it from Discord - right-click your name then Copy User ID.';
     err.style.display='block';return;
   }
@@ -2888,6 +2889,32 @@ app.post('/api/fuel-setup', (req, res) => {
   }
 });
  
+app.post('/api/fuel-profile', (req, res) => {
+  const { token, discord_id, ...rest } = req.body || {};
+  if (token !== N8N_TOKEN && token !== SECRET) {
+    return res.status(403).json({ saved: false, error: 'Unauthorized' });
+  }
+  const did = String(discord_id || '').replace(/[^0-9]/g, '');
+  if (!(/^\d{17,19}$/).test(did)) {
+    return res.status(400).json({ saved: false, error: 'Invalid Discord ID' });
+  }
+  try {
+    const profile = { discord_id: did, ...rest, last_updated: new Date().toISOString() };
+    fuelProfiles[did] = profile;
+    saveFuelProfiles();
+    try {
+      const dir = '/data/fuel-profiles';
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(dir + '/' + did + '.json', JSON.stringify(profile), 'utf8');
+    } catch (fe) { console.warn('[FUEL-PROFILE] Per-file save skipped:', fe.message); }
+    console.log('[FUEL-PROFILE] Saved: ' + did);
+    res.json({ saved: true });
+  } catch (e) {
+    console.error('[FUEL-PROFILE] Error:', e.message);
+    res.status(500).json({ saved: false, error: e.message });
+  }
+});
+
 app.get('/api/fuel-profile', (req, res) => {
   if (req.query.token !== N8N_TOKEN && req.query.token !== SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
