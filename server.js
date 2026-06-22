@@ -47,11 +47,24 @@ function awstStamp(iso) {
 const STATE_FILE    = '/data/state.json';
 const HQ_STATE_FILE = '/data/hq-state.json';
 
+function calcPaceFromBaseline(sv, ts) {
+  const base = DEFAULT_DATA;
+  if (!sv || !ts || !base.beagleSV || !base.timestamp) return null;
+  const days = (new Date(ts) - new Date(base.timestamp)) / 86400000;
+  if (days < 1) return null;
+  const pace = (sv - base.beagleSV) / days;
+  return pace >= 0.5 ? Math.round(pace * 1000) / 1000 : null;
+}
+
 function loadState() {
   try {
     if (fs.existsSync(STATE_FILE)) {
       const saved = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-      if (!saved.beaglePace || saved.beaglePace < 1.0) {
+      const calcPace = calcPaceFromBaseline(saved.beagleSV, saved.timestamp);
+      if (calcPace != null) {
+        console.log('[STARTUP] Recalculated beaglePace from baseline: ' + calcPace + ' (was ' + saved.beaglePace + ')');
+        saved.beaglePace = calcPace;
+      } else if (!saved.beaglePace || saved.beaglePace < 1.0) {
         console.log('[STARTUP] beaglePace corrupted (' + saved.beaglePace + ') — resetting to DEFAULT ' + DEFAULT_DATA.beaglePace);
         saved.beaglePace = DEFAULT_DATA.beaglePace;
       }
@@ -2700,10 +2713,15 @@ app.post('/api/update', (req, res) => {
     const incomingPace = (a.pace != null && !isNaN(a.pace)) ? a.pace : null;
     return { rank: a.rank, name: a.name, sv: a.sv, pace: incomingPace ?? existing?.pace ?? null };
   });
+  const newSV = beagleSV ?? liveData.beagleSV;
+  const newTs = timestamp || liveData.timestamp;
+  const serverPace = calcPaceFromBaseline(newSV, newTs);
+  const finalPace = serverPace ?? ((beaglePace != null && !isNaN(beaglePace) && beaglePace >= 1.0) ? beaglePace : liveData.beaglePace);
+  console.log('[PACE] n8n=' + beaglePace + ' server=' + serverPace + ' final=' + finalPace);
   liveData = {
     timestamp, uploader,
-    beagleSV:   beagleSV   ?? liveData.beagleSV,
-    beaglePace: (beaglePace != null && !isNaN(beaglePace) && beaglePace >= 1.0) ? beaglePace : liveData.beaglePace,
+    beagleSV:   newSV,
+    beaglePace: finalPace,
     beagleRank: beagleRank ?? liveData.beagleRank,
     alliances:  merged.length ? merged : liveData.alliances,
   };
