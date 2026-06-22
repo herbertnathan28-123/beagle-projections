@@ -2250,15 +2250,9 @@ select option{background:#040C18;color:#E2EAF4}
     <div class="card">
       <div class="card-title">Your Identity</div>
       <div class="card-body">
-        <div class="g2" style="margin-bottom:16px">
-          <div class="field">
-            <label>Discord ID <span class="warn">&#9888; Copy from Discord &mdash; never from a spreadsheet</span></label>
-            <input id="discord_id" type="text" inputmode="numeric" placeholder="18-digit number" required>
-          </div>
-          <div class="field">
+        <div class="field" style="margin-bottom:16px;max-width:320px">
             <label>Discord Username</label>
             <input id="discord_name" type="text" placeholder="e.g. atlas.4693" required>
-          </div>
         </div>
         <div class="field" style="max-width:320px">
           <label>Your Timezone</label>
@@ -2482,7 +2476,15 @@ function addFleetRow(){
   const d=document.createElement('div');
   d.className='fleet-row';
   d.innerHTML=
-    '<div class="field"><label>Aircraft Type</label><input type="text" class="ac-type" list="act" placeholder="Type or select..." required></div>'+
+    '<div class="field"><label>Aircraft Type</label><select class="ac-type" required>'+
+    '<option value="">Select aircraft...</option>'+
+    '<option>A380-800</option><option>A380F</option>'+
+    '<option>A330-900neo</option><option>A330-800neo</option><option>A330-300</option><option>A330-200</option>'+
+    '<option>B747-8</option><option>B747-8F</option><option>B747SP</option>'+
+    '<option>B787-10</option><option>B787-9</option><option>B787-8</option>'+
+    '<option>A350-900ULR</option><option>DC-10</option><option>MC-21-400</option>'+
+    '<option>Concorde</option><option>A320neo</option><option>B737 MAX 8</option><option>Spacejet M100</option>'+
+    '</select></div>'+
     '<div class="field"><label>Total Aircraft</label><input type="number" class="ac-total" min="1" placeholder="0" required></div>'+
     '<div class="field"><label>Flight Time (hrs)</label><input type="number" class="ac-hours" min="0.5" step="0.5" placeholder="e.g. 14" required onchange="updateDepTimes()" onblur="updateDepTimes()"></div>'+
     '<button type="button" class="rm-btn" onclick="removeFleetRow(this)" title="Remove">&#10005;</button>';
@@ -2596,12 +2598,6 @@ document.getElementById('f').addEventListener('submit',async e=>{
   const btn=document.getElementById('sub-btn');
   const err=document.getElementById('err-box');
   err.style.display='none';
-  const did=document.getElementById('discord_id').value.replace(/[^0-9]/g,'');
-  document.getElementById('discord_id').value=did;
-  if(!(/^\d{17,19}$/).test(did)){
-    err.textContent='Discord ID must be a 17-19 digit number. Copy it from Discord - right-click your name then Copy User ID.';
-    err.style.display='block';return;
-  }
   const cal=collectCal();
   if(cal.length===0){
     err.textContent='Please add at least 1 departure calibration entry.';
@@ -2610,7 +2606,6 @@ document.getElementById('f').addEventListener('submit',async e=>{
   btn.textContent='SAVING...';btn.disabled=true;
   const dur=boostDur;
   const profile={
-    discord_id:did,
     discord_name:document.getElementById('discord_name').value.trim(),
     timezone:document.getElementById('timezone').value,
     fuel_tank_capacity:parseInt(document.getElementById('fuel_tank').value)||0,
@@ -2876,12 +2871,11 @@ app.get('/fuel-setup', (req, res) => {
 app.post('/api/fuel-setup', (req, res) => {
   try {
     const p = req.body;
-    if (!p.discord_id || !String(p.discord_id).match(/^\d{17,19}$/)) {
-      return res.status(400).json({ ok: false, error: 'Invalid Discord ID — must be a 17-19 digit number' });
-    }
-    fuelProfiles[String(p.discord_id)] = { ...p, last_updated: new Date().toISOString() };
+    const did = p.discord_id ? String(p.discord_id) : null;
+    const key = did || p.discord_name || ('anon-' + Date.now());
+    fuelProfiles[key] = { ...p, last_updated: new Date().toISOString() };
     saveFuelProfiles();
-    console.log('[FUEL-SETUP] Profile saved: ' + p.discord_name + ' (' + p.discord_id + ')');
+    console.log('[FUEL-SETUP] Profile saved: ' + p.discord_name + ' (key=' + key + ')');
     res.json({ ok: true });
   } catch(e) {
     console.error('[FUEL-SETUP] Error:', e.message);
