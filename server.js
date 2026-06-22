@@ -2723,14 +2723,36 @@ app.get('/hunter', (req, res) => {
 
 app.post('/api/hunter-update', (req, res) => {
   try {
-    hunterData = req.body;
-    const total = hunterData?.players?.length || 0;
+    const incoming = req.body;
+    const incomingPlayers = incoming?.players || [];
+
+    // Load existing data from disk (or memory) to merge with
+    let existing = {};
+    if (fs.existsSync(HUNTER_DATA_FILE)) {
+      try { existing = JSON.parse(fs.readFileSync(HUNTER_DATA_FILE, 'utf8')); } catch (_) {}
+    }
+    const existingPlayers = existing?.players || [];
+
+    // Merge: start from existing, update/add incoming by airline_name
+    const merged = [...existingPlayers];
+    for (const player of incomingPlayers) {
+      const idx = merged.findIndex(p => p.airline_name === player.airline_name);
+      if (idx >= 0) {
+        merged[idx] = player;
+      } else {
+        merged.push(player);
+      }
+    }
+
+    hunterData = { ...incoming, players: merged };
+    const total = merged.length;
+
     // Persist to disk
     if (!fs.existsSync('/data')) {
       fs.mkdirSync('/data', { recursive: true });
     }
     fs.writeFileSync(HUNTER_DATA_FILE, JSON.stringify(hunterData), 'utf8');
-    console.log('[HUNTER] Data persisted to disk — ' + total + ' players');
+    console.log('[HUNTER] Data merged and persisted — ' + total + ' players (' + incomingPlayers.length + ' incoming)');
     res.json({ ok: true, total });
   } catch (e) {
     console.error('[HUNTER] Update error:', e.message);
