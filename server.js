@@ -3,7 +3,7 @@
 // Deploy: node server.js
 // GUARD_CHECK_v48_OK
 // Env vars: PROJECTIONS_SECRET, ACCESS_KEY, CONTRIBUTIONS_LOG_IN, PORT,
-//           HUNTER_KEY, ALLIANCE_UPLOADS, FUEL_OPTIMISER_WEBHOOK,
+//           HUNTER_KEY, ALLIANCE_UPLOADS, PLAYER_STATS, FUEL_OPTIMISER_WEBHOOK,
 //           FUEL_CO2_OPTIMISER, FUEL_CO2_OPTIMIZER_CHANNEL, FUEL_CO2_SCREENSHOOT_UPLOAD
 // ═══════════════════════════════════════════════════════════════════════════
 const express = require('express');
@@ -27,6 +27,8 @@ const FUEL_SCREENSHOT_UPLOAD_WEBHOOK = process.env.FUEL_CO2_SCREENSHOOT_UPLOAD |
 // ALLIANCE_UPLOADS — alliance upload channel (alliance pace, projections, player stats)
 // Old hardcoded webhook REMOVED — was compromised by spam bot.
 const ALLIANCE_UPLOAD_WEBHOOK = process.env.ALLIANCE_UPLOADS || '';
+// PLAYER_STATS — player statistics channel (full stats breakdown after upload)
+const PLAYER_STATS_WEBHOOK = process.env.PLAYER_STATS || '';
 function notifyDiscord(msg) {
   const url = ALLIANCE_UPLOAD_WEBHOOK;
   if (!url) { console.log('[DISCORD] no webhook set'); return; }
@@ -43,6 +45,23 @@ function notifyDiscord(msg) {
     req.write(body);
     req.end();
   } catch(e) { console.error('[DISCORD] notify failed:', e.message); }
+}
+function notifyPlayerStats(msg) {
+  const url = PLAYER_STATS_WEBHOOK;
+  if (!url) { console.log('[DISCORD] PLAYER_STATS webhook not set'); return; }
+  try {
+    const body = JSON.stringify({ content: msg });
+    const u = new URL(url);
+    const req = https.request({
+      hostname: u.hostname,
+      path: u.pathname + u.search,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+    });
+    req.on('error', e => console.error('[DISCORD] player stats notify error:', e.message));
+    req.write(body);
+    req.end();
+  } catch(e) { console.error('[DISCORD] player stats notify failed:', e.message); }
 }
 function awstStamp(iso) {
   try {
@@ -3350,6 +3369,29 @@ app.post('/api/hq-update', (req, res) => {
     console.log('[HQ] updated — ' + players.length + ' players, pace ' + hqData.alliancePace);
     const paceStr = hqData.alliancePace ? '$' + parseFloat(hqData.alliancePace).toFixed(2) + '/day' : 'not available';
     notifyDiscord('✅ **HQ DATA RECEIVED & LOGGED** — Alliance Pace: **' + paceStr + '** · ' + players.length + ' players · as of ' + awstStamp(hqData.timestamp) + ' AWST · uploaded by ' + hqData.uploader);
+    // Post full player statistics to player stats channel
+    try {
+      const header = '📊 **BEAGLE ALLIANCE — PLAYER STATISTICS**\n' +
+        'Alliance Pace: **' + paceStr + '** · ' + players.length + ' members · ' + awstStamp(hqData.timestamp) + ' AWST\n' +
+        '─────────────────────────────────\n';
+      const playerLines = players.map((p, i) => {
+        const sv = p.sv ? '$' + p.sv.toLocaleString() : '—';
+        const contrib = p.lastContrib ? '$' + p.lastContrib.toLocaleString() : '—';
+        const flights = p.flights ? p.flights.toLocaleString() : '—';
+        const seen = p.lastSeenStr || '?';
+        return (i + 1) + '. **' + p.name + '** — SV: ' + sv + ' · Contrib: ' + contrib + ' · Flights: ' + flights + ' · Last: ' + seen;
+      });
+      // Split into chunks under 2000 chars (Discord limit)
+      let chunk = header;
+      for (const line of playerLines) {
+        if ((chunk + line + '\n').length > 1900) {
+          notifyPlayerStats(chunk);
+          chunk = '';
+        }
+        chunk += line + '\n';
+      }
+      if (chunk.trim()) notifyPlayerStats(chunk);
+    } catch (psErr) { console.error('[HQ] Player stats notify error:', psErr.message); }
     res.json({ ok: true, players: players.length });
   } catch (e) {
     console.error('[HQ] error:', e.message);
