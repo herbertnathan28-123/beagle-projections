@@ -3,7 +3,7 @@
 // Deploy: node server.js
 // GUARD_CHECK_v48_OK
 // Env vars: PROJECTIONS_SECRET, ACCESS_KEY, CONTRIBUTIONS_LOG_IN, PORT,
-//           HUNTER_KEY, ALLAINCE_UPLOADS,
+//           HUNTER_KEY, ALLIANCE_UPLOADS, FUEL_OPTIMISER_WEBHOOK,
 //           FUEL_CO2_OPTIMISER, FUEL_CO2_OPTIMIZER_CHANNEL, FUEL_CO2_SCREENSHOOT_UPLOAD
 // ═══════════════════════════════════════════════════════════════════════════
 const express = require('express');
@@ -18,15 +18,15 @@ const SECRET       = process.env.PROJECTIONS_SECRET || 'changeme';
 const N8N_TOKEN    = 'bgln8n-proj-2026';
 
 // ── DISCORD WEBHOOK CHANNELS ───────────────────────────────────────────
-// FUEL_CO2_OPTIMISER — 2-fuel-co2-optimiser channel
-const FUEL_OPTIMISER_WEBHOOK = process.env.FUEL_CO2_OPTIMISER || '';
+// FUEL_CO2_OPTIMISER / FUEL_OPTIMISER_WEBHOOK — 2-fuel-co2-optimiser channel
+const FUEL_OPTIMISER_WEBHOOK = process.env.FUEL_CO2_OPTIMISER || process.env.FUEL_OPTIMISER_WEBHOOK || '';
 // FUEL_CO2_OPTIMIZER_CHANNEL — fuel optimizer channel (personal dashboard links)
 const FUEL_UPLOAD_WEBHOOK = process.env.FUEL_CO2_OPTIMIZER_CHANNEL || '';
 // FUEL_CO2_SCREENSHOOT_UPLOAD — screenshot upload channel
 const FUEL_SCREENSHOT_UPLOAD_WEBHOOK = process.env.FUEL_CO2_SCREENSHOOT_UPLOAD || '';
-// ALLAINCE_UPLOADS — alliance upload channel (alliance pace, projections, player stats)
+// ALLIANCE_UPLOADS — alliance upload channel (alliance pace, projections, player stats)
 // Old hardcoded webhook REMOVED — was compromised by spam bot.
-const ALLIANCE_UPLOAD_WEBHOOK = process.env.ALLAINCE_UPLOADS || '';
+const ALLIANCE_UPLOAD_WEBHOOK = process.env.ALLIANCE_UPLOADS || '';
 function notifyDiscord(msg) {
   const url = ALLIANCE_UPLOAD_WEBHOOK;
   if (!url) { console.log('[DISCORD] no webhook set'); return; }
