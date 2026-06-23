@@ -17,8 +17,12 @@ const SECRET       = process.env.PROJECTIONS_SECRET || 'changeme';
 const N8N_TOKEN    = 'bgln8n-proj-2026';
 
 // ── DISCORD UPLOAD NOTIFICATIONS ─────────────────────────────────────────
+// Alliance upload channel (1434617764424974456) — ONLY alliance pace,
+// alliance projections, and player statistics. No Hunter data.
+const ALLIANCE_UPLOAD_WEBHOOK = process.env.DISCORD_UPLOAD_WEBHOOK
+  || 'https://discord.com/api/webhooks/1434658170500022282/x4bEXDmiS3BLc_mlyS6olqv68i3FpSxTo_OHHBbmiH4FHr01Q_iJeexf-ZV53vZUdcxC';
 function notifyDiscord(msg) {
-  const url = process.env.DISCORD_UPLOAD_WEBHOOK;
+  const url = ALLIANCE_UPLOAD_WEBHOOK;
   if (!url) { console.log('[DISCORD] no webhook set'); return; }
   try {
     const body = JSON.stringify({ content: msg });
@@ -3616,7 +3620,7 @@ app.post('/api/fuel-profile', (req, res) => {
       fs.writeFileSync(dir + '/' + did + '.json', JSON.stringify(profile), 'utf8');
     } catch (fe) { console.warn('[FUEL-PROFILE] Per-file save skipped:', fe.message); }
     // Notify fuel upload channel with personal dashboard link
-    const FUEL_WEBHOOK = 'https://discord.com/api/webhooks/1517739531510612069/M6SUW8WpPOzIG4O8JJ_KGZMBfGKxg1VyCWE5_bZRv6ZAr8AlYPzjPFWJXriBtpDP4-4L';
+    const FUEL_WEBHOOK = 'https://discord.com/api/webhooks/1519026475423236156/HFNBWwh2Xhi3FEsilDSH-inJUf7dcWdFpammnT6FDWUi_QmCz_W5JP7DOndYHMeeh1qM';
     try {
       const linkMsg = 'Your fuel dashboard is ready. Your personal link is beagle-projections.onrender.com/fuel/' + did + ' \u2014 copy this link and save it somewhere safe. If you lose it post in this channel again and we will regenerate it.';
       const body = JSON.stringify({ content: linkMsg });
