@@ -237,6 +237,33 @@ function saveHunter() {
   } catch (e) {}
 }
 
+// Returns Set of Hunter-tracked player names (lowercase) to prevent data leaking
+// into player-facing surfaces like HQ stats.
+function getHunterTrackedNames() {
+  const names = new Set();
+  // From hunterData (disk-persisted format)
+  if (hunterData && hunterData.players) {
+    for (const p of hunterData.players) {
+      if (p.airline_name) names.add(p.airline_name.toLowerCase().trim());
+    }
+  }
+  // From hunterStore (in-memory format)
+  if (hunterStore && hunterStore.players) {
+    if (Array.isArray(hunterStore.players)) {
+      for (const p of hunterStore.players) {
+        if (p.airline_name) names.add(p.airline_name.toLowerCase().trim());
+      }
+    } else {
+      for (const key of Object.keys(hunterStore.players)) {
+        names.add(key.toLowerCase().trim());
+        const p = hunterStore.players[key];
+        if (p && p.airline_name) names.add(p.airline_name.toLowerCase().trim());
+      }
+    }
+  }
+  return names;
+}
+
 // ── AM4 CONTRIBUTION CALCULATOR — DATA & FUNCTIONS ───────────────────────
 // base speeds from game × 1.1 = realism, × 1.65 = easy
 const AIRCRAFT_DATA = [
@@ -3286,7 +3313,13 @@ app.post('/api/hq-update', (req, res) => {
       return res.status(401).json({ ok: false, error: 'unauthorized' });
     }
     const rawText = body.rawText || '';
-    const players = parsePaceUpload(rawText);
+    const allParsed = parsePaceUpload(rawText);
+    // Filter out any Hunter-tracked players — they must never appear in HQ data
+    const hunterNames = getHunterTrackedNames();
+    const players = allParsed.filter(p => {
+      const name = (p.name || p.airline_name || '').toLowerCase().trim();
+      return !hunterNames.has(name);
+    });
     if (players.length === 0) {
       notifyDiscord('⚠️ **HQ DATA NOT RECEIVED** — No players could be parsed from the upload. Data has NOT been logged. Contact Atlas.');
       return res.status(400).json({ ok: false, error: 'no players parsed' });
@@ -3315,7 +3348,28 @@ app.post('/api/hq-update', (req, res) => {
   }
 });
 
-app.get('/api/hq-data', (req, res) => res.json(hqData));
+app.get('/api/hq-data', (req, res) => {
+  // Strip any Hunter-tracked players from the response
+  const hunterNames = getHunterTrackedNames();
+  const filtered = { ...hqData };
+  if (filtered.players && Array.isArray(filtered.players)) {
+    filtered.players = filtered.players.filter(p => {
+      const name = (p.name || p.airline_name || '').toLowerCase().trim();
+      return !hunterNames.has(name);
+    });
+  }
+  // Also scrub history entries
+  if (filtered.history && Array.isArray(filtered.history)) {
+    filtered.history = filtered.history.map(h => {
+      if (!h.players) return h;
+      return { ...h, players: h.players.filter(p => {
+        const name = (p.name || p.airline_name || '').toLowerCase().trim();
+        return !hunterNames.has(name);
+      })};
+    });
+  }
+  res.json(filtered);
+});
 
 app.get('/hq', (req, res) => {
   logVisit(req);
