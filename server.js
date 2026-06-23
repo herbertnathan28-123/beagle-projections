@@ -3625,15 +3625,35 @@ app.post('/api/fuel-profile', (req, res) => {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(dir + '/' + did + '.json', JSON.stringify(profile), 'utf8');
     } catch (fe) { console.warn('[FUEL-PROFILE] Per-file save skipped:', fe.message); }
-    // Notify fuel-co2-upload-channel with personal dashboard link
+    // Post personal dashboard link to fuel screenshot upload channel, auto-delete after 30s
     try {
-      if (!FUEL_UPLOAD_WEBHOOK) throw new Error('FUEL_CO2_OPTIMIZER_CHANNEL not set');
-      const linkMsg = 'Your fuel dashboard is ready. Your personal link is beagle-projections.onrender.com/fuel/' + did + ' \u2014 copy this link and save it somewhere safe. If you lose it post in this channel again and we will regenerate it.';
+      if (!FUEL_SCREENSHOT_UPLOAD_WEBHOOK) throw new Error('FUEL_CO2_SCREENSHOOT_UPLOAD not set');
+      const linkMsg = 'Your fuel dashboard is ready. Your personal link is beagle-projections.onrender.com/fuel/' + did + ' \u2014 copy this link now. This message disappears in 30 seconds.';
       const body = JSON.stringify({ content: linkMsg });
-      const u = new URL(FUEL_UPLOAD_WEBHOOK);
+      const u = new URL(FUEL_SCREENSHOT_UPLOAD_WEBHOOK);
       const whReq = https.request({
-        hostname: u.hostname, path: u.pathname, method: 'POST',
+        hostname: u.hostname, path: u.pathname + '?wait=true', method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+      });
+      whReq.on('response', (whRes) => {
+        let data = '';
+        whRes.on('data', chunk => { data += chunk; });
+        whRes.on('end', () => {
+          try {
+            const msg = JSON.parse(data);
+            if (msg.id) {
+              setTimeout(() => {
+                const delReq = https.request({
+                  hostname: u.hostname,
+                  path: u.pathname + '/messages/' + msg.id,
+                  method: 'DELETE'
+                });
+                delReq.on('error', e => console.error('[FUEL-PROFILE] Delete error:', e.message));
+                delReq.end();
+              }, 30000);
+            }
+          } catch (pe) { console.error('[FUEL-PROFILE] Parse webhook response error:', pe.message); }
+        });
       });
       whReq.on('error', e => console.error('[FUEL-PROFILE] Webhook error:', e.message));
       whReq.write(body);
