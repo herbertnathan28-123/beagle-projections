@@ -4,7 +4,7 @@
 // GUARD_CHECK_v48_OK
 // Env vars: PROJECTIONS_SECRET, ACCESS_KEY, CONTRIBUTIONS_LOG_IN, PORT,
 //           DISCORD_UPLOAD_WEBHOOK, HUNTER_KEY,
-//           fuel_co2_optimiser, fuel_co2_screenshot_upload
+//           FUEL_CO2_OPTIMISER, FUEL_CO2_OPTIMIZER_CHANNEL, FUEL_CO2_SCREENSHOOT_UPLOAD
 // ═══════════════════════════════════════════════════════════════════════════
 const express = require('express');
 const cors    = require('cors');
@@ -18,10 +18,12 @@ const SECRET       = process.env.PROJECTIONS_SECRET || 'changeme';
 const N8N_TOKEN    = 'bgln8n-proj-2026';
 
 // ── DISCORD WEBHOOK CHANNELS ───────────────────────────────────────────
-// 2-fuel-co2-optimiser — fuel optimizer channel (personal dashboard links + notifications)
-const FUEL_UPLOAD_WEBHOOK = process.env.fuel_co2_optimiser || '';
-// fuel-co2-screenshot-upload — screenshot upload channel
-const FUEL_SCREENSHOT_UPLOAD_WEBHOOK = process.env.fuel_co2_screenshot_upload || '';
+// FUEL_CO2_OPTIMISER — 2-fuel-co2-optimiser channel
+const FUEL_OPTIMISER_WEBHOOK = process.env.FUEL_CO2_OPTIMISER || '';
+// FUEL_CO2_OPTIMIZER_CHANNEL — fuel optimizer channel (personal dashboard links)
+const FUEL_UPLOAD_WEBHOOK = process.env.FUEL_CO2_OPTIMIZER_CHANNEL || '';
+// FUEL_CO2_SCREENSHOOT_UPLOAD — screenshot upload channel
+const FUEL_SCREENSHOT_UPLOAD_WEBHOOK = process.env.FUEL_CO2_SCREENSHOOT_UPLOAD || '';
 // Alliance upload channel (1434617764424974456) — ONLY alliance pace,
 // alliance projections, and player statistics. No Hunter data.
 const ALLIANCE_UPLOAD_WEBHOOK = process.env.DISCORD_UPLOAD_WEBHOOK
@@ -3626,7 +3628,7 @@ app.post('/api/fuel-profile', (req, res) => {
     } catch (fe) { console.warn('[FUEL-PROFILE] Per-file save skipped:', fe.message); }
     // Notify fuel-co2-upload-channel with personal dashboard link
     try {
-      if (!FUEL_UPLOAD_WEBHOOK) throw new Error('fuel_co2_optimiser not set');
+      if (!FUEL_UPLOAD_WEBHOOK) throw new Error('FUEL_CO2_OPTIMIZER_CHANNEL not set');
       const linkMsg = 'Your fuel dashboard is ready. Your personal link is beagle-projections.onrender.com/fuel/' + did + ' \u2014 copy this link and save it somewhere safe. If you lose it post in this channel again and we will regenerate it.';
       const body = JSON.stringify({ content: linkMsg });
       const u = new URL(FUEL_UPLOAD_WEBHOOK);
