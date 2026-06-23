@@ -2158,7 +2158,7 @@ function anomHtml(name,rank,prev,curr,pct){
 
 /* LOAD */
 async function load(){
-  try{const r=await fetch('/api/hunter-data');if(r.ok)render(await r.json());}
+  try{const r=await fetch('/api/hunter-data?key='+encodeURIComponent(window._HUNTER_KEY||''));if(r.ok)render(await r.json());}
   catch(e){console.error('Hunter load error:',e);}
   setTimeout(load,180000);
 }
@@ -3390,17 +3390,29 @@ app.get('/calculator', (req, res) => {
 });
 
 // ── HUNTER ELITE ROUTES ────────────────────────────────────────────────────
-// ▼▼▼ HUNTER_HTML embedded — key injected server-side ▼▼▼
-app.get('/hunter', (req, res) => {
+// ALL Hunter routes require HUNTER_KEY or PROJECTIONS_SECRET for access.
+// No hunter data is served without authentication.
+const HUNTER_AUTH = (req, res, next) => {
+  const key = req.query.key || req.headers['x-hunter-key'] || '';
+  const validKey = (process.env.HUNTER_KEY || 'A11').toUpperCase();
+  if (key.toUpperCase() === validKey || key === SECRET) return next();
+  return res.status(403).type('text').send('Access denied');
+};
+
+app.get('/hunter', HUNTER_AUTH, (req, res) => {
   const key = (process.env.HUNTER_KEY || 'A11').toUpperCase();
   const html = HUNTER_HTML.replace('</head>',
     '<script>window._HUNTER_KEY="' + key + '";</script></head>'
   );
   res.type('html').send(html);
 });
-// ▲▲▲ END HUNTER route ▲▲▲
 
 app.post('/api/hunter-update', (req, res) => {
+  const authKey = req.body?.key || req.headers['x-hunter-key'] || '';
+  const validKey = (process.env.HUNTER_KEY || 'A11').toUpperCase();
+  if (authKey.toUpperCase() !== validKey && authKey !== SECRET && authKey !== N8N_TOKEN) {
+    return res.status(403).json({ ok: false, error: 'Access denied' });
+  }
   try {
     const incoming = req.body;
     const incomingPlayers = incoming?.players || [];
@@ -3439,7 +3451,7 @@ app.post('/api/hunter-update', (req, res) => {
   }
 });
 
-app.get('/api/hunter-data', (req, res) => {
+app.get('/api/hunter-data', HUNTER_AUTH, (req, res) => {
   // Load from disk as fallback if not in memory
   if (!hunterData && fs.existsSync(HUNTER_DATA_FILE)) {
     try {
