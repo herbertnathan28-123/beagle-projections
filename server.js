@@ -3,7 +3,8 @@
 // Deploy: node server.js
 // GUARD_CHECK_v48_OK
 // Env vars: PROJECTIONS_SECRET, ACCESS_KEY, CONTRIBUTIONS_LOG_IN, PORT,
-//           DISCORD_UPLOAD_WEBHOOK, HUNTER_KEY
+//           DISCORD_UPLOAD_WEBHOOK, HUNTER_KEY,
+//           fuel_co2_upload_channel, fuel_co2_optimiser_upload, fuel_co2_optimiser
 // ═══════════════════════════════════════════════════════════════════════════
 const express = require('express');
 const cors    = require('cors');
@@ -16,7 +17,13 @@ const PORT    = process.env.PORT || 3000;
 const SECRET       = process.env.PROJECTIONS_SECRET || 'changeme';
 const N8N_TOKEN    = 'bgln8n-proj-2026';
 
-// ── DISCORD UPLOAD NOTIFICATIONS ─────────────────────────────────────────
+// ── DISCORD WEBHOOK CHANNELS ───────────────────────────────────────────
+// fuel-co2-upload-channel (1519026415549284563) — personal fuel dashboard links
+const FUEL_UPLOAD_WEBHOOK = process.env.fuel_co2_upload_channel || '';
+// fuel-co2-optimiser-upload (1518667637033406655) — fuel data ingestion
+const FUEL_OPTIMISER_UPLOAD_WEBHOOK = process.env.fuel_co2_optimiser_upload || '';
+// 2-fuel-co2-optimiser (1517738846018732153) — fuel optimizer notifications
+const FUEL_OPTIMISER_WEBHOOK = process.env.fuel_co2_optimiser || '';
 // Alliance upload channel (1434617764424974456) — ONLY alliance pace,
 // alliance projections, and player statistics. No Hunter data.
 const ALLIANCE_UPLOAD_WEBHOOK = process.env.DISCORD_UPLOAD_WEBHOOK
@@ -3619,12 +3626,12 @@ app.post('/api/fuel-profile', (req, res) => {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(dir + '/' + did + '.json', JSON.stringify(profile), 'utf8');
     } catch (fe) { console.warn('[FUEL-PROFILE] Per-file save skipped:', fe.message); }
-    // Notify fuel upload channel with personal dashboard link
-    const FUEL_WEBHOOK = 'https://discord.com/api/webhooks/1519026475423236156/HFNBWwh2Xhi3FEsilDSH-inJUf7dcWdFpammnT6FDWUi_QmCz_W5JP7DOndYHMeeh1qM';
+    // Notify fuel-co2-upload-channel with personal dashboard link
     try {
+      if (!FUEL_UPLOAD_WEBHOOK) throw new Error('fuel_co2_upload_channel not set');
       const linkMsg = 'Your fuel dashboard is ready. Your personal link is beagle-projections.onrender.com/fuel/' + did + ' \u2014 copy this link and save it somewhere safe. If you lose it post in this channel again and we will regenerate it.';
       const body = JSON.stringify({ content: linkMsg });
-      const u = new URL(FUEL_WEBHOOK);
+      const u = new URL(FUEL_UPLOAD_WEBHOOK);
       const whReq = https.request({
         hostname: u.hostname, path: u.pathname, method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
