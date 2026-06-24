@@ -166,6 +166,8 @@ let liveData = loadState();
 // ── BEAGLE HQ — IN-MEMORY STORE ───────────────────────────────────────────
 let hqData = loadHqState();
 const FUEL_PROFILES_FILE = '/data/fuel_profiles.json';
+const FUEL_ACCESS_LOG_FILE = '/data/fuel_access_log.json';
+const FUEL_APPROVED_USERS_FILE = '/data/fuel_approved_users.json';
 const HUNTER_DATA_FILE = '/data/hunter_data.json';
 let fuelProfiles = {};
 try {
@@ -174,6 +176,39 @@ try {
     console.log('[STARTUP] Fuel profiles loaded: ' + Object.keys(fuelProfiles).length);
   }
 } catch(e) { console.error('[STARTUP] Fuel profiles load error:', e.message); }
+
+// Approved users for fuel system { discord_id: { name, added_by, added_at } }
+let fuelApprovedUsers = {};
+try {
+  if (fs.existsSync(FUEL_APPROVED_USERS_FILE)) {
+    fuelApprovedUsers = JSON.parse(fs.readFileSync(FUEL_APPROVED_USERS_FILE, 'utf8'));
+    console.log('[STARTUP] Fuel approved users loaded: ' + Object.keys(fuelApprovedUsers).length);
+  }
+} catch(e) { console.error('[STARTUP] Fuel approved users load error:', e.message); }
+
+function saveFuelApprovedUsers() {
+  try { fs.writeFileSync(FUEL_APPROVED_USERS_FILE, JSON.stringify(fuelApprovedUsers), 'utf8'); }
+  catch(e) { console.error('[SAVE] Fuel approved users save error:', e.message); }
+}
+
+function logFuelAccess(did, name, action) {
+  try {
+    let accessLog = [];
+    try { accessLog = JSON.parse(fs.readFileSync(FUEL_ACCESS_LOG_FILE, 'utf8')); } catch(e) {}
+    accessLog.push({ discord_id: did || 'unknown', discord_name: name || '', action, timestamp: new Date().toISOString() });
+    if (accessLog.length > 5000) accessLog = accessLog.slice(-5000);
+    fs.writeFileSync(FUEL_ACCESS_LOG_FILE, JSON.stringify(accessLog), 'utf8');
+  } catch(le) { console.warn('[FUEL-LOG] Access log write error:', le.message); }
+}
+
+function isFuelAuthorized(did) {
+  if (!did) return false;
+  // Check approved users list
+  if (fuelApprovedUsers[did]) return true;
+  // Check if they already have a fuel profile saved
+  if (fuelProfiles[did]) return true;
+  return false;
+}
 
 let hunterData = null;
 if (fs.existsSync(HUNTER_DATA_FILE)) {
@@ -2327,6 +2362,7 @@ select option{background:#040C18;color:#E2EAF4}
     This form is <strong>private</strong>. Your fleet composition, reserves and strategy never appear on Discord. Fill this out once and the fuel bot uses your settings automatically. You can update it anytime by re-submitting.
   </div>
   <form id="f" autocomplete="off">
+    <input type="hidden" id="discord_id" value="">
 
     <!-- IDENTITY -->
     <div class="card">
@@ -2492,11 +2528,17 @@ select option{background:#040C18;color:#E2EAF4}
     You are enrolled in the Stepping Stone system.<br>
     Your personal dashboard link will be posted to the fuel upload channel.<br><br>
     You can update your profile anytime by re-submitting this form.
+    <a id="dash-link" href="#" style="display:none;margin-top:20px;padding:14px 24px;background:#C4920A;color:#030B17;font-weight:700;font-size:14px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border-radius:4px;text-align:center;width:100%;max-width:400px;" onclick="return true;">OPEN YOUR FUEL DASHBOARD &rarr;</a>
   </div>
 </div>
 
 <script>
 let spd4x=false;
+(function(){
+  const params=new URLSearchParams(window.location.search);
+  const did=params.get('did')||'';
+  if(did){document.getElementById('discord_id').value=did;}
+})();
 
 function setSp(v){
   spd4x=v;
@@ -2621,6 +2663,7 @@ document.getElementById('f').addEventListener('submit',async e=>{
   }
   btn.textContent='SAVING...';btn.disabled=true;
   const profile={
+    discord_id:document.getElementById('discord_id').value.trim()||null,
     discord_name:document.getElementById('discord_name').value.trim(),
     timezone:document.getElementById('timezone').value,
     fuel_tank_capacity:parseInt(document.getElementById('fuel_tank').value)||0,
@@ -2643,6 +2686,11 @@ document.getElementById('f').addEventListener('submit',async e=>{
     if(data.ok){
       document.getElementById('f').style.display='none';
       document.getElementById('ok-box').style.display='block';
+      if(data.key){
+        const dl=document.getElementById('dash-link');
+        dl.href='/fuel/'+data.key;
+        dl.style.display='inline-block';
+      }
       window.scrollTo(0,0);
     } else {
       err.textContent='Error: '+(data.error||'Save failed');
@@ -2694,9 +2742,11 @@ body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;
 .hdr{background:linear-gradient(90deg,#04101E,#0A1C32);border-bottom:2px solid #C4920A;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
 .brand{font-size:20px;font-weight:700;color:#E8B84B;letter-spacing:2px}
 .brand-sub{font-size:10px;color:#5A8AAB;letter-spacing:2px;text-transform:uppercase;margin-top:2px}
-.hdr-right{text-align:right}
+.hdr-right{text-align:right;display:flex;align-items:center;gap:12px}
 .hdr-month{font-size:14px;font-weight:700;color:#E8B84B;letter-spacing:1px}
 .hdr-id{font-size:10px;color:#3A6080;margin-top:2px;letter-spacing:1px}
+.edit-btn{padding:8px 16px;background:transparent;border:1px solid #C4920A;color:#C4920A;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border-radius:4px;transition:all .2s}
+.edit-btn:hover{background:#C4920A;color:#030B17}
 .loading{display:flex;align-items:center;justify-content:center;height:60vh;flex-direction:column;gap:16px}
 .loading-icon{font-size:36px;color:#E8B84B}
 .loading-text{font-size:16px;color:#5A8AAB;letter-spacing:2px}
@@ -2804,8 +2854,11 @@ tr.future-row td{color:#E2EAF4}
     <div class="brand-sub">Stepping Stone Dashboard</div>
   </div>
   <div class="hdr-right">
-    <div class="hdr-month">${monthName} ${year}</div>
-    <div class="hdr-id" id="user-id"></div>
+    <a href="/fuel-setup?did=${discordId}" class="edit-btn">Edit Profile</a>
+    <div>
+      <div class="hdr-month">${monthName} ${year}</div>
+      <div class="hdr-id" id="user-id"></div>
+    </div>
   </div>
 </div>
 <div id="app">
@@ -3627,11 +3680,14 @@ app.get('/fuel/:discordId', (req, res) => {
   const did = String(req.params.discordId || '').replace(/[^0-9]/g, '');
   if (!did) return res.status(400).send('Invalid Discord ID');
   logVisit(req);
+  logFuelAccess(did, '', 'dashboard_view');
   res.type('html').send(buildFuelDashboard(did));
 });
 
 app.get('/fuel-setup', (req, res) => {
+  const did = req.query.did || '';
   logVisit(req);
+  if (did) logFuelAccess(did, '', 'setup_view');
   res.type('html').send(FUEL_SETUP_HTML);
 });
  
@@ -3643,7 +3699,8 @@ app.post('/api/fuel-setup', (req, res) => {
     fuelProfiles[key] = { ...p, last_updated: new Date().toISOString() };
     saveFuelProfiles();
     console.log('[FUEL-SETUP] Profile saved: ' + p.discord_name + ' (key=' + key + ')');
-    res.json({ ok: true });
+    logFuelAccess(did, p.discord_name, 'profile_save');
+    res.json({ ok: true, key: key });
   } catch(e) {
     console.error('[FUEL-SETUP] Error:', e.message);
     res.status(500).json({ ok: false, error: e.message });
@@ -3762,6 +3819,47 @@ app.get('/api/fuel-enrolled', (req, res) => {
   if (!did) return res.status(400).json({ error: 'discord_id required' });
   const enrolled = !!fuelProfiles[did];
   res.json({ discord_id: did, enrolled });
+});
+
+// ── FUEL APPROVED USERS MANAGEMENT ─────────────────────────────────────────
+// Nathan can add/remove approved Discord IDs for fuel system access
+app.get('/api/fuel-approved-users', (req, res) => {
+  if (req.query.token !== N8N_TOKEN && req.query.token !== SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  res.json({ users: fuelApprovedUsers, count: Object.keys(fuelApprovedUsers).length });
+});
+
+app.post('/api/fuel-approved-users', (req, res) => {
+  const { token, discord_id, name, action } = req.body || {};
+  if (token !== N8N_TOKEN && token !== SECRET) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+  const did = String(discord_id || '').replace(/[^0-9]/g, '');
+  if (!did) return res.status(400).json({ error: 'discord_id required' });
+  if (action === 'remove') {
+    delete fuelApprovedUsers[did];
+    saveFuelApprovedUsers();
+    return res.json({ ok: true, action: 'removed', discord_id: did });
+  }
+  fuelApprovedUsers[did] = { name: name || '', added_at: new Date().toISOString() };
+  saveFuelApprovedUsers();
+  res.json({ ok: true, action: 'added', discord_id: did, name: name || '' });
+});
+
+// ── FUEL ACCESS LOG — view who has accessed fuel pages ─────────────────────
+app.get('/api/fuel-access-log', (req, res) => {
+  if (req.query.token !== N8N_TOKEN && req.query.token !== SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    let log = [];
+    try { log = JSON.parse(fs.readFileSync(FUEL_ACCESS_LOG_FILE, 'utf8')); } catch(e) {}
+    const limit = parseInt(req.query.limit) || 100;
+    res.json({ entries: log.slice(-limit), total: log.length });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── NOTIFICATION ENDPOINT — for n8n 30-minute schedule trigger ────────────
