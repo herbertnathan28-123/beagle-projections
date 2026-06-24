@@ -2755,7 +2755,8 @@ const AIRCRAFT_BURN_HOUR = {
   'Concorde':25000,'A320neo':5500,'B737 MAX 8':5200,'Spacejet M100':3000
 };
 
-function buildFuelDashboard(discordId) {
+function buildFuelDashboard(discordId, editDid) {
+  // editDid = the real Discord ID for the Edit Profile link (may differ from the URL key)
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const now = new Date();
   const monthName = MONTHS[now.getUTCMonth()];
@@ -2886,7 +2887,7 @@ tr.future-row td{color:#E2EAF4}
     <div class="brand-sub">Stepping Stone Dashboard</div>
   </div>
   <div class="hdr-right">
-    <a href="/fuel-setup?did=${discordId}" class="edit-btn">Edit Profile</a>
+    <a href="/fuel-setup?did=${editDid || discordId}" class="edit-btn">Edit Profile</a>
     <div>
       <div class="hdr-month">${monthName} ${year}</div>
       <div class="hdr-id" id="user-id"></div>
@@ -3709,11 +3710,27 @@ app.get('/api/fuel-path', (req, res) => {
 });
 
 app.get('/fuel/:discordId', (req, res) => {
-  const did = String(req.params.discordId || '').replace(/[^0-9]/g, '');
-  if (!did) return res.status(400).send('Invalid Discord ID');
+  const key = String(req.params.discordId || '').replace(/[^0-9a-zA-Z._-]/g, '');
+  if (!key) return res.status(400).send('Invalid Discord ID');
   logVisit(req);
-  logFuelAccess(did, '', 'dashboard_view');
-  res.type('html').send(buildFuelDashboard(did));
+  // Resolve the real Discord ID for the Edit Profile link
+  let editDid = key;
+  const profile = fuelProfiles[key];
+  if (profile && profile.discord_id && /^\d{17,19}$/.test(String(profile.discord_id))) {
+    editDid = String(profile.discord_id);
+  } else {
+    // Search all profiles for one whose discord_id matches this key
+    for (const [k, p] of Object.entries(fuelProfiles)) {
+      if (p && (String(p.discord_id || '') === key || k === key)) {
+        if (p.discord_id && /^\d{17,19}$/.test(String(p.discord_id))) {
+          editDid = String(p.discord_id);
+        }
+        break;
+      }
+    }
+  }
+  logFuelAccess(editDid, '', 'dashboard_view');
+  res.type('html').send(buildFuelDashboard(key, editDid));
 });
 
 app.get('/fuel-setup', (req, res) => {
