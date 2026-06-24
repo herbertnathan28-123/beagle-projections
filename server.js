@@ -2528,7 +2528,17 @@ select option{background:#040C18;color:#E2EAF4}
     You are enrolled in the Stepping Stone system.<br>
     Your personal dashboard link will be posted to the fuel upload channel.<br><br>
     You can update your profile anytime by re-submitting this form.
-    <a id="dash-link" href="#" style="display:none;margin-top:20px;padding:14px 24px;background:#C4920A;color:#030B17;font-weight:700;font-size:14px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border-radius:4px;text-align:center;width:100%;max-width:400px;" onclick="return true;">OPEN YOUR FUEL DASHBOARD &rarr;</a>
+    <div style="margin-top:20px"><a id="dash-link" href="#" style="display:none;padding:14px 24px;background:#C4920A;color:#030B17;font-weight:700;font-size:14px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border-radius:4px;text-align:center;display:inline-block;">OPEN YOUR FUEL DASHBOARD &rarr;</a></div>
+  </div>
+
+  <div class="success-box" id="already-box" style="display:none">
+    &#10003; You are already registered.<br><br>
+    Your fuel profile is active. Click below to open your personalised dashboard.<br><br>
+    To update your fleet, reserves or departure times, click <strong>Update Profile</strong> below.
+    <div style="margin-top:20px;display:flex;flex-direction:column;gap:12px;align-items:center">
+      <a id="already-dash-link" href="#" style="padding:14px 24px;background:#C4920A;color:#030B17;font-weight:700;font-size:14px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border-radius:4px;text-align:center;">OPEN YOUR FUEL DASHBOARD &rarr;</a>
+      <button type="button" id="update-btn" style="padding:10px 20px;background:transparent;border:1px solid #C4920A;color:#C4920A;font-weight:700;font-size:12px;letter-spacing:2px;text-transform:uppercase;border-radius:4px;cursor:pointer;font-family:inherit;" onclick="document.getElementById('already-box').style.display='none';document.getElementById('f').style.display='block';">UPDATE PROFILE</button>
+    </div>
   </div>
 </div>
 
@@ -2537,7 +2547,18 @@ let spd4x=false;
 (function(){
   const params=new URLSearchParams(window.location.search);
   const did=params.get('did')||'';
-  if(did){document.getElementById('discord_id').value=did;}
+  if(did){
+    document.getElementById('discord_id').value=did;
+    fetch('/api/fuel-check?did='+encodeURIComponent(did))
+      .then(r=>r.json())
+      .then(data=>{
+        if(data.exists){
+          document.getElementById('f').style.display='none';
+          document.getElementById('already-box').style.display='block';
+          document.getElementById('already-dash-link').href='/fuel/'+did;
+        }
+      }).catch(()=>{});
+  }
 })();
 
 function setSp(v){
@@ -3689,6 +3710,14 @@ app.get('/fuel-setup', (req, res) => {
   logVisit(req);
   if (did) logFuelAccess(did, '', 'setup_view');
   res.type('html').send(FUEL_SETUP_HTML);
+});
+
+// Check if a fuel profile exists for a Discord ID
+app.get('/api/fuel-check', (req, res) => {
+  const did = String(req.query.did || '').replace(/[^0-9]/g, '');
+  if (!did) return res.json({ exists: false });
+  const profile = fuelProfiles[did];
+  res.json({ exists: !!profile, discord_id: did, discord_name: profile ? (profile.discord_name || '') : '' });
 });
  
 app.post('/api/fuel-setup', (req, res) => {
