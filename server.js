@@ -2361,6 +2361,10 @@ select option{background:#040C18;color:#E2EAF4}
   <div class="notice">
     This form is <strong>private</strong>. Your fleet composition, reserves and strategy never appear on Discord. Fill this out once and the fuel bot uses your settings automatically. You can update it anytime by re-submitting.
   </div>
+  <div id="already-reg-bar" style="display:none;margin-bottom:16px;padding:16px;background:#0A1C32;border:1px solid #C4920A;border-radius:4px;text-align:center">
+    <div style="font-size:12px;color:#E8B84B;font-weight:700;letter-spacing:1px;margin-bottom:12px">ALREADY REGISTERED?</div>
+    <a id="already-reg-link" href="#" style="display:inline-block;padding:14px 28px;background:#C4920A;color:#030B17;font-weight:700;font-size:14px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border-radius:4px;">GO TO YOUR DASHBOARD &rarr;</a>
+  </div>
   <form id="f" autocomplete="off">
     <input type="hidden" id="discord_id" value="">
 
@@ -2549,22 +2553,22 @@ let spd4x=false;
   const did=params.get('did')||'';
   if(did){
     document.getElementById('discord_id').value=did;
+    // Always show the "Already registered?" bar with dashboard link
+    document.getElementById('already-reg-bar').style.display='block';
+    document.getElementById('already-reg-link').href='/fuel/'+did;
+    // Also pre-set the post-save dashboard link
+    document.getElementById('dash-link').href='/fuel/'+did;
+    // Check if profile exists — if so, show full "already registered" screen
     fetch('/api/fuel-check?did='+encodeURIComponent(did))
       .then(r=>r.json())
       .then(data=>{
         if(data.exists){
           document.getElementById('f').style.display='none';
+          document.getElementById('already-reg-bar').style.display='none';
           document.getElementById('already-box').style.display='block';
           document.getElementById('already-dash-link').href='/fuel/'+did;
-        } else {
-          // Even if no profile yet, show the dashboard link below the form
-          const dl=document.getElementById('dash-link');
-          dl.href='/fuel/'+did;
         }
-      }).catch(()=>{
-        const dl=document.getElementById('dash-link');
-        dl.href='/fuel/'+did;
-      });
+      }).catch(()=>{});
   }
 })();
 
