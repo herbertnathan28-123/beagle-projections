@@ -129,7 +129,7 @@ function saveHqState(data) {
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
 // ── DEFAULT DATA ──────────────────────────────────────────────────────────
 const DEFAULT_DATA = {
