@@ -2361,9 +2361,9 @@ select option{background:#040C18;color:#E2EAF4}
   <div class="notice">
     This form is <strong>private</strong>. Your fleet composition, reserves and strategy never appear on Discord. Fill this out once and the fuel bot uses your settings automatically. You can update it anytime by re-submitting.
   </div>
-  <div id="already-reg-bar" style="display:none;margin-bottom:16px;padding:16px;background:#0A1C32;border:1px solid #C4920A;border-radius:4px;text-align:center">
+  <div id="already-reg-bar" style="margin-bottom:16px;padding:16px;background:#0A1C32;border:1px solid #C4920A;border-radius:4px;text-align:center">
     <div style="font-size:12px;color:#E8B84B;font-weight:700;letter-spacing:1px;margin-bottom:12px">ALREADY REGISTERED?</div>
-    <a id="already-reg-link" href="#" style="display:inline-block;padding:14px 28px;background:#C4920A;color:#030B17;font-weight:700;font-size:14px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border-radius:4px;">GO TO YOUR DASHBOARD &rarr;</a>
+    <a id="already-reg-link" href="/fuel-calculator" style="display:inline-block;padding:14px 28px;background:#C4920A;color:#030B17;font-weight:700;font-size:14px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border-radius:4px;">GO TO FUEL CALCULATOR &rarr;</a>
   </div>
   <form id="f" autocomplete="off">
     <input type="hidden" id="discord_id" value="">
@@ -2532,7 +2532,7 @@ select option{background:#040C18;color:#E2EAF4}
     You are enrolled in the Stepping Stone system.<br>
     Your personal dashboard link will be posted to the fuel upload channel.<br><br>
     You can update your profile anytime by re-submitting this form.
-    <div style="margin-top:20px"><a id="dash-link" href="#" style="display:none;padding:14px 24px;background:#C4920A;color:#030B17;font-weight:700;font-size:14px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border-radius:4px;text-align:center;">OPEN YOUR FUEL DASHBOARD &rarr;</a></div>
+    <div style="margin-top:20px"><a id="dash-link" href="/fuel-calculator" style="display:none;padding:14px 24px;background:#C4920A;color:#030B17;font-weight:700;font-size:14px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border-radius:4px;text-align:center;">OPEN FUEL CALCULATOR &rarr;</a></div>
   </div>
 
   <div class="success-box" id="already-box" style="display:none">
@@ -2540,7 +2540,7 @@ select option{background:#040C18;color:#E2EAF4}
     Your fuel profile is active. Click below to open your personalised dashboard.<br><br>
     To update your fleet, reserves or departure times, click <strong>Update Profile</strong> below.
     <div style="margin-top:20px;display:flex;flex-direction:column;gap:12px;align-items:center">
-      <a id="already-dash-link" href="#" style="padding:14px 24px;background:#C4920A;color:#030B17;font-weight:700;font-size:14px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border-radius:4px;text-align:center;">OPEN YOUR FUEL DASHBOARD &rarr;</a>
+      <a id="already-dash-link" href="/fuel-calculator" style="padding:14px 24px;background:#C4920A;color:#030B17;font-weight:700;font-size:14px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border-radius:4px;text-align:center;">OPEN FUEL CALCULATOR &rarr;</a>
       <button type="button" id="update-btn" style="padding:10px 20px;background:transparent;border:1px solid #C4920A;color:#C4920A;font-weight:700;font-size:12px;letter-spacing:2px;text-transform:uppercase;border-radius:4px;cursor:pointer;font-family:inherit;" onclick="document.getElementById('already-box').style.display='none';document.getElementById('f').style.display='block';">UPDATE PROFILE</button>
     </div>
   </div>
@@ -2553,12 +2553,7 @@ let spd4x=false;
   const did=params.get('did')||'';
   if(did){
     document.getElementById('discord_id').value=did;
-    // Always show the "Already registered?" bar with dashboard link
-    document.getElementById('already-reg-bar').style.display='block';
-    document.getElementById('already-reg-link').href='/fuel/'+did;
-    // Also pre-set the post-save dashboard link
-    document.getElementById('dash-link').href='/fuel/'+did;
-    // Check if profile exists — if so, show full "already registered" screen
+    // Check if profile exists — if so, show "already registered" screen
     fetch('/api/fuel-check?did='+encodeURIComponent(did))
       .then(r=>r.json())
       .then(data=>{
@@ -2566,7 +2561,6 @@ let spd4x=false;
           document.getElementById('f').style.display='none';
           document.getElementById('already-reg-bar').style.display='none';
           document.getElementById('already-box').style.display='block';
-          document.getElementById('already-dash-link').href='/fuel/'+did;
         }
       }).catch(()=>{});
   }
@@ -2719,9 +2713,7 @@ document.getElementById('f').addEventListener('submit',async e=>{
       document.getElementById('f').style.display='none';
       document.getElementById('ok-box').style.display='block';
       const dl=document.getElementById('dash-link');
-      if(data.key){
-        dl.href='/fuel/'+data.key;
-      }
+      dl.href='/fuel-calculator';
       dl.style.display='inline-block';
       window.scrollTo(0,0);
     } else {
