@@ -2538,7 +2538,7 @@ function addFleetRow(){
     '<option>Concorde</option><option>A320neo</option><option>B737 MAX 8</option><option>Spacejet M100</option>'+
     '</select></div>'+
     '<div class="field"><label>Total Aircraft</label><input type="number" class="ac-total" min="1" placeholder="0" required oninput="updateFleetTotal()" onchange="updateFleetTotal()"></div>'+
-    '<div class="field"><label>Flight Time (hrs)</label><input type="number" class="ac-hours" min="0.5" step="0.5" placeholder="e.g. 14" required onchange="updateDepTimes()" onblur="updateDepTimes()"></div>'+
+    '<div class="field"><label>Flight Time (hrs)</label><input type="number" class="ac-hours" min="0.5" step="0.5" placeholder="e.g. 12" required onchange="updateDepTimes()" onblur="updateDepTimes()"></div>'+
     '<button type="button" class="rm-btn" onclick="removeFleetRow(this)" title="Remove">&#10005;</button>';
   list.appendChild(d);
 }
