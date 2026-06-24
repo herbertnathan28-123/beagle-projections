@@ -2528,7 +2528,7 @@ select option{background:#040C18;color:#E2EAF4}
     You are enrolled in the Stepping Stone system.<br>
     Your personal dashboard link will be posted to the fuel upload channel.<br><br>
     You can update your profile anytime by re-submitting this form.
-    <div style="margin-top:20px"><a id="dash-link" href="#" style="display:none;padding:14px 24px;background:#C4920A;color:#030B17;font-weight:700;font-size:14px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border-radius:4px;text-align:center;display:inline-block;">OPEN YOUR FUEL DASHBOARD &rarr;</a></div>
+    <div style="margin-top:20px"><a id="dash-link" href="#" style="display:none;padding:14px 24px;background:#C4920A;color:#030B17;font-weight:700;font-size:14px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border-radius:4px;text-align:center;">OPEN YOUR FUEL DASHBOARD &rarr;</a></div>
   </div>
 
   <div class="success-box" id="already-box" style="display:none">
@@ -2556,8 +2556,15 @@ let spd4x=false;
           document.getElementById('f').style.display='none';
           document.getElementById('already-box').style.display='block';
           document.getElementById('already-dash-link').href='/fuel/'+did;
+        } else {
+          // Even if no profile yet, show the dashboard link below the form
+          const dl=document.getElementById('dash-link');
+          dl.href='/fuel/'+did;
         }
-      }).catch(()=>{});
+      }).catch(()=>{
+        const dl=document.getElementById('dash-link');
+        dl.href='/fuel/'+did;
+      });
   }
 })();
 
@@ -2707,11 +2714,11 @@ document.getElementById('f').addEventListener('submit',async e=>{
     if(data.ok){
       document.getElementById('f').style.display='none';
       document.getElementById('ok-box').style.display='block';
+      const dl=document.getElementById('dash-link');
       if(data.key){
-        const dl=document.getElementById('dash-link');
         dl.href='/fuel/'+data.key;
-        dl.style.display='inline-block';
       }
+      dl.style.display='inline-block';
       window.scrollTo(0,0);
     } else {
       err.textContent='Error: '+(data.error||'Save failed');
@@ -3713,11 +3720,26 @@ app.get('/fuel-setup', (req, res) => {
 });
 
 // Check if a fuel profile exists for a Discord ID
+// Also searches profiles saved under usernames for a matching discord_id field
+// and auto-migrates them to the numeric ID key
 app.get('/api/fuel-check', (req, res) => {
   const did = String(req.query.did || '').replace(/[^0-9]/g, '');
   if (!did) return res.json({ exists: false });
-  const profile = fuelProfiles[did];
-  res.json({ exists: !!profile, discord_id: did, discord_name: profile ? (profile.discord_name || '') : '' });
+  // Direct lookup by numeric ID
+  if (fuelProfiles[did]) {
+    return res.json({ exists: true, discord_id: did, discord_name: fuelProfiles[did].discord_name || '' });
+  }
+  // Search all profiles for a matching discord_id field (saved under username key)
+  for (const [key, profile] of Object.entries(fuelProfiles)) {
+    if (profile && String(profile.discord_id || '') === did) {
+      // Auto-migrate: copy to numeric ID key
+      fuelProfiles[did] = { ...profile, discord_id: did };
+      saveFuelProfiles();
+      console.log('[FUEL-CHECK] Migrated profile from key=' + key + ' to key=' + did);
+      return res.json({ exists: true, discord_id: did, discord_name: profile.discord_name || '', migrated: true });
+    }
+  }
+  res.json({ exists: false, discord_id: did });
 });
  
 app.post('/api/fuel-setup', (req, res) => {
