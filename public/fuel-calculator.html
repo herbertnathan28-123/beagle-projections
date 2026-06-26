@@ -26,6 +26,11 @@ body{background:#060f1e;color:#e0e6f0;font-family:Arial,sans-serif;min-height:10
 .dep-section{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .dep-label{color:#4a6a3a;font-size:9px;letter-spacing:1px;font-weight:700}
 .dep-status{color:#f5a623;font-size:10px;font-family:monospace;background:#0a1808;border:1px solid #2a4010;padding:4px 10px;border-radius:4px;min-width:120px;text-align:center}
+.dep-col{display:flex;flex-direction:column;align-items:center;gap:3px}
+.dep-eta-input{width:46px;background:#0a1808;border:1px solid #2a4a1a;border-radius:3px;color:#70d070;font-size:9px;font-family:monospace;padding:2px 4px;text-align:center}
+.dep-eta-input::placeholder{color:#3a5a3a;font-size:8px}
+.btn-clear-co2{background:#1a0a0a;border:1px solid #5a2a2a;color:#e06060;font-size:11px;font-weight:700;padding:3px 7px;border-radius:3px;cursor:pointer;line-height:1}
+.btn-clear-co2:hover{background:#2a1010;color:#ff7070}
 .dropdown{position:relative;display:inline-block}
 .dropdown-menu{display:none;position:absolute;right:0;top:110%;background:#0d1e36;border:1px solid #3a6a3a;border-radius:5px;min-width:160px;z-index:100;overflow:hidden}
 .dropdown-menu.open{display:block}
@@ -135,7 +140,7 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
       <div class="stat-box"><div class="stat-label">YOUR AVG FUEL PURCHASE COST</div><div class="stat-value" id="sAvgFuel" style="color:#f0b429">—</div></div>
       <div class="stat-box" style="border-color:#1a5a5a"><div class="stat-label">VS JUNE AVG $1,414</div><div class="stat-value" id="sVsJuneFuel" style="color:#7a9090">—</div></div>
       <!-- CO2 ROW -->
-      <div class="stat-input-wrap"><div class="stat-input-label">🌿 STARTING CO2 RESERVES (quotas)</div><input class="stat-input" id="startCO2" type="number" value="1126614039" step="1000000" oninput="recalc()" style="border-color:#2a5a2a;color:#70d070"></div>
+      <div class="stat-input-wrap"><div class="stat-input-label">🌿 STARTING CO2 RESERVES (quotas)</div><div style="display:flex;align-items:center;gap:4px"><input class="stat-input" id="startCO2" type="number" value="1126614039" step="1000000" oninput="recalc()" style="border-color:#2a5a2a;color:#70d070"><button class="btn-clear-co2" onclick="clearCO2Reserve()" title="Clear CO2 reserve back to default">✕</button></div></div>
       <div class="stat-input-wrap"><div class="stat-input-label">🌿 CO2 TANK CAPACITY (quotas)</div><input class="stat-input" id="co2Tank" type="number" value="2438348000" step="1000000" oninput="recalc()" style="border-color:#2a5a2a;color:#70d070"></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">MIN CO2 RESERVE</div><div class="stat-value" style="color:#e07b39">15,000,000</div></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">🌿 CO2 PURCHASED</div><div class="stat-value" id="sCO2Bought" style="color:#70d070">0</div></div>
@@ -149,14 +154,14 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
     </div>
     <div class="dep-section" style="flex-direction:column;align-items:flex-start;margin-left:auto">
       <div class="dep-label" style="margin-bottom:4px">⏱ DEPART FLEET</div>
-      <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
-        <button class="btn btn-dep" onclick="logDep('ALL')" title="Depart all fleets">ALL</button>
-        <button class="btn btn-dep" onclick="logDep(21)" title="21-hour fleet">21H</button>
-        <button class="btn btn-dep" onclick="logDep(14)" title="14-hour fleet">14H</button>
-        <button class="btn btn-dep" onclick="logDep(7)" title="7-hour fleet">7H</button>
-        <button class="btn btn-dep" onclick="logDep(3.5)" title="3.5-hour fleet">3.5H</button>
-        <div class="dep-status" id="depStatus" style="min-width:160px">—</div>
+      <div style="display:flex;gap:6px;align-items:flex-start">
+        <button class="btn btn-dep" onclick="logDep('ALL')" title="Depart all fleets" style="align-self:center">ALL</button>
+        <div class="dep-col"><button class="btn btn-dep" onclick="logDep(21)" title="21-hour fleet">21H</button><input class="dep-eta-input" id="depEta21" type="text" placeholder="ETA" title="Custom ETA override (h:mm) — time until this fleet lands"></div>
+        <div class="dep-col"><button class="btn btn-dep" onclick="logDep(14)" title="14-hour fleet">14H</button><input class="dep-eta-input" id="depEta14" type="text" placeholder="ETA" title="Custom ETA override (h:mm) — time until this fleet lands"></div>
+        <div class="dep-col"><button class="btn btn-dep" onclick="logDep(7)" title="7-hour fleet">7H</button><input class="dep-eta-input" id="depEta7" type="text" placeholder="ETA" title="Custom ETA override (h:mm) — time until this fleet lands"></div>
+        <div class="dep-col"><button class="btn btn-dep" onclick="logDep(3.5)" title="3.5-hour fleet">3.5H</button><input class="dep-eta-input" id="depEta3_5" type="text" placeholder="ETA" title="Custom ETA override (h:mm) — time until this fleet lands"></div>
       </div>
+      <div class="dep-status" id="depStatus" style="min-width:160px;margin-top:4px">—</div>
     </div>
   </div>
 </div>
@@ -379,6 +384,11 @@ function toggleCO2(i){
   if(r.classList.contains('open')){r.classList.remove('open');if(btn)btn.textContent='▶';}
   else{r.classList.add('open');if(btn)btn.textContent='▼';}
 }
+function clearCO2Reserve(){
+  document.getElementById('startCO2').value=1126614039;
+  co2ResOv=new Array(48).fill(null);
+  recalc();
+}
 function resetAll(){
   fPurchased=new Array(48).fill(0);resOv=new Array(48).fill(null);
   co2Purchased=new Array(48).fill(0);co2ResOv=new Array(48).fill(null);
@@ -386,6 +396,7 @@ function resetAll(){
   document.getElementById('fuelTank').value=880597000;
   document.getElementById('startCO2').value=1126614039;
   document.getElementById('co2Tank').value=2438348000;
+  document.querySelectorAll('.dep-eta-input').forEach(el=>el.value='');
   recalc();
 }
 
@@ -447,7 +458,8 @@ function logDep(fleet){
     }
     el.textContent=`ALL departed ${fmtUTC(nowMins)} UTC — full day window`;
   } else {
-    const returnMins=nowMins+fleet*60;
+    const etaHours=getFleetEta(fleet);
+    const returnMins=nowMins+etaHours*60;
     const returnIdx=Math.min(Math.floor(returnMins/30),47);
     const crosses=returnMins>=1440;
     // highlight window slots
@@ -474,8 +486,29 @@ function logDep(fleet){
     });
     // scroll to start of window
     if(rows[startIdx]) rows[startIdx].scrollIntoView({behavior:'smooth',block:'center'});
-    el.textContent=`${fleet}H dep ${fmtUTC(nowMins)} → back ${fmtUTC(returnMins)}${crosses?' (+1d)':''} UTC`;
+    const etaLabel=etaHours!==fleet?` (ETA ${etaHours.toFixed(1)}h)`:'';
+    el.textContent=`${fleet}H dep ${fmtUTC(nowMins)} → back ${fmtUTC(returnMins)}${crosses?' (+1d)':''} UTC${etaLabel}`;
   }
+}
+
+// ── DEPARTURE ETA INPUTS ──
+function parseEta(val){
+  if(!val||!val.trim()) return null;
+  val=val.trim();
+  if(val.includes(':')){
+    const[h,m]=val.split(':').map(Number);
+    if(isNaN(h)) return null;
+    return h+(isNaN(m)?0:m/60);
+  }
+  const n=parseFloat(val);
+  return isNaN(n)?null:n;
+}
+function getFleetEta(fleet){
+  const idMap={21:'depEta21',14:'depEta14',7:'depEta7',3.5:'depEta3_5'};
+  const el=document.getElementById(idMap[fleet]);
+  if(!el) return fleet;
+  const eta=parseEta(el.value);
+  return eta!==null?eta:fleet;
 }
 
 function downloadXLSX(period){
