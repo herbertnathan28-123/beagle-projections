@@ -75,6 +75,8 @@ tr.bg-sug{background:#05100a}
 .dep-window{border-left:3px solid #f5a030!important;background:rgba(245,160,48,0.04)!important}
 .dep-window-best{border-left:3px solid #23a55a!important;background:rgba(35,165,90,0.08)!important}
 .dep-window-best .price-cell{text-shadow:0 0 8px #23a55a}
+tr.now-row{background:rgba(245,180,48,0.12)!important;border-left:3px solid #f5c030!important}
+.now-badge{display:inline-block;background:#f5a030;color:#0a0a0a;font-size:8px;font-weight:800;padding:1px 4px;border-radius:3px;margin-left:4px;letter-spacing:.5px;vertical-align:middle}
 /* CO2 expand */
 .expand-btn{background:none;border:none;color:#3a7a3a;cursor:pointer;font-size:11px;padding:0 4px;transition:color .15s}
 .expand-btn:hover{color:#70d070}
@@ -511,6 +513,28 @@ function downloadXLSX(period){
 // ── INIT ──
 document.getElementById('dlbl').textContent=new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).toUpperCase()+' · DENMARK GAME TIME';
 recalc();
+
+// ── CURRENT TIME ROW HIGHLIGHT (Denmark = UTC+2) ──
+function highlightNowRow(){
+  document.querySelectorAll('#tbody tr.now-row').forEach(r=>r.classList.remove('now-row'));
+  document.querySelectorAll('.now-badge').forEach(b=>b.remove());
+  const now=new Date();
+  const denMins=((now.getUTCHours()+2)%24)*60+now.getUTCMinutes();
+  const slotIdx=Math.min(Math.floor(denMins/30),47);
+  const rows=document.querySelectorAll('#tbody tr');
+  if(rows[slotIdx]){
+    rows[slotIdx].classList.add('now-row');
+    const denCell=rows[slotIdx].cells[1];
+    if(denCell){
+      const badge=document.createElement('span');
+      badge.className='now-badge';
+      badge.textContent='\u25B6 NOW';
+      denCell.appendChild(badge);
+    }
+  }
+}
+highlightNowRow();
+setInterval(highlightNowRow,30000);
 </script>
 </body>
 </html>
