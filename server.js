@@ -129,6 +129,8 @@ function saveHqState(data) {
 
 app.use(cors());
 app.use(express.json());
+// Static files MUST be served BEFORE all route handlers — ensures /fuel-calculator.html
+// and other public assets are resolved without hitting the wildcard catch-all.
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
 // ── DEFAULT DATA ──────────────────────────────────────────────────────────
@@ -2551,18 +2553,26 @@ let spd4x=false;
 (function(){
   const params=new URLSearchParams(window.location.search);
   const did=params.get('did')||'';
+  const editMode=params.get('edit')==='1';
   if(did){
     document.getElementById('discord_id').value=did;
-    // Check if profile exists — if so, show "already registered" screen
-    fetch('/api/fuel-check?did='+encodeURIComponent(did))
-      .then(r=>r.json())
-      .then(data=>{
-        if(data.exists){
-          document.getElementById('f').style.display='none';
-          document.getElementById('already-reg-bar').style.display='none';
-          document.getElementById('already-box').style.display='block';
-        }
-      }).catch(()=>{});
+    // If edit=1, skip "already registered" screen and show form directly
+    if(!editMode){
+      fetch('/api/fuel-check?did='+encodeURIComponent(did))
+        .then(r=>r.json())
+        .then(data=>{
+          if(data.exists){
+            document.getElementById('f').style.display='none';
+            document.getElementById('already-reg-bar').style.display='none';
+            document.getElementById('already-box').style.display='block';
+            // Point dashboard link to personal fuel dashboard
+            var adl=document.getElementById('already-dash-link');
+            if(adl) adl.href='/fuel/'+encodeURIComponent(did);
+          }
+        }).catch(()=>{});
+    } else {
+      document.getElementById('already-reg-bar').style.display='none';
+    }
   }
 })();
 
@@ -2713,7 +2723,7 @@ document.getElementById('f').addEventListener('submit',async e=>{
       document.getElementById('f').style.display='none';
       document.getElementById('ok-box').style.display='block';
       const dl=document.getElementById('dash-link');
-      dl.href='/fuel-calculator';
+      dl.href='/fuel/'+encodeURIComponent(document.getElementById('discord_id').value||'');
       dl.style.display='inline-block';
       window.scrollTo(0,0);
     } else {
@@ -2879,7 +2889,7 @@ tr.future-row td{color:#E2EAF4}
     <div class="brand-sub">Stepping Stone Dashboard</div>
   </div>
   <div class="hdr-right">
-    <a href="/fuel-setup?did=${editDid || discordId}" class="edit-btn">Edit Profile</a>
+    <a href="/fuel-setup?did=${editDid || discordId}&edit=1" class="edit-btn">Edit Profile</a>
     <div>
       <div class="hdr-month">${monthName} ${year}</div>
       <div class="hdr-id" id="user-id"></div>
@@ -3707,19 +3717,25 @@ app.get('/fuel/:discordId', (req, res) => {
   logVisit(req);
   // Resolve the real Discord ID for the Edit Profile link
   let editDid = key;
-  const profile = fuelProfiles[key];
-  if (profile && profile.discord_id && /^\d{17,19}$/.test(String(profile.discord_id))) {
-    editDid = String(profile.discord_id);
+  let resolvedProfile = fuelProfiles[key] || null;
+  if (resolvedProfile && resolvedProfile.discord_id && /^\d{17,19}$/.test(String(resolvedProfile.discord_id))) {
+    editDid = String(resolvedProfile.discord_id);
   } else {
     // Search all profiles for one whose discord_id matches this key
     for (const [k, p] of Object.entries(fuelProfiles)) {
       if (p && (String(p.discord_id || '') === key || k === key)) {
+        resolvedProfile = p;
         if (p.discord_id && /^\d{17,19}$/.test(String(p.discord_id))) {
           editDid = String(p.discord_id);
         }
         break;
       }
     }
+  }
+  // Gate: members with no profile must complete setup first
+  if (!resolvedProfile) {
+    logFuelAccess(key, '', 'dashboard_redirect_no_profile');
+    return res.redirect('/fuel-setup?did=' + encodeURIComponent(key));
   }
   logFuelAccess(editDid, '', 'dashboard_view');
   res.type('html').send(buildFuelDashboard(key, editDid));
@@ -3730,6 +3746,13 @@ app.get('/fuel-setup', (req, res) => {
   logVisit(req);
   if (did) logFuelAccess(did, '', 'setup_view');
   res.type('html').send(FUEL_SETUP_HTML);
+});
+
+// Explicit route for /fuel-calculator — belt-and-suspenders to ensure static file
+// is always served even if express.static extensions resolution fails.
+app.get('/fuel-calculator', (req, res) => {
+  logVisit(req);
+  res.sendFile(path.join(__dirname, 'public', 'fuel-calculator.html'));
 });
 
 // Check if a fuel profile exists for a Discord ID
