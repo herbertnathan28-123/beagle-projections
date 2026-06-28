@@ -79,9 +79,9 @@ const HQ_STATE_FILE = '/data/hq-state.json';
 function calcPaceFromBaseline(sv, ts) {
   const base = DEFAULT_DATA;
   if (!sv || !ts || !base.beagleSV || !base.timestamp) return null;
-  const days = (new Date(ts) - new Date(base.timestamp)) / 86400000;
-  if (days < 1) return null;
-  const pace = (sv - base.beagleSV) / days;
+  const mins = (new Date(ts) - new Date(base.timestamp)) / 60000;
+  if (mins < 1) return null;
+  const pace = ((sv - base.beagleSV) / mins) * 1440;
   return pace >= 0.5 ? Math.round(pace * 1000) / 1000 : null;
 }
 
