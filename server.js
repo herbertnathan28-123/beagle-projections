@@ -126,6 +126,316 @@ function saveHqState(data) {
   catch (e) { console.error('[SAVE] Failed to write HQ state:', e.message); }
 }
 
+// ── SNAPSHOT HISTORY — persistent player-level snapshots for trend analysis ──
+const SNAPSHOT_HISTORY_FILE = '/data/player_snapshot_history.json';
+const MANUAL_OVERRIDES_FILE = '/data/manual_overrides.json';
+
+function loadSnapshotHistory() {
+  try {
+    if (fs.existsSync(SNAPSHOT_HISTORY_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SNAPSHOT_HISTORY_FILE, 'utf8'));
+      console.log('[STARTUP] Loaded snapshot history — ' + (data.snapshots?.length ?? 0) + ' snapshots');
+      return data;
+    }
+  } catch (e) { console.error('[STARTUP] Failed to load snapshot history:', e.message); }
+  return { snapshots: [] };
+}
+
+function saveSnapshotHistory(data) {
+  try {
+    if (!fs.existsSync('/data')) fs.mkdirSync('/data', { recursive: true });
+    fs.writeFileSync(SNAPSHOT_HISTORY_FILE, JSON.stringify(data), 'utf8');
+  } catch (e) { console.error('[SAVE] Failed to write snapshot history:', e.message); }
+}
+
+function loadManualOverrides() {
+  try {
+    if (fs.existsSync(MANUAL_OVERRIDES_FILE)) {
+      return JSON.parse(fs.readFileSync(MANUAL_OVERRIDES_FILE, 'utf8'));
+    }
+  } catch (_) {}
+  return {};
+}
+
+function saveManualOverrides(data) {
+  try {
+    if (!fs.existsSync('/data')) fs.mkdirSync('/data', { recursive: true });
+    fs.writeFileSync(MANUAL_OVERRIDES_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) { console.error('[SAVE] Manual overrides save error:', e.message); }
+}
+
+let snapshotHistory = loadSnapshotHistory();
+let manualOverrides = loadManualOverrides();
+
+function addSnapshot(players, timestamp) {
+  const snap = {
+    timestamp: timestamp || new Date().toISOString(),
+    players: players.map(p => ({
+      name: p.name,
+      sv: p.sv,
+      lastContrib: p.lastContrib,
+      allianceContrib: p.allianceContrib,
+      flights: p.flights || 0,
+      lastSeenMins: p.lastSeenMins,
+    }))
+  };
+  snapshotHistory.snapshots.push(snap);
+  if (snapshotHistory.snapshots.length > 60) {
+    snapshotHistory.snapshots = snapshotHistory.snapshots.slice(-60);
+  }
+  saveSnapshotHistory(snapshotHistory);
+}
+
+// ── PLAYER STATISTICS ANALYSIS ENGINE ─────────────────────────────────────
+
+function _nk(name) {
+  return (name || '').replace(/^[\s.]+/, '').replace(/[\s.]+$/, '').trim().toUpperCase();
+}
+
+function _stdDev(arr) {
+  if (arr.length < 2) return 0;
+  const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+  const sq = arr.reduce((a, v) => a + (v - mean) ** 2, 0) / arr.length;
+  return Math.sqrt(sq);
+}
+
+function calcPlayerCDRate(player, snapshots) {
+  const key = _nk(player.name);
+  const rates = [];
+  for (let i = 1; i < snapshots.length; i++) {
+    const curr = snapshots[i];
+    const prev = snapshots[i - 1];
+    const cp = curr.players.find(p => _nk(p.name) === key);
+    const pp = prev.players.find(p => _nk(p.name) === key);
+    if (!cp || !pp) continue;
+    const days = (new Date(curr.timestamp) - new Date(prev.timestamp)) / 86400000;
+    if (days <= 0) continue;
+    const cd = (cp.lastContrib - pp.lastContrib);
+    if (cd >= 0) rates.push({ cd, days, rate: cd / days, ts: curr.timestamp });
+  }
+  return rates;
+}
+
+function calcMomentumScore(player, snapshots) {
+  const rates = calcPlayerCDRate(player, snapshots);
+  if (rates.length < 2) {
+    return { momentumScore: null, momentumLabel: 'NO DATA', previousCD: null, currentCD: null, cdChangePercent: null };
+  }
+  const half = Math.floor(rates.length / 2);
+  const recentRates = rates.slice(half);
+  const olderRates = rates.slice(0, half);
+  const currentCD = recentRates.reduce((s, r) => s + r.rate, 0) / recentRates.length;
+  const previousCD = olderRates.reduce((s, r) => s + r.rate, 0) / olderRates.length;
+  if (previousCD === 0 && currentCD === 0) {
+    return { momentumScore: 0, momentumLabel: 'INACTIVE', previousCD: 0, currentCD: 0, cdChangePercent: 0 };
+  }
+  if (previousCD === 0) {
+    return { momentumScore: 80, momentumLabel: 'SURGING', previousCD: 0, currentCD: Math.round(currentCD), cdChangePercent: 100 };
+  }
+  const cdChangePercent = (currentCD - previousCD) / Math.abs(previousCD);
+  let label;
+  if (cdChangePercent >= 0.20) label = 'SURGING';
+  else if (cdChangePercent >= 0.05) label = 'RISING';
+  else if (cdChangePercent >= -0.05) label = 'STABLE';
+  else if (cdChangePercent >= -0.20) label = 'DROPPING';
+  else label = 'COLLAPSING';
+  const momentumScore = Math.max(0, Math.min(100, 50 + (cdChangePercent * 250)));
+  return {
+    momentumScore: Math.round(momentumScore * 10) / 10,
+    momentumLabel: label,
+    previousCD: Math.round(previousCD),
+    currentCD: Math.round(currentCD),
+    cdChangePercent: Math.round(cdChangePercent * 100),
+  };
+}
+
+function calcEfficiencyScore(player, snapshots) {
+  const key = _nk(player.name);
+  const first = snapshots.length > 0 ? snapshots[0].players.find(p => _nk(p.name) === key) : null;
+  const last = snapshots.length > 0 ? snapshots[snapshots.length - 1].players.find(p => _nk(p.name) === key) : null;
+  if (!first || !last) {
+    const cpf = player.flights > 0 ? player.lastContrib / player.flights : null;
+    const score = cpf != null ? Math.max(0, Math.min(100, ((cpf - 50) / 100) * 100)) : null;
+    return { efficiencyScore: score != null ? Math.round(score * 10) / 10 : null, contPerFlight: cpf };
+  }
+  const flightDelta = (last.flights || 0) - (first.flights || 0);
+  const contDelta = last.lastContrib - first.lastContrib;
+  const cpf = flightDelta > 0 ? contDelta / flightDelta : (player.flights > 0 ? player.lastContrib / player.flights : null);
+  const score = cpf != null ? Math.max(0, Math.min(100, ((cpf - 50) / 100) * 100)) : null;
+  return { efficiencyScore: score != null ? Math.round(score * 10) / 10 : null, contPerFlight: cpf != null ? Math.round(cpf * 100) / 100 : null };
+}
+
+function calcConsistencyScore(player, snapshots, cdScore) {
+  const key = _nk(player.name);
+  const cdValues = [];
+  let gapCount = 0;
+  let totalAppearances = 0;
+  for (let i = 1; i < snapshots.length; i++) {
+    const curr = snapshots[i];
+    const prev = snapshots[i - 1];
+    const cp = curr.players.find(p => _nk(p.name) === key);
+    const pp = prev.players.find(p => _nk(p.name) === key);
+    if (!cp) { gapCount++; continue; }
+    if (!pp) continue;
+    totalAppearances++;
+    const days = (new Date(curr.timestamp) - new Date(prev.timestamp)) / 86400000;
+    if (days <= 0) continue;
+    const cd = (cp.lastContrib - pp.lastContrib) / days;
+    if (cd >= 0) cdValues.push(cd);
+  }
+  if (cdValues.length < 2) {
+    return { consistencyScore: null, consistencyLabel: 'LOW DATA', cdVariation: null, observationGaps: gapCount };
+  }
+  const mean = cdValues.reduce((a, b) => a + b, 0) / cdValues.length;
+  const std = _stdDev(cdValues);
+  const cv = mean > 0 ? std / mean : 0;
+  // INVERTED: active contribution = high score. Inactivity = low score.
+  // Regularity component: low variance = good (max 50 pts)
+  const regularityScore = Math.max(0, 50 - Math.min(50, cv * 50));
+  // Activity component: higher mean C/D relative to group = good (max 50 pts)
+  // Use cdScore (0-100 normalised) to scale activity component
+  const activityComponent = cdScore != null ? (cdScore / 100) * 50 : 0;
+  let score = regularityScore + activityComponent;
+  // Penalty for observation gaps
+  const gapPenalty = Math.min(15, gapCount * 3);
+  score -= gapPenalty;
+  // Penalty for spikes
+  const spikeCount = cdValues.filter(v => v > mean * 3).length;
+  score -= Math.min(10, spikeCount * 3);
+  // Floor for inactive players: if mean C/D is near zero, cap at INACTIVE
+  if (mean < 100) score = Math.min(score, 14);
+  score = Math.max(0, Math.min(100, score));
+  let label;
+  if (score >= 85) label = 'ELITE';
+  else if (score >= 70) label = 'STRONG';
+  else if (score >= 55) label = 'BUILDING';
+  else if (score >= 35) label = 'DEVELOPING';
+  else if (score >= 15) label = 'INCONSISTENT';
+  else label = 'INACTIVE';
+  return {
+    consistencyScore: Math.round(score * 10) / 10,
+    consistencyLabel: label,
+    cdVariation: Math.round(cv * 1000) / 10,
+    observationGaps: gapCount,
+  };
+}
+
+function calcActivityScore(player) {
+  const mins = player.lastSeenMins;
+  const contrib = player.lastContrib;
+  if (mins < 60 && contrib > 50000) return { activityScore: 95, activityLabel: 'ACTIVE' };
+  if (mins < 60 && contrib > 0) return { activityScore: 80, activityLabel: 'ACTIVE' };
+  if (mins < 180 && contrib > 50000) return { activityScore: 75, activityLabel: 'ONLINE' };
+  if (mins < 180 && contrib > 0) return { activityScore: 60, activityLabel: 'ONLINE' };
+  if (mins < 360 && contrib > 0) return { activityScore: 40, activityLabel: 'IDLE' };
+  if (mins < 720) return { activityScore: 20, activityLabel: 'AWAY' };
+  if (contrib === 0) return { activityScore: 5, activityLabel: 'OFFLINE' };
+  return { activityScore: 15, activityLabel: 'AWAY' };
+}
+
+function calcConfidenceScore(player, snapshots) {
+  const key = _nk(player.name);
+  let score = 100;
+  let snapCount = 0;
+  for (const s of snapshots) {
+    if (s.players.find(p => _nk(p.name) === key)) snapCount++;
+  }
+  if (snapCount < 2) score -= 30;
+  else if (snapCount < 5) score -= 15;
+  if (player.lastContrib === 0) score -= 20;
+  if (player.sv === 0) score -= 15;
+  if (player.flights === 0) score -= 10;
+  score = Math.max(0, Math.min(100, score));
+  let level;
+  if (score >= 80) level = 'HIGH';
+  else if (score >= 55) level = 'MEDIUM';
+  else if (score >= 30) level = 'LOW';
+  else level = 'SPARSE';
+  return { confidenceScore: score, confidenceLevel: level };
+}
+
+function calcMeritScore(cdScore, effScore, momScore, consScore, actScore, confScore) {
+  const cd = cdScore != null ? cdScore : 0;
+  const eff = effScore != null ? effScore : 0;
+  const mom = momScore != null ? momScore : 50;
+  const cons = consScore != null ? consScore : 50;
+  const act = actScore != null ? actScore : 50;
+  const conf = confScore != null ? confScore : 50;
+  let merit = (cd * 0.40) + (eff * 0.20) + (mom * 0.15) + (cons * 0.10) + (act * 0.05) + (conf * 0.10);
+  return Math.max(0, Math.min(100, Math.round(merit * 10) / 10));
+}
+
+function analyseAllPlayers(players, snapshots) {
+  const maxContrib = Math.max(...players.map(p => p.lastContrib), 1);
+  const analysed = players.map(p => {
+    const cdScore = p.lastContrib > 0 ? Math.min(100, (p.lastContrib / maxContrib) * 100) : 0;
+    const efficiency = calcEfficiencyScore(p, snapshots);
+    const momentum = calcMomentumScore(p, snapshots);
+    const consistency = calcConsistencyScore(p, snapshots, cdScore);
+    const activity = calcActivityScore(p);
+    const confidence = calcConfidenceScore(p, snapshots);
+    const meritScore = calcMeritScore(
+      cdScore,
+      efficiency.efficiencyScore,
+      momentum.momentumScore,
+      consistency.consistencyScore,
+      activity.activityScore,
+      confidence.confidenceScore
+    );
+    return {
+      name: p.name,
+      sv: p.sv,
+      lastContrib: p.lastContrib,
+      allianceContrib: p.allianceContrib,
+      flights: p.flights || 0,
+      lastSeenStr: p.lastSeenStr,
+      lastSeenMins: p.lastSeenMins,
+      cdScore: Math.round(cdScore * 10) / 10,
+      efficiency,
+      momentum,
+      consistency,
+      activity,
+      confidence,
+      meritScore,
+    };
+  });
+  analysed.sort((a, b) => b.meritScore - a.meritScore);
+  analysed.forEach((p, i) => { p.meritRank = i + 1; });
+  return analysed;
+}
+
+function calcMostImproved(snapshots) {
+  if (snapshots.length < 2) return [];
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
+  const recentSnaps = snapshots.filter(s => new Date(s.timestamp) >= sevenDaysAgo);
+  if (recentSnaps.length < 2) {
+    const oldest = snapshots[0];
+    const newest = snapshots[snapshots.length - 1];
+    return calcImprovementBetween(oldest, newest);
+  }
+  return calcImprovementBetween(recentSnaps[0], recentSnaps[recentSnaps.length - 1]);
+}
+
+function calcImprovementBetween(oldSnap, newSnap) {
+  const results = [];
+  for (const np of newSnap.players) {
+    const op = oldSnap.players.find(p => _nk(p.name) === _nk(np.name));
+    if (!op || op.sv <= 0) continue;
+    const svChange = np.sv - op.sv;
+    const svPct = (svChange / op.sv) * 100;
+    results.push({
+      name: np.name,
+      svStart: op.sv,
+      svEnd: np.sv,
+      svChange: Math.round(svChange * 100) / 100,
+      svPct: Math.round(svPct * 100) / 100,
+    });
+  }
+  results.sort((a, b) => b.svPct - a.svPct);
+  return results;
+}
+
 
 app.use(cors());
 app.use(express.json());
@@ -772,97 +1082,322 @@ const HQ_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-<title>Beagle HQ</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Beagle HQ — Player Statistics</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"><\/script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"><\/script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"><\/script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html{height:-webkit-fill-available}
-body{background:#030B17;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;min-height:100vh;min-height:-webkit-fill-available}
-::-webkit-scrollbar{width:4px;background:#040C18}
-::-webkit-scrollbar-thumb{background:#1A3050;border-radius:2px}
+body{background:#060610;color:#E2EAF4;font-family:'Segoe UI',Calibri,sans-serif;min-height:100vh;min-height:-webkit-fill-available;font-size:13px}
+::-webkit-scrollbar{width:5px;height:5px;background:#0A0A18}
+::-webkit-scrollbar-thumb{background:#1A3050;border-radius:3px}
+.tooltip-wrap{position:relative;cursor:help}
+.tooltip-wrap .tooltip-text{visibility:hidden;position:absolute;z-index:999;top:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1A2040;color:#D0D8E8;border:1px solid #2A3A60;border-radius:5px;padding:8px 12px;font-size:11px;line-height:1.5;white-space:normal;width:220px;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.5)}
+.tooltip-wrap:hover .tooltip-text,.tooltip-wrap:focus .tooltip-text{visibility:visible}
+.tooltip-wrap .tooltip-text::after{content:'';position:absolute;bottom:100%;left:50%;margin-left:-5px;border:5px solid transparent;border-bottom-color:#1A2040}
+.tab-bar{display:flex;gap:4px;padding:8px 16px;background:#0A0A18;border-bottom:1px solid #1A1A30}
+.tab-btn{background:#12122A;border:1px solid #2A2A50;color:#8888AA;padding:8px 16px;cursor:pointer;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;border-radius:4px;transition:all 0.15s;font-family:inherit}
+.tab-btn:hover{color:#C0C0E0;border-color:#4040A0}
+.tab-btn.active{background:#C4920A;color:#060610;border-color:#C4920A}
+.stats-table{width:100%;border-collapse:collapse;font-size:11px}
+.stats-table thead th{position:sticky;top:0;background:#0E0E20;padding:8px 6px;text-align:center;font-weight:700;letter-spacing:1px;color:#8888AA;border-bottom:2px solid #1A1A30;z-index:10;white-space:nowrap;cursor:default;font-size:10px}
+.stats-table thead th:first-child{text-align:left;padding-left:12px}
+.stats-table thead th:nth-child(2){text-align:left}
+.stats-table tbody tr{border-bottom:1px solid #0E0E20;transition:background 0.1s}
+.stats-table tbody tr:hover{background:#12122E}
+.stats-table td{padding:6px 6px;text-align:center;white-space:nowrap}
+.stats-table td:first-child{text-align:center;color:#5A5A80;font-weight:600;padding-left:12px}
+.stats-table td:nth-child(2){text-align:left;font-weight:600}
+.score-pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.5px}
+@keyframes fadeSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.anim-row{animation:fadeSlideIn 0.3s ease-out both}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const{useState,useEffect,useRef}=React;
-function ContribBar({pct,color}){return(<div style={{width:'100%',height:4,background:'#0A1E30',borderRadius:2,marginTop:3}}><div style={{width:pct+'%',height:'100%',background:color,borderRadius:2,transition:'width 0.4s'}}/></div>);}
-function App(){
-  const[data,setData]=useState(null);
-  const[sort,setSort]=useState('contrib');
-  const[filter,setFilter]=useState('all');
-  const[search,setSearch]=useState('');
-  const[loading,setLoading]=useState(true);
-  useEffect(()=>{
-    const load=async()=>{
-      try{const r=await fetch('/api/hq-data');if(r.ok){const d=await r.json();setData(d);}}catch(e){}
-      setLoading(false);
-    };
-    load();const t=setInterval(load,30000);return()=>clearInterval(t);
-  },[]);
-  if(loading)return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',flexDirection:'column',gap:16}}><div style={{fontSize:36,color:'#E8B84B'}}>&#9672;</div><div style={{fontSize:18,color:'#5A8AAB',letterSpacing:2}}>LOADING BEAGLE HQ...</div></div>);
-  if(!data||!data.players||data.players.length===0)return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',flexDirection:'column',gap:16}}><div style={{fontSize:36,color:'#E8B84B'}}>&#9672;</div><div style={{fontSize:20,color:'#E8B84B',fontWeight:700,letterSpacing:2}}>BEAGLE HQ</div><div style={{fontSize:15,color:'#5A8AAB',marginTop:8}}>No pace data yet.</div><div style={{fontSize:13,color:'#2C4A6E',marginTop:4}}>Upload player data in the alliance-pace channel to populate.</div></div>);
-  const players=[...data.players];
-  const maxContrib=Math.max(...players.map(p=>p.lastContrib),1);
-  let filtered=players.filter(p=>{if(filter==='active')return p.lastSeenMins<180;if(filter==='low')return p.lastContrib>0&&p.lastContrib<40000;if(filter==='zero')return p.lastContrib===0;return true;});
-  if(search)filtered=filtered.filter(p=>p.name.toLowerCase().includes(search.toLowerCase()));
-  filtered.sort((a,b)=>{if(sort==='contrib')return b.lastContrib-a.lastContrib;if(sort==='sv')return b.sv-a.sv;if(sort==='lastseen')return a.lastSeenMins-b.lastSeenMins;if(sort==='name')return a.name.localeCompare(b.name);return 0;});
-  const totalContrib=players.reduce((s,p)=>s+p.lastContrib,0);
-  const activeCount=players.filter(p=>p.lastSeenMins<180).length;
-  const zeroCount=players.filter(p=>p.lastContrib===0).length;
-  const lowCount=players.filter(p=>p.lastContrib>0&&p.lastContrib<40000).length;
-  const avgContrib=players.length?Math.round(totalContrib/players.length):0;
-  const fmt=n=>n>=1000000?(n/1000000).toFixed(2)+'M':n>=1000?(n/1000).toFixed(1)+'k':n.toString();
-  const contribColor=c=>c===0?'#E74C3C':c<40000?'#E8B84B':c<80000?'#00E676':'#69F0AE';
-  const activeColor=m=>m<60?'#69F0AE':m<180?'#00E676':m<360?'#E8B84B':'#E74C3C';
-  const ts=data.timestamp?new Date(data.timestamp).toUTCString().replace(/.*?(\d+:\d+:\d+).*/,'$1')+' UTC':'—';
-  const BB={border:'none',borderRadius:3,cursor:'pointer',padding:'4px 10px',fontFamily:'inherit',fontWeight:600,fontSize:13,letterSpacing:0.5};
-  const SB=(s)=>({...BB,background:sort===s?'#1A3050':'transparent',border:'1px solid '+(sort===s?'#4A80B0':'#162030'),color:sort===s?'#E8B84B':'#5A8AAB'});
-  const FB=(f,col)=>({...BB,background:filter===f?'#0A1E30':'transparent',border:'1px solid '+(filter===f?col:'#162030'),color:filter===f?col:'#4A7090'});
-  return(<div style={{background:'#030B17',minHeight:'100vh',display:'flex',flexDirection:'column'}}>
-    <div style={{background:'linear-gradient(90deg,#04101E,#0A1C32)',borderBottom:'2px solid #C4920A',padding:'10px 16px',display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:4}}>
-      <div><div style={{fontSize:22,fontWeight:700,color:'#E8B84B',letterSpacing:2}}>&#9672; BEAGLE HQ</div><div style={{fontSize:13,color:'#5A8AAB',marginTop:2,letterSpacing:1}}>PLAYER PACE MONITOR &nbsp;&#183;&nbsp; UPDATED {ts} &nbsp;&#183;&nbsp; {data.uploader||'—'}</div></div>
-      <div style={{textAlign:'right'}}><div style={{fontSize:22,fontWeight:700,color:'#E8B84B'}}>{data.alliancePace||'—'}</div><div style={{fontSize:13,color:'#8AAABB',letterSpacing:1}}>{data.airlines||0} AIRLINES</div></div>
-    </div>
-    <div style={{display:'flex',gap:8,padding:'8px 12px',background:'#040C18',borderBottom:'1px solid #0A1E30',flexWrap:'wrap'}}>
-      {[{label:'TOTAL CONTRIB',value:'$'+fmt(totalContrib),color:'#E8B84B'},{label:'AVG PER PLAYER',value:'$'+fmt(avgContrib),color:'#8AAABB'},{label:'ACTIVE (<3h)',value:activeCount+'/'+players.length,color:'#00E676'},{label:'LOW CONTRIB',value:lowCount,color:'#E8B84B'},{label:'ZERO CONTRIB',value:zeroCount,color:zeroCount>0?'#E74C3C':'#4A7090'}].map(c=>(<div key={c.label} style={{background:'#06121E',border:'1px solid #0A1E30',borderRadius:4,padding:'5px 12px',minWidth:100}}><div style={{fontSize:10,color:'#3A6080',letterSpacing:1,marginBottom:2}}>{c.label}</div><div style={{fontSize:18,fontWeight:700,color:c.color}}>{c.value}</div></div>))}
-    </div>
-    <div style={{display:'flex',gap:6,padding:'6px 12px',background:'#040C18',borderBottom:'1px solid #0A1E30',alignItems:'center',flexWrap:'wrap',rowGap:4}}>
-      <span style={{fontSize:12,color:'#3A6080',letterSpacing:1,marginRight:4}}>SORT</span>
-      {[['contrib','CONTRIB'],['sv','SV'],['lastseen','LAST SEEN'],['name','NAME']].map(([k,l])=>(<button key={k} onClick={()=>setSort(k)} style={SB(k)}>{l}</button>))}
-      <div style={{width:1,height:16,background:'#162030',margin:'0 4px'}}/>
-      <button onClick={()=>setFilter('all')} style={FB('all','#8AAABB')}>ALL ({players.length})</button>
-      <button onClick={()=>setFilter('active')} style={FB('active','#00E676')}>ACTIVE ({activeCount})</button>
-      <button onClick={()=>setFilter('low')} style={FB('low','#E8B84B')}>LOW ({lowCount})</button>
-      <button onClick={()=>setFilter('zero')} style={FB('zero','#E74C3C')}>ZERO ({zeroCount})</button>
-      <div style={{marginLeft:'auto'}}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search player..." style={{background:'#06121E',border:'1px solid #1A3050',borderRadius:3,color:'#E2EAF4',padding:'4px 8px',fontSize:13,fontFamily:'inherit',outline:'none',width:160}}/></div>
-    </div>
-    <div style={{flex:1,overflowY:'auto',padding:'8px 12px'}}>
-      <div style={{display:'grid',gridTemplateColumns:'32px 1fr 90px 90px 90px 70px',gap:8,padding:'4px 8px',marginBottom:4,borderBottom:'1px solid #0A1E30'}}>
-        {['#','PLAYER','CONTRIB','SV','ALLIANCE','LAST SEEN'].map(h=>(<div key={h} style={{fontSize:11,color:'#3A6080',letterSpacing:1,fontWeight:600}}>{h}</div>))}
+const{useState,useEffect,useCallback}=React;
+
+const TOOLTIPS={
+  'C/D':'Contribution per Day. How much money this player puts into the alliance each day. Higher = better.',
+  'EFF':'Efficiency. How much this player earns per flight. Long profitable routes score higher than short cheap ones.',
+  'MOM':'Momentum. Is this player improving or declining? Compares recent contribution rate against the previous period.',
+  'CONSIST':'Consistency. Does this player contribute regularly with steady output? Active consistent contribution scores high, inactivity scores low.',
+  'ACTIVITY':'Activity. Does this player\\'s online presence match their output? Being online and producing = high score.',
+  'CONF':'Data Confidence. How reliable is the data for this player? More snapshots and more data points = higher confidence.',
+  'MERIT':'Merit Score. The overall weighted performance score (0-100). C/D 40% + EFF 20% + MOM 15% + CONSIST 10% + ACTIVITY 5% + CONF 10%.',
+};
+
+const CONSIST_COLORS={
+  'ELITE':'#1AFF00','STRONG':'#90EE02','BUILDING':'#FFD700','DEVELOPING':'#FF8C00','INCONSISTENT':'#FF3030','INACTIVE':'#8B0000','LOW DATA':'#555580'
+};
+
+function meritColor(s){
+  if(s>=80)return '#1AFF00';
+  if(s>=65)return '#90EE02';
+  if(s>=50)return '#FFD700';
+  if(s>=35)return '#FF8C00';
+  if(s>=20)return '#FF3030';
+  return '#8B0000';
+}
+
+function scoreColor(s){
+  if(s==null)return '#555580';
+  if(s>=80)return '#1AFF00';
+  if(s>=60)return '#90EE02';
+  if(s>=40)return '#FFD700';
+  if(s>=20)return '#FF8C00';
+  return '#FF3030';
+}
+
+function momColor(label){
+  const m={'SURGING':'#1AFF00','RISING':'#90EE02','STABLE':'#FFD700','DROPPING':'#FF8C00','COLLAPSING':'#FF3030','INACTIVE':'#8B0000','NO DATA':'#555580'};
+  return m[label]||'#555580';
+}
+
+const fmt=n=>{if(n==null)return'—';if(n>=1e6)return'$'+(n/1e6).toFixed(1)+'M';if(n>=1e3)return'$'+(n/1e3).toFixed(0)+'k';return'$'+n;};
+
+function ThCell({label,tip}){
+  if(!tip)return <th>{label}</th>;
+  return <th><div className="tooltip-wrap" tabIndex="0">{label}<div className="tooltip-text">{tip}</div></div></th>;
+}
+
+function ManualEntry({players,onSave}){
+  const[sel,setSel]=useState('');
+  const[field,setField]=useState('sv');
+  const[val,setVal]=useState('');
+  const[msg,setMsg]=useState('');
+  const save=async()=>{
+    if(!sel||!val){setMsg('Select a player and enter a value');return;}
+    try{
+      const r=await fetch('/api/player-manual-entry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({player:sel,field,value:parseFloat(val)})});
+      const d=await r.json();
+      if(d.ok){setMsg('Saved: '+sel+' '+field+' = '+val);setVal('');onSave();}
+      else setMsg('Error: '+(d.error||'Unknown'));
+    }catch(e){setMsg('Network error');}
+  };
+  return(<div style={{padding:20}}>
+    <h3 style={{color:'#C4920A',fontSize:14,letterSpacing:1,marginBottom:16}}>MANUAL DATA ENTRY</h3>
+    <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'flex-end'}}>
+      <div><label style={{display:'block',fontSize:10,color:'#6A6A90',letterSpacing:1,marginBottom:4}}>PLAYER</label>
+        <select value={sel} onChange={e=>setSel(e.target.value)} style={{background:'#12122A',border:'1px solid #2A2A50',color:'#E2EAF4',padding:'8px 12px',borderRadius:4,fontSize:13,minWidth:200}}>
+          <option value="">— select player —</option>
+          {players.map(p=><option key={p.name} value={p.name}>{p.name}</option>)}
+        </select>
       </div>
-      {filtered.map((p,i)=>{
-        const c=contribColor(p.lastContrib);
-        const pct=maxContrib>0?Math.round(p.lastContrib/maxContrib*100):0;
-        const globalRank=players.indexOf(p)+1;
-        return(<div key={p.name} style={{display:'grid',gridTemplateColumns:'32px 1fr 90px 90px 90px 70px',gap:8,padding:'6px 8px',borderRadius:4,marginBottom:2,background:p.lastContrib===0?'#0A0510':p.lastContrib<40000?'#0A0E10':'transparent',borderLeft:'3px solid '+(p.lastContrib===0?'#3A0A0A':p.lastContrib<40000?'#3A3000':'transparent')}}>
-          <div style={{fontSize:13,color:'#3A6080',fontWeight:600,paddingTop:2}}>#{globalRank}</div>
-          <div><div style={{fontSize:15,fontWeight:600,color:p.lastContrib===0?'#5A3A3A':p.lastContrib<40000?'#9A8A40':'#E2EAF4',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.name}</div><ContribBar pct={pct} color={c}/></div>
-          <div style={{fontSize:14,fontWeight:700,color:c,paddingTop:2}}>{'$'+fmt(p.lastContrib)}</div>
-          <div style={{fontSize:13,color:'#5A8AAB',paddingTop:2}}>{'$'+p.sv.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-          <div style={{fontSize:13,color:'#4A7090',paddingTop:2}}>{'$'+fmt(p.allianceContrib)}</div>
-          <div style={{fontSize:13,color:activeColor(p.lastSeenMins),paddingTop:2}}>{p.lastSeenStr}</div>
-        </div>);
-      })}
-      {filtered.length===0&&<div style={{textAlign:'center',padding:40,color:'#2C4A68',fontSize:15}}>No players match this filter.</div>}
+      <div><label style={{display:'block',fontSize:10,color:'#6A6A90',letterSpacing:1,marginBottom:4}}>DATA POINT</label>
+        <select value={field} onChange={e=>setField(e.target.value)} style={{background:'#12122A',border:'1px solid #2A2A50',color:'#E2EAF4',padding:'8px 12px',borderRadius:4,fontSize:13}}>
+          <option value="sv">Share Value (SV)</option>
+          <option value="lastContrib">Last Contribution</option>
+          <option value="allianceContrib">Alliance Contribution</option>
+          <option value="flights">Flights</option>
+        </select>
+      </div>
+      <div><label style={{display:'block',fontSize:10,color:'#6A6A90',letterSpacing:1,marginBottom:4}}>VALUE</label>
+        <input type="number" value={val} onChange={e=>setVal(e.target.value)} placeholder="Enter value..." style={{background:'#12122A',border:'1px solid #2A2A50',color:'#E2EAF4',padding:'8px 12px',borderRadius:4,fontSize:13,width:160}}/>
+      </div>
+      <button onClick={save} style={{background:'#C4920A',color:'#060610',border:'none',borderRadius:4,padding:'9px 20px',fontSize:12,fontWeight:700,letterSpacing:1,cursor:'pointer'}}>SAVE</button>
+    </div>
+    {msg&&<div style={{marginTop:12,fontSize:12,color:msg.startsWith('Error')?'#FF3030':'#1AFF00',letterSpacing:0.5}}>{msg}</div>}
+    <div style={{marginTop:20,fontSize:11,color:'#4A4A70',lineHeight:1.6}}>
+      Select any player and manually enter or override their share value, contribution, or flight count.<br/>
+      Overrides are applied on next data refresh and logged for audit.
     </div>
   </div>);
 }
+
+function MostImproved({improved}){
+  if(!improved||improved.length===0)return <div style={{padding:40,textAlign:'center',color:'#4A4A70'}}>No improvement data available yet. Need at least 2 snapshots.</div>;
+  const maxPct=Math.max(...improved.map(p=>Math.abs(p.svPct)),1);
+  return(<div style={{padding:16}}>
+    <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:16}}>
+      {improved.slice(0,3).map((p,i)=>(
+        <div key={p.name} style={{background:'#0E0E20',border:'1px solid '+(i===0?'#C4920A':'#1A1A30'),borderRadius:6,padding:14,flex:'1 1 200px',minWidth:200}}>
+          <div style={{fontSize:10,color:i===0?'#C4920A':'#6A6A90',letterSpacing:1,marginBottom:4}}>#{i+1} MOST IMPROVED</div>
+          <div style={{fontSize:16,fontWeight:700,color:'#E2EAF4'}}>{p.name}</div>
+          <div style={{fontSize:24,fontWeight:700,color:'#1AFF00',marginTop:4}}>+{p.svPct.toFixed(2)}%</div>
+          <div style={{fontSize:11,color:'#5A5A80',marginTop:4}}>{p.svStart.toFixed(2)} → {p.svEnd.toFixed(2)} SV</div>
+        </div>
+      ))}
+    </div>
+    <div style={{overflowY:'auto',maxHeight:'calc(100vh - 320px)'}}>
+      <table className="stats-table">
+        <thead><tr><th>#</th><th>PLAYER</th><th>SV START</th><th>SV END</th><th>CHANGE</th><th>% IMPROVEMENT</th></tr></thead>
+        <tbody>
+          {improved.map((p,i)=>{
+            const barW=Math.max(2,Math.abs(p.svPct)/maxPct*100);
+            const isUp=p.svPct>0;
+            return(<tr key={p.name} className="anim-row" style={{animationDelay:i*0.03+'s'}}>
+              <td>{i+1}</td>
+              <td>{p.name}</td>
+              <td style={{color:'#5A8AAB'}}>{p.svStart.toFixed(2)}</td>
+              <td style={{color:'#5A8AAB'}}>{p.svEnd.toFixed(2)}</td>
+              <td style={{color:isUp?'#1AFF00':'#FF3030'}}>{isUp?'+':''}{p.svChange.toFixed(2)}</td>
+              <td>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <div style={{width:barW+'%',height:6,background:isUp?'#1AFF00':'#FF3030',borderRadius:3,minWidth:4,transition:'width 0.5s ease-out'}}/>
+                  <span style={{color:isUp?'#1AFF00':'#FF3030',fontWeight:700}}>{isUp?'+':''}{p.svPct.toFixed(2)}%</span>
+                </div>
+              </td>
+            </tr>);
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>);
+}
+
+function App(){
+  const[data,setData]=useState(null);
+  const[stats,setStats]=useState(null);
+  const[improved,setImproved]=useState(null);
+  const[tab,setTab]=useState('stats');
+  const[sort,setSort]=useState('merit');
+  const[search,setSearch]=useState('');
+  const[loading,setLoading]=useState(true);
+  const[showAll,setShowAll]=useState(false);
+
+  const reload=useCallback(async()=>{
+    try{
+      const[r1,r2,r3]=await Promise.all([
+        fetch('/api/hq-data'),
+        fetch('/api/player-stats'),
+        fetch('/api/most-improved')
+      ]);
+      if(r1.ok){const d=await r1.json();setData(d);}
+      if(r2.ok){const d=await r2.json();setStats(d);}
+      if(r3.ok){const d=await r3.json();setImproved(d);}
+    }catch(e){}
+    setLoading(false);
+  },[]);
+
+  useEffect(()=>{reload();const t=setInterval(reload,30000);return()=>clearInterval(t);},[reload]);
+
+  if(loading)return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',flexDirection:'column',gap:16}}><div style={{fontSize:36,color:'#C4920A'}}>◈</div><div style={{fontSize:18,color:'#5A5A80',letterSpacing:2}}>LOADING BEAGLE HQ...</div></div>);
+  if(!data||!data.players||data.players.length===0)return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',flexDirection:'column',gap:16}}><div style={{fontSize:36,color:'#C4920A'}}>◈</div><div style={{fontSize:20,color:'#C4920A',fontWeight:700,letterSpacing:2}}>BEAGLE HQ</div><div style={{fontSize:15,color:'#5A5A80',marginTop:8}}>No pace data yet.</div></div>);
+
+  const players=stats&&stats.players?stats.players:data.players.map((p,i)=>({...p,meritScore:0,meritRank:i+1,cdScore:0,efficiency:{efficiencyScore:null},momentum:{momentumScore:null,momentumLabel:'NO DATA'},consistency:{consistencyScore:null,consistencyLabel:'LOW DATA'},activity:{activityScore:null,activityLabel:'—'},confidence:{confidenceScore:null,confidenceLevel:'—'}}));
+
+  let filtered=[...players];
+  if(search)filtered=filtered.filter(p=>p.name.toLowerCase().includes(search.toLowerCase()));
+  filtered.sort((a,b)=>{
+    if(sort==='merit')return b.meritScore-a.meritScore;
+    if(sort==='cd')return b.cdScore-a.cdScore;
+    if(sort==='eff')return(b.efficiency.efficiencyScore||0)-(a.efficiency.efficiencyScore||0);
+    if(sort==='mom')return(b.momentum.momentumScore||0)-(a.momentum.momentumScore||0);
+    if(sort==='consist')return(b.consistency.consistencyScore||0)-(a.consistency.consistencyScore||0);
+    if(sort==='sv')return b.sv-a.sv;
+    if(sort==='name')return a.name.localeCompare(b.name);
+    return 0;
+  });
+
+  const visible=showAll?filtered:filtered.slice(0,10);
+  const totalContrib=data.players.reduce((s,p)=>s+p.lastContrib,0);
+  const avgMerit=players.length?Math.round(players.reduce((s,p)=>s+p.meritScore,0)/players.length*10)/10:0;
+  const ts=data.timestamp?new Date(data.timestamp).toUTCString().replace(/.*?(\\d+:\\d+:\\d+).*/,'$1')+' UTC':'—';
+
+  return(<div style={{background:'#060610',minHeight:'100vh',display:'flex',flexDirection:'column'}}>
+    <div style={{background:'linear-gradient(90deg,#08081A,#0E0E28)',borderBottom:'2px solid #C4920A',padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
+      <div>
+        <div style={{fontSize:22,fontWeight:700,color:'#C4920A',letterSpacing:2}}>◈ BEAGLE HQ</div>
+        <div style={{fontSize:12,color:'#5A5A80',marginTop:2,letterSpacing:1}}>PLAYER STATISTICS · UPDATED {ts} · {data.uploader||'—'}</div>
+      </div>
+      <div style={{display:'flex',gap:12,alignItems:'center'}}>
+        <div style={{textAlign:'center'}}><div style={{fontSize:20,fontWeight:700,color:'#C4920A'}}>{data.alliancePace||'—'}</div><div style={{fontSize:10,color:'#5A5A80'}}>PACE</div></div>
+        <div style={{textAlign:'center'}}><div style={{fontSize:20,fontWeight:700,color:'#1AFF00'}}>{data.players.length}</div><div style={{fontSize:10,color:'#5A5A80'}}>PLAYERS</div></div>
+        <div style={{textAlign:'center'}}><div style={{fontSize:20,fontWeight:700,color:meritColor(avgMerit)}}>{avgMerit}</div><div style={{fontSize:10,color:'#5A5A80'}}>AVG MERIT</div></div>
+      </div>
+    </div>
+
+    <div className="tab-bar">
+      {[['stats','PLAYER STATISTICS'],['improved','MOST IMPROVED'],['entry','MANUAL ENTRY']].map(([id,label])=>(
+        <button key={id} className={'tab-btn'+(tab===id?' active':'')} onClick={()=>setTab(id)}>{label}</button>
+      ))}
+    </div>
+
+    {tab==='stats'&&(<div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{display:'flex',gap:6,padding:'8px 16px',background:'#08081A',alignItems:'center',flexWrap:'wrap',borderBottom:'1px solid #1A1A30'}}>
+        <span style={{fontSize:10,color:'#5A5A80',letterSpacing:1,marginRight:4}}>SORT</span>
+        {[['merit','MERIT'],['cd','C/D'],['eff','EFF'],['mom','MOM'],['consist','CONSIST'],['sv','SV'],['name','NAME']].map(([k,l])=>(
+          <button key={k} onClick={()=>setSort(k)} style={{background:sort===k?'#1A1A40':'transparent',border:'1px solid '+(sort===k?'#4040A0':'#1A1A30'),color:sort===k?'#C4920A':'#5A5A80',borderRadius:3,padding:'4px 10px',fontSize:11,fontWeight:600,cursor:'pointer',letterSpacing:0.5,fontFamily:'inherit'}}>{l}</button>
+        ))}
+        <div style={{marginLeft:'auto'}}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search player..." style={{background:'#12122A',border:'1px solid #2A2A50',borderRadius:3,color:'#E2EAF4',padding:'5px 10px',fontSize:12,fontFamily:'inherit',outline:'none',width:160}}/></div>
+      </div>
+
+      <div style={{flex:1,overflow:'auto'}}>
+        <table className="stats-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>PLAYER</th>
+              <ThCell label="C/D" tip={TOOLTIPS['C/D']}/>
+              <ThCell label="EFF" tip={TOOLTIPS['EFF']}/>
+              <ThCell label="MOM" tip={TOOLTIPS['MOM']}/>
+              <ThCell label="CONSIST" tip={TOOLTIPS['CONSIST']}/>
+              <ThCell label="ACTIVITY" tip={TOOLTIPS['ACTIVITY']}/>
+              <ThCell label="CONF" tip={TOOLTIPS['CONF']}/>
+              <ThCell label="MERIT" tip={TOOLTIPS['MERIT']}/>
+              <th>SV</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((p,i)=>{
+              const ms=p.meritScore||0;
+              const mc=meritColor(ms);
+              const eff=p.efficiency.efficiencyScore;
+              const mom=p.momentum.momentumScore;
+              const cons=p.consistency.consistencyScore;
+              const act=p.activity.activityScore;
+              const conf=p.confidence.confidenceScore;
+              return(<tr key={p.name} className="anim-row" style={{animationDelay:i*0.02+'s'}}>
+                <td>{p.meritRank}</td>
+                <td>
+                  <div style={{fontSize:13,color:'#E2EAF4'}}>{p.name}</div>
+                  <div style={{fontSize:10,color:'#4A4A70',marginTop:1}}>{fmt(p.lastContrib)} · {p.lastSeenStr||'?'}</div>
+                </td>
+                <td><span style={{color:scoreColor(p.cdScore),fontWeight:700}}>{p.cdScore!=null?p.cdScore.toFixed(1):'—'}</span></td>
+                <td><span style={{color:scoreColor(eff),fontWeight:600}}>{eff!=null?eff.toFixed(1):'—'}</span></td>
+                <td><span className="score-pill" style={{background:momColor(p.momentum.momentumLabel)+'22',color:momColor(p.momentum.momentumLabel),border:'1px solid '+momColor(p.momentum.momentumLabel)+'44'}}>{p.momentum.momentumLabel}</span></td>
+                <td><span className="score-pill" style={{background:(CONSIST_COLORS[p.consistency.consistencyLabel]||'#555')+'22',color:CONSIST_COLORS[p.consistency.consistencyLabel]||'#555',border:'1px solid '+(CONSIST_COLORS[p.consistency.consistencyLabel]||'#555')+'44'}}>{p.consistency.consistencyLabel}</span></td>
+                <td><span style={{color:scoreColor(act),fontWeight:600}}>{act!=null?act:'—'}</span></td>
+                <td><span style={{color:scoreColor(conf),fontWeight:600}}>{conf!=null?conf:'—'}</span></td>
+                <td style={{fontWeight:700}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                    <div style={{width:32,height:4,background:'#1A1A30',borderRadius:2,overflow:'hidden'}}><div style={{width:ms+'%',height:'100%',background:mc,borderRadius:2}}/></div>
+                    <span style={{color:mc}}>{ms.toFixed(1)}</span>
+                  </div>
+                </td>
+                <td style={{color:'#5A8AAB',fontSize:12}}>{p.sv?p.sv.toFixed(2):'—'}</td>
+              </tr>);
+            })}
+          </tbody>
+        </table>
+        {!showAll&&filtered.length>10&&(
+          <div style={{textAlign:'center',padding:12}}>
+            <button onClick={()=>setShowAll(true)} style={{background:'#12122A',border:'1px solid #2A2A50',color:'#C4920A',padding:'8px 24px',borderRadius:4,cursor:'pointer',fontSize:12,fontWeight:700,letterSpacing:1,fontFamily:'inherit'}}>
+              SHOW ALL {filtered.length} PLAYERS ▾
+            </button>
+          </div>
+        )}
+        {showAll&&filtered.length>10&&(
+          <div style={{textAlign:'center',padding:12}}>
+            <button onClick={()=>setShowAll(false)} style={{background:'#12122A',border:'1px solid #2A2A50',color:'#5A5A80',padding:'8px 24px',borderRadius:4,cursor:'pointer',fontSize:12,fontWeight:700,letterSpacing:1,fontFamily:'inherit'}}>
+              COLLAPSE TO TOP 10 ▴
+            </button>
+          </div>
+        )}
+      </div>
+    </div>)}
+
+    {tab==='improved'&&<MostImproved improved={improved}/>}
+
+    {tab==='entry'&&<ManualEntry players={data.players} onSave={reload}/>}
+  </div>);
+}
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
-</script>
+<\/script>
 </body>
 </html>`;
 
@@ -3455,7 +3990,9 @@ app.post('/api/hq-update', (req, res) => {
     hqData.airlines = body.airlines || players.length;
     hqData.players = players.sort((a, b) => b.lastContrib - a.lastContrib);
     saveHqState(hqData);
-    console.log('[HQ] updated — ' + players.length + ' players, pace ' + hqData.alliancePace);
+    // Record snapshot for trend analysis (momentum, consistency, most improved)
+    addSnapshot(players, hqData.timestamp);
+    console.log('[HQ] updated — ' + players.length + ' players, pace ' + hqData.alliancePace + ' · snapshot #' + snapshotHistory.snapshots.length);
     const paceStr = hqData.alliancePace ? '$' + parseFloat(hqData.alliancePace).toFixed(2) + '/day' : 'not available';
     notifyDiscord('✅ **HQ DATA RECEIVED & LOGGED** — Alliance Pace: **' + paceStr + '** · ' + players.length + ' players · as of ' + awstStamp(hqData.timestamp) + ' AWST · uploaded by ' + hqData.uploader);
     // Post full player statistics to player stats channel
@@ -4029,6 +4566,77 @@ app.get('/api/fuel-notifications', (req, res) => {
   } catch (e) {
     console.error('[FUEL-NOTIFICATIONS] Error:', e.message);
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ── PLAYER STATISTICS API ─────────────────────────────────────────────────
+
+app.get('/api/player-stats', (req, res) => {
+  try {
+    const hunterNames = getHunterTrackedNames();
+    const rawPlayers = (hqData.players || []).filter(p => {
+      const name = (p.name || '').toLowerCase().trim();
+      return !hunterNames.has(name);
+    });
+    // Apply manual overrides
+    const players = rawPlayers.map(p => {
+      const key = _nk(p.name);
+      const ov = manualOverrides[key];
+      if (!ov) return p;
+      const merged = { ...p };
+      if (ov.sv != null) merged.sv = ov.sv;
+      if (ov.lastContrib != null) merged.lastContrib = ov.lastContrib;
+      if (ov.allianceContrib != null) merged.allianceContrib = ov.allianceContrib;
+      if (ov.flights != null) merged.flights = ov.flights;
+      return merged;
+    });
+    const snapshots = snapshotHistory.snapshots || [];
+    const analysed = analyseAllPlayers(players, snapshots);
+    res.json({
+      timestamp: hqData.timestamp,
+      uploader: hqData.uploader,
+      alliancePace: hqData.alliancePace,
+      airlines: hqData.airlines,
+      snapshotCount: snapshots.length,
+      players: analysed,
+    });
+  } catch (e) {
+    console.error('[PLAYER-STATS] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/most-improved', (req, res) => {
+  try {
+    const snapshots = snapshotHistory.snapshots || [];
+    const improved = calcMostImproved(snapshots);
+    res.json(improved);
+  } catch (e) {
+    console.error('[MOST-IMPROVED] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/player-manual-entry', (req, res) => {
+  try {
+    const { player, field, value } = req.body || {};
+    if (!player || !field || value == null) {
+      return res.status(400).json({ ok: false, error: 'Missing player, field, or value' });
+    }
+    const validFields = ['sv', 'lastContrib', 'allianceContrib', 'flights'];
+    if (!validFields.includes(field)) {
+      return res.status(400).json({ ok: false, error: 'Invalid field: ' + field });
+    }
+    const key = _nk(player);
+    if (!manualOverrides[key]) manualOverrides[key] = { player, updatedAt: new Date().toISOString() };
+    manualOverrides[key][field] = parseFloat(value);
+    manualOverrides[key].updatedAt = new Date().toISOString();
+    saveManualOverrides(manualOverrides);
+    console.log('[MANUAL-ENTRY] ' + player + ' ' + field + ' = ' + value);
+    res.json({ ok: true, player, field, value: parseFloat(value) });
+  } catch (e) {
+    console.error('[MANUAL-ENTRY] error:', e.message);
+    res.status(500).json({ ok: false, error: e.message });
   }
 });
 
