@@ -221,17 +221,16 @@ let S = {};           // full month schedule — populated from /api/fuel-schedu
 let PRICES = [];      // today's fuel prices per slot — derived from S[today]
 let CO2P = [];        // today's CO2 prices per slot — derived from S[today]
 
-// ── DENMARK GAME TIME HELPERS (UTC+2) ──
-function getDenmarkNow() {
-  const now = new Date();
-  return new Date(now.getTime() + 2 * 3600000);
+// ── GAME TIME HELPERS (game clock = UTC) ──
+function getGameNow() {
+  return new Date();
 }
-function getDenmarkDay() {
-  return getDenmarkNow().getUTCDate();
+function getGameDay() {
+  return getGameNow().getUTCDate();
 }
-function getDenmarkSlotIndex() {
-  const den = getDenmarkNow();
-  return Math.min(Math.floor((den.getUTCHours() * 60 + den.getUTCMinutes()) / 30), 47);
+function getGameSlotIndex() {
+  const now = getGameNow();
+  return Math.min(Math.floor((now.getUTCHours() * 60 + now.getUTCMinutes()) / 30), 47);
 }
 
 function loadDayPrices(day) {
@@ -244,6 +243,8 @@ function loadDayPrices(day) {
   PRICES = TIMES.map(t => { const p = daySchedule[t]; return p ? p[0] : 0; });
   CO2P = TIMES.map(t => { const p = daySchedule[t]; return p ? p[1] : 0; });
 }
+function getDenmarkDay() { return getGameDay(); }
+function getDenmarkNow() { return getGameNow(); }
 
 // ── STATE ──
 let fPurchased=new Array(48).fill(0), resOv=new Array(48).fill(null);
@@ -467,7 +468,7 @@ document.addEventListener('click',e=>{
 
 // ── DEPARTURES ──
 function getCurrentSlotIndex(){
-  return getDenmarkSlotIndex();
+  return getGameSlotIndex();
 }
 function fmtUTC(totalMins){
   const h=Math.floor(((totalMins%1440)+1440)%1440/60);
@@ -608,7 +609,7 @@ init();
 function highlightNowRow(){
   document.querySelectorAll('#tbody tr.now-row').forEach(r=>r.classList.remove('now-row'));
   document.querySelectorAll('.now-badge').forEach(b=>b.remove());
-  const slotIdx=getDenmarkSlotIndex();
+  const slotIdx=getGameSlotIndex();
   const rows=document.querySelectorAll('#tbody tr');
   if(rows[slotIdx]){
     rows[slotIdx].classList.add('now-row');
