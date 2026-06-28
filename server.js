@@ -4238,6 +4238,10 @@ app.get('/api/hunter-data', HUNTER_AUTH, (req, res) => {
   }
 });
 // ── FUEL DASHBOARD ROUTES ──────────────────────────────────────────────────
+app.get('/api/fuel-schedule', (req, res) => {
+  res.json(FUEL_SCHEDULE);
+});
+
 app.get('/api/fuel-path', (req, res) => {
   try {
     const fp = getFuelPath();
