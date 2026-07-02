@@ -800,6 +800,10 @@ app.post('/api/player-manual-entry', (req, res) => {
 });
 
 // ── WILDCARD — catches all other routes (Alliance Projections main page) ───
+// Health check — point the Render health-check path here so a hung/unresponsive
+// instance is detected and restarted.
+app.get('/healthz', (req, res) => res.status(200).type('text').send('OK'));
+
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) return res.status(404).send('Not found');
   logVisit(req);
