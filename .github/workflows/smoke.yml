@@ -1,0 +1,41 @@
+name: smoke
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  boot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - name: Syntax check every source file
+        run: |
+          for f in server.js config.js lib/*.js views/*.js; do
+            echo "checking $f"
+            node --check "$f"
+          done
+      - name: Boot smoke — server must come live and serve /api/data
+        env:
+          PORT: '3000'
+          PROJECTIONS_SECRET: 'ci'
+        run: |
+          node server.js > /tmp/srv.log 2>&1 &
+          PID=$!
+          ok=""
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/api/data >/dev/null 2>&1; then ok=1; break; fi
+            sleep 1
+          done
+          kill "$PID" 2>/dev/null || true
+          if [ -z "$ok" ]; then
+            echo "::error::server did not become healthy"
+            cat /tmp/srv.log
+            exit 1
+          fi
+          echo "boot smoke OK — /api/data served"
