@@ -31,6 +31,8 @@ body{background:#060f1e;color:#e0e6f0;font-family:Arial,sans-serif;min-height:10
 .dep-eta-input::placeholder{color:#3a5a3a;font-size:8px}
 .btn-clear-co2{background:#1a0a0a;border:1px solid #5a2a2a;color:#e06060;font-size:11px;font-weight:700;padding:3px 7px;border-radius:3px;cursor:pointer;line-height:1}
 .btn-clear-co2:hover{background:#2a1010;color:#ff7070}
+.btn-fill-full{background:#0a1828;border:1px solid #2a5080;color:#6ab0e0;font-size:9px;font-weight:700;padding:4px 7px;border-radius:3px;cursor:pointer;line-height:1;letter-spacing:.4px;white-space:nowrap;transition:background .15s,color .15s}
+.btn-fill-full:hover{background:#12233a;color:#8ac0f0}
 .dropdown{position:relative;display:inline-block}
 .dropdown-menu{display:none;position:absolute;right:0;top:110%;background:#0d1e36;border:1px solid #3a6a3a;border-radius:5px;min-width:160px;z-index:100;overflow:hidden}
 .dropdown-menu.open{display:block}
@@ -135,7 +137,7 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
   <div class="stats-wrap">
     <div class="stats-left">
       <!-- FUEL ROW -->
-      <div class="stat-input-wrap"><div class="stat-input-label">⛽ STARTING FUEL RESERVES (lbs)</div><input class="stat-input" id="startRes" type="number" value="535544940" step="1000000" oninput="recalc()"></div>
+      <div class="stat-input-wrap"><div class="stat-input-label">⛽ STARTING FUEL RESERVES (lbs)</div><div style="display:flex;align-items:center;gap:4px"><input class="stat-input" id="startRes" type="number" value="535544940" step="1000000" onchange="recalc()"><button class="btn-fill-full" onclick="fillFullReserves()" title="Fill starting reserves to full tank capacity">FILL FULL</button></div></div>
       <div class="stat-input-wrap"><div class="stat-input-label">⛽ FUEL TANK CAPACITY (lbs)</div><input class="stat-input" id="fuelTank" type="number" value="880597000" step="1000000" oninput="recalc()"></div>
       <div class="stat-box"><div class="stat-label">MIN FUEL RESERVE</div><div class="stat-value" style="color:#e07b39">15,000,000 lbs</div></div>
       <div class="stat-box"><div class="stat-label">⛽ FUEL PURCHASED</div><div class="stat-value" id="sBought" style="color:#23a55a">0 lbs</div></div>
@@ -269,13 +271,18 @@ function calcSuggested(startRes, tank, minR, burns, prices){
     for(let i=0;i<48;i++){res=res-burns[i]+sug[i];path.push(res);}
     const crit=path.findIndex(r=>r<=minR);
     if(crit===-1)break;
+    // Bridge-buy slot selection: cheapest priced slot BEFORE the deficit that has
+    // headroom (reserves below tank). The tank-cur>0 test is what correctly skips
+    // early slots where reserves still sit above the tank line and picks the first
+    // drawn-down cheap slot instead (e.g. 15:00 rather than an over-full 10:30).
     let best=-1,bestP=Infinity,sim=startRes;
     for(let i=0;i<=crit;i++){const cur=sim-burns[i]+sug[i];if(tank-cur>0&&prices[i]<bestP){bestP=prices[i];best=i;}sim=cur;}
     if(best===-1)break;
-    let rb=startRes;for(let i=0;i<best;i++)rb=rb-burns[i]+sug[i];
-    const room=tank-(rb-burns[best]+sug[best]);
-    if(room<=0)break;
-    sug[best]+=Math.min(minR+1-path[crit],room);
+    // Cover the FULL deficit at that one slot. Do not cap the amount by tank-room:
+    // in live game state reserves routinely exceed the tank-capacity field, so a
+    // room cap here forces the balance into a costlier later slot ($870 instead of
+    // $850) — and for CO2 can suppress the bridge buy entirely.
+    sug[best]+=(minR+1-path[crit]);
   }
   let sim=startRes;
   for(let i=0;i<48;i++){
@@ -423,6 +430,12 @@ function toggleCO2(i){
   const btn=r.previousSibling.querySelector('.expand-btn');
   if(r.classList.contains('open')){r.classList.remove('open');if(btn)btn.textContent='▶';}
   else{r.classList.add('open');if(btn)btn.textContent='▼';}
+}
+function fillFullReserves(){
+  // Populate starting reserves with the full fuel tank capacity and cascade to the table.
+  const tank=parseFloat(document.getElementById('fuelTank').value)||880597000;
+  document.getElementById('startRes').value=tank;
+  recalc();
 }
 function clearCO2Reserve(){
   document.getElementById('startCO2').value=1126614039;
@@ -605,7 +618,7 @@ async function init(){
 }
 init();
 
-// ── CURRENT TIME ROW HIGHLIGHT (Denmark = UTC+2) ──
+// ── CURRENT TIME ROW HIGHLIGHT (game clock = UTC) ──
 function highlightNowRow(){
   document.querySelectorAll('#tbody tr.now-row').forEach(r=>r.classList.remove('now-row'));
   document.querySelectorAll('.now-badge').forEach(b=>b.remove());
