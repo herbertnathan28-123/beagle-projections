@@ -806,4 +806,5 @@ app.get('*', (req, res) => {
   res.type('html').send(HTML_COMPILED);
 });
 
+storage.checkPersistence();
 app.listen(PORT, () => console.log(`Beagle Projections live on port ${PORT}`));
