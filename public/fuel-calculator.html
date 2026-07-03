@@ -277,7 +277,7 @@ function computeDepartures(){
     let anchor=nowH+eta;
     anchor-=Math.floor(anchor/cycle)*cycle;  // earliest departure of this phase in [0,cycle)
     for(let dep=anchor; dep<24; dep+=cycle){
-      const slot=Math.floor((dep*60)/30);    // 30-min slot index
+      const slot=Math.floor(Math.round(dep*60)/30);  // round to the minute first — avoids FP drift (e.g. 16.9999… → 17:00 not 16:30)
       if(slot>=0&&slot<48) DEP_AC[slot]+=cnt;
     }
   }
