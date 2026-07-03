@@ -6,6 +6,8 @@
 <title>Beagle Global — Fuel & CO2 Calculator</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#060f1e;color:#e0e6f0;font-family:Arial,sans-serif;min-height:100vh}
@@ -33,6 +35,8 @@ body{background:#060f1e;color:#e0e6f0;font-family:Arial,sans-serif;min-height:10
 .btn-clear-co2:hover{background:#2a1010;color:#ff7070}
 .btn-fill-full{background:#0a1828;border:1px solid #2a5080;color:#6ab0e0;font-size:9px;font-weight:700;padding:4px 7px;border-radius:3px;cursor:pointer;line-height:1;letter-spacing:.4px;white-space:nowrap;transition:background .15s,color .15s}
 .btn-fill-full:hover{background:#12233a;color:#8ac0f0}
+.btn-fill-full.co2{background:#081a05;border-color:#2a5a2a;color:#70d070}
+.btn-fill-full.co2:hover{background:#0f2a0a;color:#8ae08a}
 .dropdown{position:relative;display:inline-block}
 .dropdown-menu{display:none;position:absolute;right:0;top:110%;background:#0d1e36;border:1px solid #3a6a3a;border-radius:5px;min-width:160px;z-index:100;overflow:hidden}
 .dropdown-menu.open{display:block}
@@ -95,6 +99,14 @@ tr.now-row{background:rgba(35,165,90,0.18)!important;border-left:3px solid #23a5
 .co2-cell{padding:4px 6px;border-bottom:1px solid #0a1a0a}
 tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
 .legend{background:#0d1e36;border-radius:0 0 10px 10px;padding:6px 18px;border-top:1px solid #1e3050;font-size:9px;color:#2a4060;display:flex;gap:16px;flex-wrap:wrap}
+.summary-footer{background:#0b1728;border-top:2px solid #1e3050;padding:12px 18px}
+.sum-title{color:#5a8aba;font-size:11px;font-weight:700;letter-spacing:2px;margin-bottom:10px}
+.sum-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sum-box{background:#091828;border:1px solid #1a3050;border-radius:5px;padding:8px 12px}
+.sum-box.co2{border-color:#1a3a1a}
+.sum-label{color:#3a5a7a;font-size:9px;letter-spacing:.5px}
+.sum-value{font-size:14px;font-weight:700;margin-top:3px;font-family:monospace;color:#7ab0d0}
+@media(max-width:900px){.sum-grid{grid-template-columns:repeat(2,1fr)}}
 @media print{body{background:#fff;color:#000}.btn-row,.legend{display:none}.header{background:#f5f5f5}.co2-row{display:none!important}}
 </style>
 </head>
@@ -137,7 +149,7 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
   <div class="stats-wrap">
     <div class="stats-left">
       <!-- FUEL ROW -->
-      <div class="stat-input-wrap"><div class="stat-input-label">⛽ STARTING FUEL RESERVES (lbs)</div><div style="display:flex;align-items:center;gap:4px"><input class="stat-input" id="startRes" type="number" value="535544940" step="1000000" onchange="recalc()"><button class="btn-fill-full" onclick="fillFullReserves()" title="Fill starting reserves to full tank capacity">FILL FULL</button></div></div>
+      <div class="stat-input-wrap"><div class="stat-input-label">⛽ STARTING FUEL RESERVES (lbs)</div><div style="display:flex;align-items:center;gap:4px"><input class="stat-input" id="startRes" type="number" value="535544940" step="1000000" oninput="recalc()"><button class="btn-fill-full" onclick="fillFullReserves()" title="Fill starting reserves to full fuel tank capacity">FILL FULL</button></div></div>
       <div class="stat-input-wrap"><div class="stat-input-label">⛽ FUEL TANK CAPACITY (lbs)</div><input class="stat-input" id="fuelTank" type="number" value="880597000" step="1000000" oninput="recalc()"></div>
       <div class="stat-box"><div class="stat-label">MIN FUEL RESERVE</div><div class="stat-value" style="color:#e07b39">15,000,000 lbs</div></div>
       <div class="stat-box"><div class="stat-label">⛽ FUEL PURCHASED</div><div class="stat-value" id="sBought" style="color:#23a55a">0 lbs</div></div>
@@ -145,7 +157,7 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
       <div class="stat-box"><div class="stat-label">YOUR AVG FUEL PURCHASE COST</div><div class="stat-value" id="sAvgFuel" style="color:#f0b429">—</div></div>
       <div class="stat-box" style="border-color:#1a5a5a"><div class="stat-label">VS JUNE AVG $1,414</div><div class="stat-value" id="sVsJuneFuel" style="color:#7a9090">—</div></div>
       <!-- CO2 ROW -->
-      <div class="stat-input-wrap"><div class="stat-input-label">🌿 STARTING CO2 RESERVES (quotas)</div><div style="display:flex;align-items:center;gap:4px"><input class="stat-input" id="startCO2" type="number" value="1126614039" step="1000000" oninput="recalc()" style="border-color:#2a5a2a;color:#70d070"><button class="btn-clear-co2" onclick="clearCO2Reserve()" title="Clear CO2 reserve back to default">✕</button></div></div>
+      <div class="stat-input-wrap"><div class="stat-input-label">🌿 STARTING CO2 RESERVES (quotas)</div><div style="display:flex;align-items:center;gap:4px"><input class="stat-input" id="startCO2" type="number" value="1126614039" step="1000000" oninput="recalc()" style="border-color:#2a5a2a;color:#70d070"><button class="btn-fill-full co2" onclick="fillFullCO2Reserves()" title="Fill starting CO2 reserves to full CO2 tank capacity">FILL FULL</button><button class="btn-clear-co2" onclick="clearCO2Reserve()" title="Clear CO2 reserve back to default">✕</button></div></div>
       <div class="stat-input-wrap"><div class="stat-input-label">🌿 CO2 TANK CAPACITY (quotas)</div><input class="stat-input" id="co2Tank" type="number" value="2438348000" step="1000000" oninput="recalc()" style="border-color:#2a5a2a;color:#70d070"></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">MIN CO2 RESERVE</div><div class="stat-value" style="color:#e07b39">15,000,000</div></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">🌿 CO2 PURCHASED</div><div class="stat-value" id="sCO2Bought" style="color:#70d070">0</div></div>
@@ -195,6 +207,19 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
     <td id="ftEnd" style="color:#7ab0d0">—</td>
   </tr></tfoot>
 </table>
+</div>
+<div class="summary-footer" id="summaryFooter">
+  <div class="sum-title">📋 PERIOD SUMMARY — END STATE &amp; TOTALS</div>
+  <div class="sum-grid">
+    <div class="sum-box"><div class="sum-label">⛽ END FUEL RESERVES</div><div class="sum-value" id="sumFuelEnd">—</div></div>
+    <div class="sum-box"><div class="sum-label">⛽ FIRST FUEL NEGATIVE</div><div class="sum-value" id="sumFuelNeg">—</div></div>
+    <div class="sum-box"><div class="sum-label">⛽ TOTAL FUEL PURCHASED</div><div class="sum-value" id="sumFuelBought">—</div></div>
+    <div class="sum-box"><div class="sum-label">⛽ TOTAL FUEL COST</div><div class="sum-value" id="sumFuelCost">—</div></div>
+    <div class="sum-box co2"><div class="sum-label">🌿 END CO2 RESERVES</div><div class="sum-value" id="sumCO2End">—</div></div>
+    <div class="sum-box co2"><div class="sum-label">🌿 FIRST CO2 NEGATIVE</div><div class="sum-value" id="sumCO2Neg">—</div></div>
+    <div class="sum-box co2"><div class="sum-label">🌿 TOTAL CO2 PURCHASED</div><div class="sum-value" id="sumCO2Bought">—</div></div>
+    <div class="sum-box co2"><div class="sum-label">🌿 TOTAL CO2 COST</div><div class="sum-value" id="sumCO2Cost">—</div></div>
+  </div>
 </div>
 <div class="legend">
   <span style="color:#6a9a80;font-style:italic">◆ SUGGESTED BUY — optimal buy amount (italic)</span>
@@ -305,6 +330,7 @@ function recalc(){
   let res=startRes,co2Res=startCO2;
   let totBought=0,totCost=0,totSV=0,lastRes=startRes;
   let totCO2Bought=0,totCO2Cost=0,lastCO2Res=startCO2;
+  let firstFuelNeg=-1,firstCO2Neg=-1;   // first slot where reserves go negative
 
   for(let i=0;i<48;i++){
     if(resOv[i]!==null)res=resOv[i];
@@ -327,6 +353,8 @@ function recalc(){
     const co2Final=co2ResAfterOv[i]!==null?co2ResAfterOv[i]:co2AfterPurchase;
     const isCO2ResOv=co2ResAfterOv[i]!==null;
     totCO2Bought+=co2Bought;totCO2Cost+=co2Cost;lastCO2Res=co2Final;co2Res=co2Final;
+    if(firstFuelNeg<0&&afterPurchase<0)firstFuelNeg=i;
+    if(firstCO2Neg<0&&co2Final<0)firstCO2Neg=i;
     const hasSug=fSug[i]>0,hasBought=bought>0,isOv=resOv[i]!==null;
     const crit=afterPurchase<=MIN_FUEL,warn=afterPurchase<=MIN_FUEL*4;
     let rowBg='';
@@ -410,6 +438,16 @@ function recalc(){
   document.getElementById('ftBought').textContent=fmt(totBought)+' lbs';
   document.getElementById('ftEnd').textContent=fmt(lastRes);
   document.getElementById('ftEnd').style.color=lastRes<=MIN_FUEL?'#e74c3c':'#7ab0d0';
+  // ── Summary footer (Bug 6): end-state, first-negative, totals, costs ──
+  const setSum=(id,txt,col)=>{const e=document.getElementById(id);if(e){e.textContent=txt;if(col)e.style.color=col;}};
+  setSum('sumFuelEnd',fmt(lastRes)+' lbs',lastRes<0?'#e74c3c':lastRes<=MIN_FUEL?'#f0b429':'#7ab0d0');
+  setSum('sumCO2End',fmt(lastCO2Res)+' quotas',lastCO2Res<0?'#e74c3c':lastCO2Res<=MIN_CO2?'#f0b429':'#70c060');
+  setSum('sumFuelNeg',firstFuelNeg>=0?TIMES[firstFuelNeg]+' DEN':'none ✓',firstFuelNeg>=0?'#e74c3c':'#23a55a');
+  setSum('sumCO2Neg',firstCO2Neg>=0?TIMES[firstCO2Neg]+' DEN':'none ✓',firstCO2Neg>=0?'#e74c3c':'#23a55a');
+  setSum('sumFuelBought',fmt(totBought)+' lbs','#d4c040');
+  setSum('sumCO2Bought',fmt(totCO2Bought)+' quotas','#90d060');
+  setSum('sumFuelCost',fmtM(totCost),'#f0b429');
+  setSum('sumCO2Cost',fmtM(totCO2Cost),'#90c060');
   if(typeof highlightNowRow==='function') highlightNowRow();
 }
 
@@ -432,9 +470,18 @@ function toggleCO2(i){
   else{r.classList.add('open');if(btn)btn.textContent='▼';}
 }
 function fillFullReserves(){
-  // Populate starting reserves with the full fuel tank capacity and cascade to the table.
-  const tank=parseFloat(document.getElementById('fuelTank').value)||880597000;
+  // Populate starting fuel reserves with the CURRENT fuel tank capacity field value
+  // (player-set, grows over time) and cascade to the table. Never hardcoded.
+  const tank=parseFloat(document.getElementById('fuelTank').value)||0;
   document.getElementById('startRes').value=tank;
+  recalc();
+}
+function fillFullCO2Reserves(){
+  // Populate starting CO2 reserves with the CURRENT CO2 tank capacity field value
+  // and cascade to the table. Never hardcoded.
+  const tank=parseFloat(document.getElementById('co2Tank').value)||0;
+  document.getElementById('startCO2').value=tank;
+  co2ResOv=new Array(48).fill(null);
   recalc();
 }
 function clearCO2Reserve(){
@@ -454,7 +501,43 @@ function resetAll(){
 }
 
 // ── DOWNLOADS ──
-function downloadPDF(period){window.print();}
+function downloadPDF(period){
+  document.getElementById('pdfMenu').classList.remove('open');
+  const JS=window.jspdf&&window.jspdf.jsPDF;
+  if(!JS){alert('PDF library still loading — please try again in a moment.');return;}
+  const den=getDenmarkNow();
+  const today=getDenmarkDay();
+  const daysInMonth=new Date(den.getUTCFullYear(),den.getUTCMonth()+1,0).getDate();
+  let days=[],label='';
+  if(period==='today'){days=[today];label='Day '+today;}
+  else if(period==='week'){const e=Math.min(today+6,daysInMonth);for(let d=today;d<=e;d++)days.push(d);label='Days '+today+'-'+e;}
+  else if(period==='fortnight'){const s=Math.max(1,today-7),e=Math.min(today+6,daysInMonth);for(let d=s;d<=e;d++)days.push(d);label='Days '+s+'-'+e;}
+  else{for(let d=1;d<=daysInMonth;d++)days.push(d);label='Full month';}
+  const doc=new JS({orientation:'landscape',unit:'pt',format:'a4'});
+  doc.setFontSize(14);doc.setTextColor(20,20,20);
+  doc.text('Beagle Global — Fuel & CO2 Schedule ('+label+')',40,36);
+  doc.setFontSize(9);doc.setTextColor(90,90,90);
+  doc.text('Game time (UTC) · Fuel $/1k lbs · CO2 $/1k quotas · generated '+new Date().toISOString().slice(0,16).replace('T',' ')+' UTC',40,52);
+  const head=[['Day','Time','Perth','Fuel $','CO2 $','Fuel','CO2']];
+  const body=[];
+  days.forEach(d=>{
+    const dd=S[String(d)];if(!dd)return;
+    TIMES.forEach((t,si)=>{
+      const pair=dd[t]||[0,0];const fp=pair[0],cp=pair[1];
+      body.push([String(d),t,PERTH[si],'$'+fp,'$'+cp,fp<=499?'CHEAP':fp<=699?'mod':'',cp<=114?'CHEAP':cp<=139?'mod':'']);
+    });
+  });
+  if(body.length===0){alert('No schedule data loaded yet — please try again in a moment.');return;}
+  doc.autoTable({head,body,startY:64,styles:{fontSize:7,cellPadding:2},headStyles:{fillColor:[13,30,54]},
+    columnStyles:{0:{cellWidth:30},1:{cellWidth:40},2:{cellWidth:46}},
+    didParseCell:function(data){
+      if(data.section!=='body')return;
+      const raw=data.row.raw;
+      if(data.column.index===3){const v=parseInt(raw[3].replace('$',''));data.cell.styles.textColor=v<=499?[20,140,60]:v<=699?[200,140,0]:[120,120,120];}
+      if(data.column.index===4){const v=parseInt(raw[4].replace('$',''));data.cell.styles.textColor=v<=114?[20,140,60]:v<=139?[200,140,0]:[120,120,120];}
+    }});
+  doc.save('beagle-fuel-co2-'+period+'-jun2026.pdf');
+}
 function downloadPNG(period){
   const b=document.querySelector('.btn-row');b.style.display='none';
   const ds=document.querySelector('.dep-section');ds.style.display='none';
