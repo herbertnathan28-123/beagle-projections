@@ -265,14 +265,18 @@ function bufferMins(totalAc){ return totalAc>1200?4:totalAc>500?3:2; }
 function computeDepartures(){
   DEP_AC=new Array(48).fill(0);
   const speed=parseFloat(gv('gameSpeed'))||1;
+  const now=getGameNow();
+  const nowH=now.getUTCHours()+now.getUTCMinutes()/60;   // current game time (UTC), in hours
   for(const g of FLEET_GROUPS){
     const cnt=parseInt(gv(g.cnt))||0; if(cnt<=0)continue;
     const eta=parseEtaHours(gv(g.eta)); if(eta===null)continue;
     const cycle=g.dur/speed;                 // real-time hours between departures
     if(cycle<=0)continue;
-    // Next departure is right after it lands (in ETA h); walk back and forward across the day.
-    for(let dep=eta-Math.ceil(eta/cycle)*cycle; dep<24; dep+=cycle){
-      if(dep<0) continue;
+    // ETA is time-until-landing from the CURRENT game time. Next departure lands at
+    // nowH+ETA; align the cycle to that phase, then place departures across [0,24).
+    let anchor=nowH+eta;
+    anchor-=Math.floor(anchor/cycle)*cycle;  // earliest departure of this phase in [0,cycle)
+    for(let dep=anchor; dep<24; dep+=cycle){
       const slot=Math.floor((dep*60)/30);    // 30-min slot index
       if(slot>=0&&slot<48) DEP_AC[slot]+=cnt;
     }
@@ -283,8 +287,9 @@ function rebuildBurns(){
   computeDepartures();
   const avgBurn=parseFloat(gv('avgFuelBurn'))||0;   // lbs/aircraft/departure
   const co2Dep =parseFloat(gv('co2BurnDep'))||0;    // CO2 quotas/aircraft/departure
-  const totalAc=Math.max(0,...DEP_AC);
-  const bufMin=bufferMins(totalAc);
+  // Buffer tier is set by TOTAL fleet size (sum of all groups), not the busiest slot.
+  let totalFleet=0; for(const g of FLEET_GROUPS) totalFleet+=parseInt(gv(g.cnt))||0;
+  const bufMin=bufferMins(totalFleet);
   BURNS=DEP_AC.map(ac=> ac? ac*avgBurn + bufMin*(avgBurn/60)*ac : 0);
   CO2B =DEP_AC.map(ac=> ac? ac*co2Dep : 0);
 }
