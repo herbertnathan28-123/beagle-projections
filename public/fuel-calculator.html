@@ -149,18 +149,16 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
   <div class="stats-wrap">
     <div class="stats-left">
       <!-- FUEL ROW -->
-      <div class="stat-input-wrap"><div class="stat-input-label">⛽ STARTING FUEL RESERVES (lbs)</div><div style="display:flex;align-items:center;gap:4px"><input class="stat-input" id="startRes" type="number" value="535544940" step="1000000" oninput="recalc()"><button class="btn-fill-full" onclick="fillFullReserves()" title="Fill starting reserves to full fuel tank capacity">FILL FULL</button></div></div>
-      <div class="stat-input-wrap"><div class="stat-input-label">⛽ FUEL TANK CAPACITY (lbs)</div><input class="stat-input" id="fuelTank" type="number" value="880597000" step="1000000" oninput="recalc()"></div>
+      <div class="stat-input-wrap"><div class="stat-input-label">⛽ STARTING FUEL RESERVES (lbs)</div><div style="display:flex;align-items:center;gap:4px"><input class="stat-input" id="startRes" type="number" value="" placeholder="enter reserves" step="1000000" oninput="recalc()"><button class="btn-fill-full" onclick="fillFullReserves()" title="Fill starting reserves to full fuel tank capacity">FILL FULL</button></div></div>
+      <div class="stat-input-wrap"><div class="stat-input-label">⛽ FUEL TANK CAPACITY (lbs)</div><input class="stat-input" id="fuelTank" type="number" value="" placeholder="enter tank capacity" step="1000000" oninput="recalc()"></div>
       <div class="stat-box"><div class="stat-label">MIN FUEL RESERVE</div><div class="stat-value" style="color:#e07b39">15,000,000 lbs</div></div>
       <div class="stat-box"><div class="stat-label">⛽ FUEL PURCHASED</div><div class="stat-value" id="sBought" style="color:#23a55a">0 lbs</div></div>
       <div class="stat-box"><div class="stat-label">⛽ FUEL COST</div><div class="stat-value" id="sCost" style="color:#f0b429">$0</div></div>
       <div class="stat-box"><div class="stat-label">YOUR AVG FUEL PURCHASE COST</div><div class="stat-value" id="sAvgFuel" style="color:#f0b429">—</div></div>
       <div class="stat-box" style="border-color:#1a5a5a"><div class="stat-label">VS JUNE AVG $1,414</div><div class="stat-value" id="sVsJuneFuel" style="color:#7a9090">—</div></div>
       <!-- CO2 ROW -->
-      <div class="stat-input-wrap"><div class="stat-input-label">🌿 STARTING CO2 RESERVES (quotas)</div><div style="display:flex;align-items:center;gap:4px"><input class="stat-input" id="startCO2" type="number" value="1126614039" step="1000000" oninput="recalc()" style="border-color:#2a5a2a;color:#70d070"><button class="btn-fill-full co2" onclick="fillFullCO2Reserves()" title="Fill starting CO2 reserves to full CO2 tank capacity">FILL FULL</button><button class="btn-clear-co2" onclick="clearCO2Reserve()" title="Clear CO2 reserve back to default">✕</button></div></div>
-      <div class="stat-input-wrap"><div class="stat-input-label">🌿 CO2 TANK CAPACITY (quotas)</div><input class="stat-input" id="co2Tank" type="number" value="2438348000" step="1000000" oninput="recalc()" style="border-color:#2a5a2a;color:#70d070"></div>
-      <div class="stat-input-wrap"><div class="stat-input-label">⛽ AVG FUEL BURN / AIRCRAFT (lbs, per departure)</div><input class="stat-input" id="avgFuelBurn" type="number" value="250032" step="1000" oninput="recalc()" title="Your fleet's average fuel burn per aircraft per departure — burn per slot = aircraft departing × this + buffer"></div>
-      <div class="stat-input-wrap"><div class="stat-input-label">🌿 CO2 BURN / AIRCRAFT (quotas, per departure)</div><input class="stat-input" id="co2BurnDep" type="number" value="39257" step="100" oninput="recalc()" style="border-color:#2a5a2a;color:#70d070" title="Your CO2 quotas consumed per aircraft per departure — feeds the CO2 step-through"></div>
+      <div class="stat-input-wrap"><div class="stat-input-label">🌿 STARTING CO2 RESERVES (quotas)</div><div style="display:flex;align-items:center;gap:4px"><input class="stat-input" id="startCO2" type="number" value="" placeholder="enter CO2 reserves" step="1000000" oninput="recalc()" style="border-color:#2a5a2a;color:#70d070"><button class="btn-fill-full co2" onclick="fillFullCO2Reserves()" title="Fill starting CO2 reserves to full CO2 tank capacity">FILL FULL</button><button class="btn-clear-co2" onclick="clearCO2Reserve()" title="Clear CO2 reserve back to blank">✕</button></div></div>
+      <div class="stat-input-wrap"><div class="stat-input-label">🌿 CO2 TANK CAPACITY (quotas)</div><input class="stat-input" id="co2Tank" type="number" value="" placeholder="enter CO2 tank" step="1000000" oninput="recalc()" style="border-color:#2a5a2a;color:#70d070"></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">MIN CO2 RESERVE</div><div class="stat-value" style="color:#e07b39">15,000,000</div></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">🌿 CO2 PURCHASED</div><div class="stat-value" id="sCO2Bought" style="color:#70d070">0</div></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">🌿 CO2 COST</div><div class="stat-value" id="sCO2Cost" style="color:#90c060">$0</div></div>
@@ -172,15 +170,25 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
       <div class="stat-box" style="border-color:#1a5a3a;min-width:80px;padding:5px 8px" id="cap900Box"><div class="stat-label">$900 CAP</div><div class="stat-value" id="sCap900" style="color:#7a9090;font-size:11px">—</div><div class="stat-sub" style="max-width:90px">≤$900 scenario<br>vs your avg +/-$</div></div>
     </div>
     <div class="dep-section" style="flex-direction:column;align-items:flex-start;margin-left:auto">
-      <div class="dep-label" style="margin-bottom:4px">⏱ DEPART FLEET</div>
+      <div class="dep-label" style="margin-bottom:4px">⏱ FLEET &amp; DEPARTURES</div>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+        <span class="dep-label">GAME SPEED</span>
+        <select id="gameSpeed" class="dep-eta-input" style="width:54px;color:#f5a030;border-color:#6a3a0a" onchange="recalc()" title="Game speed — scales flight duration for the landing-slot mapping">
+          <option value="1">1x</option><option value="4">4x</option><option value="24">24x</option>
+        </select>
+        <span class="dep-label" style="margin-left:8px">⛽ BURN/AC</span>
+        <input class="dep-eta-input" id="avgFuelBurn" type="number" placeholder="lbs" style="width:72px;color:#f5a030;border-color:#6a3a0a" oninput="recalc()" title="Average fuel burn per aircraft per departure">
+        <span class="dep-label" style="margin-left:6px">🌿 CO2/AC</span>
+        <input class="dep-eta-input" id="co2BurnDep" type="number" placeholder="quotas" style="width:66px" oninput="recalc()" title="CO2 quotas burned per aircraft per departure">
+      </div>
       <div style="display:flex;gap:6px;align-items:flex-start">
         <button class="btn btn-dep" onclick="logDep('ALL')" title="Depart all fleets" style="align-self:center">ALL</button>
-        <div class="dep-col"><button class="btn btn-dep" onclick="logDep(21)" title="21-hour fleet">21H</button><input class="dep-eta-input" id="depEta21" type="text" placeholder="ETA" title="Custom ETA override (h:mm) — time until this fleet lands"></div>
-        <div class="dep-col"><button class="btn btn-dep" onclick="logDep(14)" title="14-hour fleet">14H</button><input class="dep-eta-input" id="depEta14" type="text" placeholder="ETA" title="Custom ETA override (h:mm) — time until this fleet lands"></div>
-        <div class="dep-col"><button class="btn btn-dep" onclick="logDep(7)" title="7-hour fleet">7H</button><input class="dep-eta-input" id="depEta7" type="text" placeholder="ETA" title="Custom ETA override (h:mm) — time until this fleet lands"></div>
-        <div class="dep-col"><button class="btn btn-dep" onclick="logDep(3.5)" title="3.5-hour fleet">3.5H</button><input class="dep-eta-input" id="depEta3_5" type="text" placeholder="ETA" title="Custom ETA override (h:mm) — time until this fleet lands"></div>
+        <div class="dep-col"><button class="btn btn-dep" onclick="logDep(21)" title="21-hour fleet">21H</button><input class="dep-eta-input" id="depCnt21" type="number" placeholder="A/C" title="Aircraft in 21H group" oninput="recalc()"><input class="dep-eta-input" id="depEta21" type="text" placeholder="ETA" title="Time until this fleet lands (h:mm)" oninput="recalc()"></div>
+        <div class="dep-col"><button class="btn btn-dep" onclick="logDep(14)" title="14-hour fleet">14H</button><input class="dep-eta-input" id="depCnt14" type="number" placeholder="A/C" title="Aircraft in 14H group" oninput="recalc()"><input class="dep-eta-input" id="depEta14" type="text" placeholder="ETA" title="Time until this fleet lands (h:mm)" oninput="recalc()"></div>
+        <div class="dep-col"><button class="btn btn-dep" onclick="logDep(7)" title="7-hour fleet">7H</button><input class="dep-eta-input" id="depCnt7" type="number" placeholder="A/C" title="Aircraft in 7H group" oninput="recalc()"><input class="dep-eta-input" id="depEta7" type="text" placeholder="ETA" title="Time until this fleet lands (h:mm)" oninput="recalc()"></div>
+        <div class="dep-col"><button class="btn btn-dep" onclick="logDep(3.5)" title="3.5-hour fleet">3.5H</button><input class="dep-eta-input" id="depCnt3_5" type="number" placeholder="A/C" title="Aircraft in 3.5H group" oninput="recalc()"><input class="dep-eta-input" id="depEta3_5" type="text" placeholder="ETA" title="Time until this fleet lands (h:mm)" oninput="recalc()"></div>
       </div>
-      <div class="dep-status" id="depStatus" style="min-width:160px;margin-top:4px">—</div>
+      <div class="dep-status" id="depStatus" style="min-width:160px;margin-top:4px">Enter fleet counts + ETAs · buffer auto by fleet size</div>
     </div>
   </div>
 </div>
@@ -239,25 +247,47 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
 <script>
 // ── CONSTANTS ──
 const MIN_FUEL = 15000000, SV = 40000000, MIN_CO2 = 15000000;
-// Departures per 30-min slot. Editable default; rebuilt from fleet+speed+ETA when
-// the player supplies fleet groups. "Aircraft departing that slot."
-let DEP_AC=[1396,325,0,304,0,304,0,1298,304,0,304,0,304,0,1396,0,304,304,0,304,0,1298,0,304,304,0,304,0,1396,0,304,0,304,304,0,1298,0,304,0,304,304,0,1396,0,304,0,304,0];
-// Per-slot fuel + CO2 burn — DERIVED from DEP_AC × player-entered avg burn/aircraft
-// (+ buffer). Never hardcoded. rebuildBurns() populates these from the input fields.
-let BURNS=[], CO2B=[];
-// Landing/takeoff buffer minutes by total fleet size (aircraft departing at once).
-function bufferMins(maxDep){ return maxDep>1200?4:maxDep>500?3:2; }
-// Rebuild BURNS/CO2B from inputs. Burn model (Trial - Table 1): burn at a slot =
-// aircraft departing × avg fuel burn per aircraft, + buffer burn on top.
+const TIMES=Array.from({length:48},(_,i)=>{const h=Math.floor(i/2),m=(i%2)*30;return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;});
+
+// ── FLEET → DEPARTURE SCHEDULE ENGINE (player-driven; nothing hardcoded) ──
+// Fleet groups by flight duration (h). Player enters count + ETA (time until this
+// group next lands); game speed scales the real-time cycle. All start blank.
+const FLEET_GROUPS=[{dur:21,cnt:'depCnt21',eta:'depEta21'},{dur:14,cnt:'depCnt14',eta:'depEta14'},{dur:7,cnt:'depCnt7',eta:'depEta7'},{dur:3.5,cnt:'depCnt3_5',eta:'depEta3_5'}];
+let DEP_AC=new Array(48).fill(0);   // aircraft departing per slot — derived
+let BURNS =new Array(48).fill(0);   // fuel burn per slot — derived
+let CO2B  =new Array(48).fill(0);   // CO2 burn per slot — derived
+function parseEtaHours(v){ if(!v)return null; v=String(v).trim(); if(v.includes(':')){const[h,m]=v.split(':').map(Number); if(isNaN(h))return null; return h+(isNaN(m)?0:m/60);} const n=parseFloat(v); return isNaN(n)?null:n; }
+function gv(id){ const e=document.getElementById(id); return e?e.value:''; }
+// Landing/takeoff buffer minutes by total fleet size (WO-002): <500=2, 501-1200=3, >1200=4.
+function bufferMins(totalAc){ return totalAc>1200?4:totalAc>500?3:2; }
+// Build DEP_AC from fleet groups: a group departs every (duration ÷ speed) hours,
+// anchored so it next lands in ETA hours; each departure adds its count to that slot.
+function computeDepartures(){
+  DEP_AC=new Array(48).fill(0);
+  const speed=parseFloat(gv('gameSpeed'))||1;
+  for(const g of FLEET_GROUPS){
+    const cnt=parseInt(gv(g.cnt))||0; if(cnt<=0)continue;
+    const eta=parseEtaHours(gv(g.eta)); if(eta===null)continue;
+    const cycle=g.dur/speed;                 // real-time hours between departures
+    if(cycle<=0)continue;
+    // Next departure is right after it lands (in ETA h); walk back and forward across the day.
+    for(let dep=eta-Math.ceil(eta/cycle)*cycle; dep<24; dep+=cycle){
+      if(dep<0) continue;
+      const slot=Math.floor((dep*60)/30);    // 30-min slot index
+      if(slot>=0&&slot<48) DEP_AC[slot]+=cnt;
+    }
+  }
+}
+// Burn per slot = aircraft departing × avg fuel burn/aircraft + buffer burn on top.
 function rebuildBurns(){
-  const avgBurn=parseFloat((document.getElementById('avgFuelBurn')||{}).value)||250032; // lbs/aircraft/departure
-  const co2Dep =parseFloat((document.getElementById('co2BurnDep')||{}).value)||39257;    // CO2 quotas/aircraft/departure
-  const maxDep=Math.max(0,...DEP_AC);
-  const bufMin=bufferMins(maxDep);
-  BURNS=DEP_AC.map(ac=>{ if(!ac)return 0; return ac*avgBurn + bufMin*(avgBurn/60)*ac; });
+  computeDepartures();
+  const avgBurn=parseFloat(gv('avgFuelBurn'))||0;   // lbs/aircraft/departure
+  const co2Dep =parseFloat(gv('co2BurnDep'))||0;    // CO2 quotas/aircraft/departure
+  const totalAc=Math.max(0,...DEP_AC);
+  const bufMin=bufferMins(totalAc);
+  BURNS=DEP_AC.map(ac=> ac? ac*avgBurn + bufMin*(avgBurn/60)*ac : 0);
   CO2B =DEP_AC.map(ac=> ac? ac*co2Dep : 0);
 }
-const TIMES=Array.from({length:48},(_,i)=>{const h=Math.floor(i/2),m=(i%2)*30;return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;});
 const PERTH=TIMES.map(t=>{const[h,m]=t.split(':').map(Number),tot=h*60+m+360,ph=Math.floor(tot/60)%24,pm=tot%60;return`${String(ph).padStart(2,'0')}:${String(pm).padStart(2,'0')}${tot>=1440?'+':''}`;});
 
 // ── DYNAMIC PRICE DATA (fetched from server) ──
@@ -336,11 +366,11 @@ function calcSuggested(startRes, tank, minR, burns, prices){
 
 // ── MAIN RECALC ──
 function recalc(){
-  rebuildBurns();   // derive per-slot fuel + CO2 burn from player inputs (fleet/avg-burn/buffer)
-  const startRes=parseFloat(document.getElementById('startRes').value)||535544940;
-  const fuelTank=parseFloat(document.getElementById('fuelTank').value)||880597000;
-  const startCO2=parseFloat(document.getElementById('startCO2').value)||1126614039;
-  const co2Tank=parseFloat(document.getElementById('co2Tank').value)||2438348000;
+  rebuildBurns();   // derive DEP_AC + per-slot fuel/CO2 burn from player fleet/speed/ETA/burn inputs
+  const startRes=parseFloat(document.getElementById('startRes').value)||0;
+  const fuelTank=parseFloat(document.getElementById('fuelTank').value)||0;
+  const startCO2=parseFloat(document.getElementById('startCO2').value)||0;
+  const co2Tank=parseFloat(document.getElementById('co2Tank').value)||0;
   const fSug=calcSuggested(startRes,fuelTank,MIN_FUEL,BURNS,PRICES);
   const cSug=calcSuggested(startCO2,co2Tank,MIN_CO2,CO2B,CO2P);
   const tbody=document.getElementById('tbody');
@@ -503,18 +533,16 @@ function fillFullCO2Reserves(){
   recalc();
 }
 function clearCO2Reserve(){
-  document.getElementById('startCO2').value=1126614039;
+  document.getElementById('startCO2').value='';
   co2ResOv=new Array(48).fill(null);
   recalc();
 }
 function resetAll(){
   fPurchased=new Array(48).fill(0);resOv=new Array(48).fill(null);
   co2Purchased=new Array(48).fill(0);co2ResOv=new Array(48).fill(null);co2ResAfterOv=new Array(48).fill(null);
-  document.getElementById('startRes').value=535544940;
-  document.getElementById('fuelTank').value=880597000;
-  document.getElementById('startCO2').value=1126614039;
-  document.getElementById('co2Tank').value=2438348000;
+  ['startRes','fuelTank','startCO2','co2Tank','avgFuelBurn','co2BurnDep'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   document.querySelectorAll('.dep-eta-input').forEach(el=>el.value='');
+  const gs=document.getElementById('gameSpeed');if(gs)gs.value='1';
   recalc();
 }
 
