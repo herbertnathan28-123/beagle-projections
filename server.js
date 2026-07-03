@@ -90,6 +90,9 @@ const addSnapshot = (players, timestamp) => storage.addSnapshot(snapshotHistory,
 const visitorLog = [];
 function logVisit(req) {
   const ip   = req.headers['x-forwarded-for']?.split(',')[0] || req.ip;
+  // Skip internal health-check / keep-alive traffic (private IPs) — not real visitors.
+  const bare = String(ip).replace(/^::ffff:/, '').trim();
+  if (/^(10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)|^::1$/.test(bare)) return;
   const ua   = req.headers['user-agent'] || 'unknown';
   const time = new Date().toISOString();
   const device = ua.includes('Mobile') ? '📱 Mobile'
@@ -645,83 +648,74 @@ app.get('/api/fuel-access-log', (req, res) => {
   }
 });
 
-// ── NOTIFICATION ENDPOINT — for n8n 30-minute schedule trigger ────────────
-// Part 5: Returns members who have an optimal buy window within 15 minutes.
-// n8n calls this every 30 min and sends Discord DMs to returned members.
+// ── NOTIFICATION ENDPOINT — for the n8n :15/:45 schedule trigger ───────────
+// Fires ~15 min before the SHARED cheapest buy slot (getFuelPath). Returns one
+// row per registered player per due window; fuel and CO2 are SEPARATE rows so
+// the workflow sends them as separate clean DMs. Game clock = UTC; each row also
+// carries the player's local time for display only.
+//
+// Response: { members: [ { discord_id, kind:'fuel'|'co2', price, rating,
+//   quantity, unit, window_utc, window_local, minutes_until, dashboard_url } ] }
 app.get('/api/fuel-notifications', (req, res) => {
   if (req.query.token !== N8N_TOKEN && req.query.token !== SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   try {
-    const fp = getFuelPath();
+    const fp = getFuelPath();                 // shared cheapest-slot schedule
     const now = new Date();
     const nowMs = now.getTime();
-    const window15 = 15 * 60 * 1000;
+    const WINDOW_MS = 16 * 60 * 1000;         // ~15 min ahead (trigger runs at :15/:45)
     const todayUTC = now.getUTCDate();
-    const notifications = [];
+    const members = [];
 
     for (const [did, profile] of Object.entries(fuelProfiles)) {
-      if (!profile || !profile.setup_complete) continue;
+      if (!profile || !profile.setup_complete) continue;   // registered players only
       const tzStr = profile.timezone || 'UTC+0';
       const tzMatch = tzStr.match(/UTC([+-]?\d+\.?\d*)/);
       const tzOffset = tzMatch ? parseFloat(tzMatch[1]) : 0;
 
-      // Check fuel and co2 windows for today and tomorrow
+      // Check today and tomorrow so a slot just after midnight still alerts.
       for (let dayOff = 0; dayOff <= 1; dayOff++) {
         const checkDay = todayUTC + dayOff;
         const dayData = fp.days.find(d => d.day === checkDay);
         if (!dayData) continue;
 
-        for (const type of ['fuel', 'co2']) {
-          if (!dayData[type]) continue;
-          const [slotH, slotM] = dayData[type].slot.split(':').map(Number);
+        for (const kind of ['fuel', 'co2']) {
+          const slotInfo = dayData[kind];
+          if (!slotInfo || !slotInfo.slot) continue;
+          const [slotH, slotM] = slotInfo.slot.split(':').map(Number);
           const slotDate = new Date(Date.UTC(fp.year, fp.month - 1, checkDay, slotH, slotM));
-          const slotMs = slotDate.getTime();
-          const diff = slotMs - nowMs;
+          const diff = slotDate.getTime() - nowMs;
+          if (diff <= 0 || diff > WINDOW_MS) continue;      // only ~15 min before the slot
 
-          if (diff > 0 && diff <= window15) {
-            // Calculate quantities based on fleet
-            const fleet = profile.fleet || [];
-            const reserveBuffer = Number(profile.reserve_buffer) || 10000;
-            const tankCap = Number(profile.fuel_tank_capacity) || 0;
-            const co2Tank = Number(profile.co2_tank_capacity) || 0;
-            let dailyBurn = 0;
-            for (const f of fleet) {
-              const burnPerHr = AIRCRAFT_BURN_HOUR[f.type] || 10000;
-              const hrs = f.flight_hours || 12;
-              dailyBurn += (f.total_aircraft || 0) * burnPerHr * hrs * (24 / hrs);
-            }
-            const buyQtyFuel = Math.max(0, (tankCap - reserveBuffer) - (Number(profile.fuel_reserves) || 0));
-            const buyQtyCo2 = Math.max(0, (co2Tank - reserveBuffer) - (Number(profile.co2_reserves) || 0));
+          // Suggested top-up to full tank (per-player figure, no simulation).
+          const tankCap  = Number(kind === 'fuel' ? profile.fuel_tank_capacity : profile.co2_tank_capacity) || 0;
+          const reserves = Number(kind === 'fuel' ? profile.fuel_reserves      : profile.co2_reserves) || 0;
+          const quantity = Math.max(0, tankCap - reserves);
 
-            // Local time for the member
-            const localTotalMin = (slotH * 60 + slotM) + (tzOffset * 60);
-            const localH = Math.floor(((localTotalMin % 1440) + 1440) % 1440 / 60);
-            const localM = Math.round(((localTotalMin % 1440) + 1440) % 1440 % 60);
-            const localTime = String(localH).padStart(2, '0') + ':' + String(localM).padStart(2, '0');
-            const dkTotalMin = (slotH * 60 + slotM) + 120;
-            const dkH = Math.floor(((dkTotalMin % 1440) + 1440) % 1440 / 60);
-            const dkM = Math.round(((dkTotalMin % 1440) + 1440) % 1440 % 60);
-            const dkTime = String(dkH).padStart(2, '0') + ':' + String(dkM).padStart(2, '0');
+          // Slot is game time (UTC) -> player local for display only.
+          const localMin = (slotH * 60 + slotM) + tzOffset * 60;
+          const lh = Math.floor((((localMin % 1440) + 1440) % 1440) / 60);
+          const lm = ((localMin % 60) + 60) % 60;
+          const window_local = String(lh).padStart(2, '0') + ':' + String(lm).padStart(2, '0');
 
-            notifications.push({
-              discord_id: did,
-              type,
-              day: checkDay,
-              price: dayData[type].price,
-              slot_utc: dayData[type].slot,
-              slot_denmark: dkTime,
-              slot_local: localTime,
-              buy_qty_fuel: type === 'fuel' ? buyQtyFuel : 0,
-              buy_qty_co2: type === 'co2' ? buyQtyCo2 : 0,
-              minutes_until: Math.round(diff / 60000)
-            });
-          }
+          members.push({
+            discord_id: did,
+            kind,                                 // 'fuel' | 'co2' -> separate DMs
+            price: slotInfo.price,
+            rating: slotInfo.rating,
+            quantity,
+            unit: kind === 'fuel' ? 'lbs' : 'quotas',
+            window_utc: slotInfo.slot,            // game time (UTC)
+            window_local,
+            minutes_until: Math.round(diff / 60000),
+            dashboard_url: 'https://beagle-projections.onrender.com/fuel/' + did
+          });
         }
       }
     }
 
-    res.json({ notifications, count: notifications.length, checked_at: now.toISOString() });
+    res.json({ members, count: members.length, checked_at: now.toISOString() });
   } catch (e) {
     console.error('[FUEL-NOTIFICATIONS] Error:', e.message);
     res.status(500).json({ error: e.message });
