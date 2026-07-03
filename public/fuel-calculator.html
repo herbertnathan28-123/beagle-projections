@@ -150,7 +150,7 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
     <div class="stats-left">
       <!-- FUEL ROW -->
       <div class="stat-input-wrap"><div class="stat-input-label">⛽ STARTING FUEL RESERVES (lbs)</div><div style="display:flex;align-items:center;gap:4px"><input class="stat-input" id="startRes" type="number" value="" placeholder="enter reserves" step="1000000" oninput="recalc()"><button class="btn-fill-full" onclick="fillFullReserves()" title="Fill starting reserves to full fuel tank capacity">FILL FULL</button></div></div>
-      <div class="stat-input-wrap"><div class="stat-input-label">⛽ FUEL TANK CAPACITY (lbs)</div><input class="stat-input" id="fuelTank" type="number" value="" placeholder="enter tank capacity" step="1000000" oninput="recalc()"></div>
+      <div class="stat-input-wrap"><div class="stat-input-label">⛽ FUEL TANK CAPACITY (lbs)</div><input class="stat-input" id="fuelTank" type="number" value="" placeholder="enter tank capacity" step="1000000" oninput="saveTank('fuelTank');recalc()"></div>
       <div class="stat-box"><div class="stat-label">MIN FUEL RESERVE</div><div class="stat-value" style="color:#e07b39">15,000,000 lbs</div></div>
       <div class="stat-box"><div class="stat-label">⛽ FUEL PURCHASED</div><div class="stat-value" id="sBought" style="color:#23a55a">0 lbs</div></div>
       <div class="stat-box"><div class="stat-label">⛽ FUEL COST</div><div class="stat-value" id="sCost" style="color:#f0b429">$0</div></div>
@@ -158,7 +158,7 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
       <div class="stat-box" style="border-color:#1a5a5a"><div class="stat-label">VS JUNE AVG $1,414</div><div class="stat-value" id="sVsJuneFuel" style="color:#7a9090">—</div></div>
       <!-- CO2 ROW -->
       <div class="stat-input-wrap"><div class="stat-input-label">🌿 STARTING CO2 RESERVES (quotas)</div><div style="display:flex;align-items:center;gap:4px"><input class="stat-input" id="startCO2" type="number" value="" placeholder="enter CO2 reserves" step="1000000" oninput="recalc()" style="border-color:#2a5a2a;color:#70d070"><button class="btn-fill-full co2" onclick="fillFullCO2Reserves()" title="Fill starting CO2 reserves to full CO2 tank capacity">FILL FULL</button><button class="btn-clear-co2" onclick="clearCO2Reserve()" title="Clear CO2 reserve back to blank">✕</button></div></div>
-      <div class="stat-input-wrap"><div class="stat-input-label">🌿 CO2 TANK CAPACITY (quotas)</div><input class="stat-input" id="co2Tank" type="number" value="" placeholder="enter CO2 tank" step="1000000" oninput="recalc()" style="border-color:#2a5a2a;color:#70d070"></div>
+      <div class="stat-input-wrap"><div class="stat-input-label">🌿 CO2 TANK CAPACITY (quotas)</div><input class="stat-input" id="co2Tank" type="number" value="" placeholder="enter CO2 tank" step="1000000" oninput="saveTank('co2Tank');recalc()" style="border-color:#2a5a2a;color:#70d070"></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">MIN CO2 RESERVE</div><div class="stat-value" style="color:#e07b39">15,000,000</div></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">🌿 CO2 PURCHASED</div><div class="stat-value" id="sCO2Bought" style="color:#70d070">0</div></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">🌿 CO2 COST</div><div class="stat-value" id="sCO2Cost" style="color:#90c060">$0</div></div>
@@ -542,10 +542,17 @@ function clearCO2Reserve(){
   co2ResOv=new Array(48).fill(null);
   recalc();
 }
+// Tank capacities are a stable property of the player's fleet — persist them
+// per-browser so they hold their position across reloads and resets, until the
+// player types a new value. localStorage is local to each visitor; nothing is
+// baked into the served page, so a fresh visitor still sees blank fields.
+function saveTank(id){try{const v=document.getElementById(id).value;if(v==='')localStorage.removeItem('bgl_'+id);else localStorage.setItem('bgl_'+id,v);}catch(e){}}
+function restoreTanks(){try{['fuelTank','co2Tank'].forEach(id=>{const v=localStorage.getItem('bgl_'+id);if(v!==null&&v!==''){const e=document.getElementById(id);if(e)e.value=v;}});}catch(e){}}
 function resetAll(){
   fPurchased=new Array(48).fill(0);resOv=new Array(48).fill(null);
   co2Purchased=new Array(48).fill(0);co2ResOv=new Array(48).fill(null);co2ResAfterOv=new Array(48).fill(null);
-  ['startRes','fuelTank','startCO2','co2Tank','avgFuelBurn','co2BurnDep'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  // Note: fuelTank/co2Tank are deliberately NOT cleared — they hold until overwritten.
+  ['startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   document.querySelectorAll('.dep-eta-input').forEach(el=>el.value='');
   const gs=document.getElementById('gameSpeed');if(gs)gs.value='1';
   recalc();
@@ -741,6 +748,7 @@ async function init(){
     if(r.ok) S=await r.json();
     else console.error('[FUEL] Schedule fetch failed:',r.status);
   }catch(e){console.error('[FUEL] Schedule fetch error:',e);}
+  restoreTanks();
   loadDayPrices(getDenmarkDay());
   recalc();
   highlightNowRow();
