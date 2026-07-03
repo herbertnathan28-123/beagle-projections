@@ -159,6 +159,8 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
       <!-- CO2 ROW -->
       <div class="stat-input-wrap"><div class="stat-input-label">🌿 STARTING CO2 RESERVES (quotas)</div><div style="display:flex;align-items:center;gap:4px"><input class="stat-input" id="startCO2" type="number" value="1126614039" step="1000000" oninput="recalc()" style="border-color:#2a5a2a;color:#70d070"><button class="btn-fill-full co2" onclick="fillFullCO2Reserves()" title="Fill starting CO2 reserves to full CO2 tank capacity">FILL FULL</button><button class="btn-clear-co2" onclick="clearCO2Reserve()" title="Clear CO2 reserve back to default">✕</button></div></div>
       <div class="stat-input-wrap"><div class="stat-input-label">🌿 CO2 TANK CAPACITY (quotas)</div><input class="stat-input" id="co2Tank" type="number" value="2438348000" step="1000000" oninput="recalc()" style="border-color:#2a5a2a;color:#70d070"></div>
+      <div class="stat-input-wrap"><div class="stat-input-label">⛽ AVG FUEL BURN / AIRCRAFT (lbs, per departure)</div><input class="stat-input" id="avgFuelBurn" type="number" value="250032" step="1000" oninput="recalc()" title="Your fleet's average fuel burn per aircraft per departure — burn per slot = aircraft departing × this + buffer"></div>
+      <div class="stat-input-wrap"><div class="stat-input-label">🌿 CO2 BURN / AIRCRAFT (quotas, per departure)</div><input class="stat-input" id="co2BurnDep" type="number" value="39257" step="100" oninput="recalc()" style="border-color:#2a5a2a;color:#70d070" title="Your CO2 quotas consumed per aircraft per departure — feeds the CO2 step-through"></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">MIN CO2 RESERVE</div><div class="stat-value" style="color:#e07b39">15,000,000</div></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">🌿 CO2 PURCHASED</div><div class="stat-value" id="sCO2Bought" style="color:#70d070">0</div></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">🌿 CO2 COST</div><div class="stat-value" id="sCO2Cost" style="color:#90c060">$0</div></div>
@@ -237,9 +239,24 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
 <script>
 // ── CONSTANTS ──
 const MIN_FUEL = 15000000, SV = 40000000, MIN_CO2 = 15000000;
-const DEP_AC=[1396,325,0,304,0,304,0,1298,304,0,304,0,304,0,1396,0,304,304,0,304,0,1298,0,304,304,0,304,0,1396,0,304,0,304,304,0,1298,0,304,0,304,304,0,1396,0,304,0,304,0];
-const BURNS=DEP_AC.map(ac=>!ac?0:ac>=1390?349044459:ac>=1290?317590177:42953995);
-const CO2B=DEP_AC.map(ac=>!ac?0:ac>=1390?1332727869:ac>=1290?1212628560:54803600);
+// Departures per 30-min slot. Editable default; rebuilt from fleet+speed+ETA when
+// the player supplies fleet groups. "Aircraft departing that slot."
+let DEP_AC=[1396,325,0,304,0,304,0,1298,304,0,304,0,304,0,1396,0,304,304,0,304,0,1298,0,304,304,0,304,0,1396,0,304,0,304,304,0,1298,0,304,0,304,304,0,1396,0,304,0,304,0];
+// Per-slot fuel + CO2 burn — DERIVED from DEP_AC × player-entered avg burn/aircraft
+// (+ buffer). Never hardcoded. rebuildBurns() populates these from the input fields.
+let BURNS=[], CO2B=[];
+// Landing/takeoff buffer minutes by total fleet size (aircraft departing at once).
+function bufferMins(maxDep){ return maxDep>1200?4:maxDep>500?3:2; }
+// Rebuild BURNS/CO2B from inputs. Burn model (Trial - Table 1): burn at a slot =
+// aircraft departing × avg fuel burn per aircraft, + buffer burn on top.
+function rebuildBurns(){
+  const avgBurn=parseFloat((document.getElementById('avgFuelBurn')||{}).value)||250032; // lbs/aircraft/departure
+  const co2Dep =parseFloat((document.getElementById('co2BurnDep')||{}).value)||39257;    // CO2 quotas/aircraft/departure
+  const maxDep=Math.max(0,...DEP_AC);
+  const bufMin=bufferMins(maxDep);
+  BURNS=DEP_AC.map(ac=>{ if(!ac)return 0; return ac*avgBurn + bufMin*(avgBurn/60)*ac; });
+  CO2B =DEP_AC.map(ac=> ac? ac*co2Dep : 0);
+}
 const TIMES=Array.from({length:48},(_,i)=>{const h=Math.floor(i/2),m=(i%2)*30;return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;});
 const PERTH=TIMES.map(t=>{const[h,m]=t.split(':').map(Number),tot=h*60+m+360,ph=Math.floor(tot/60)%24,pm=tot%60;return`${String(ph).padStart(2,'0')}:${String(pm).padStart(2,'0')}${tot>=1440?'+':''}`;});
 
@@ -319,6 +336,7 @@ function calcSuggested(startRes, tank, minR, burns, prices){
 
 // ── MAIN RECALC ──
 function recalc(){
+  rebuildBurns();   // derive per-slot fuel + CO2 burn from player inputs (fleet/avg-burn/buffer)
   const startRes=parseFloat(document.getElementById('startRes').value)||535544940;
   const fuelTank=parseFloat(document.getElementById('fuelTank').value)||880597000;
   const startCO2=parseFloat(document.getElementById('startCO2').value)||1126614039;
