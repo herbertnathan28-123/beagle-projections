@@ -107,6 +107,30 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
 .sum-label{color:#3a5a7a;font-size:9px;letter-spacing:.5px}
 .sum-value{font-size:14px;font-weight:700;margin-top:3px;font-family:monospace;color:#7ab0d0}
 @media(max-width:900px){.sum-grid{grid-template-columns:repeat(2,1fr)}}
+/* ── FLEET STRATEGY CARDS (WO-FUEL-CALC-OPTIMIZER-001) — approved design ── */
+.fleet-cards{display:flex;gap:10px;margin-top:12px;align-items:stretch}
+.fcard{flex:1;min-width:0;background:#0b1017;border:1px solid #20242c;border-radius:14px;overflow:hidden}
+.fcard.all{border-color:#3a4a1a}
+.mnt{display:flex;align-items:center;justify-content:space-between;background:#181206;padding:8px 10px;border-bottom:1px solid #241a08;min-height:42px}
+.mnt .mlbl{font-size:11px;font-weight:800;letter-spacing:1px;color:#c99a3a}
+.mnt .mctl{display:flex;align-items:center;gap:6px}
+.stp{width:26px;height:26px;border:1.5px solid #c99a3a;background:transparent;border-radius:7px;color:#e0b24a;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0}
+.stp:hover{background:#2a1e08}
+.mcount{min-width:18px;text-align:center;font-size:14px;font-weight:800;color:#fff;background:rgba(255,255,255,.12);border-radius:6px;padding:1px 5px}
+.dur{background:linear-gradient(180deg,#3a2410,#1f1207);padding:14px 6px;text-align:center;border-bottom:1px solid #16202c}
+.dur .big{font-size:26px;font-weight:800;color:#f5820a;letter-spacing:.5px;line-height:1}
+.frow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px}
+.frow+.frow{border-top:1px solid #141a22}
+.frow .flbl{font-size:11px;font-weight:700;letter-spacing:1px;color:#6a7a8a}
+.finput{flex:0 0 60%;background:#161f2c;border:1px solid #26313f;border-radius:8px;color:#e6ecf4;font-size:13px;font-family:inherit;padding:7px 9px;outline:none;min-width:0}
+.finput:focus{border-color:#3a70b0}
+.finput::placeholder{color:#3f5060}
+select.finput{appearance:none;font-weight:700;text-align:center;text-align-last:center;cursor:pointer}
+input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
+.finput:disabled{opacity:.55;cursor:default}
+.spd4x-btn{background:#1a2030;border:1px solid #2a3a50;color:#5a7a9a;font-size:10px;font-weight:800;letter-spacing:.4px;padding:4px 10px;border-radius:4px;cursor:pointer;font-family:inherit}
+.spd4x-btn.on{background:#0d2818;border-color:#23a55a;color:#33ff00}
+@media(max-width:1100px){.fleet-cards{flex-wrap:wrap}.fcard{flex:1 1 30%}}
 @media print{body{background:#fff;color:#000}.btn-row,.legend{display:none}.header{background:#f5f5f5}.co2-row{display:none!important}}
 </style>
 </head>
@@ -172,25 +196,20 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
     <div class="dep-section" style="flex-direction:column;align-items:flex-start;margin-left:auto">
       <div class="dep-label" style="margin-bottom:4px">⏱ FLEET &amp; DEPARTURES</div>
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
-        <span class="dep-label">GAME SPEED</span>
-        <select id="gameSpeed" class="dep-eta-input" style="width:54px;color:#f5a030;border-color:#6a3a0a" onchange="recalc()" title="Game speed — scales flight duration for the landing-slot mapping">
-          <option value="1">1x</option><option value="4">4x</option><option value="24">24x</option>
+        <span class="dep-label">GAME TIME</span>
+        <select id="gameMode" class="dep-eta-input" style="width:62px;color:#f5a030;border-color:#6a3a0a" onchange="saveCards();recalc()" title="Control 1 — game time mode (game hours per real hour)">
+          <option value="1">1 hr</option><option value="4">4 hrs</option><option value="24">24 hrs</option>
         </select>
+        <button id="fourxBtn" class="spd4x-btn on" onclick="toggleFourx()" title="Control 2 — 4× speed boost. When ON, all flight durations ÷ 4. Independent of game time mode.">4× SPEED: ON</button>
         <span class="dep-label" style="margin-left:8px">⛽ BURN/AC</span>
         <input class="dep-eta-input" id="avgFuelBurn" type="number" placeholder="lbs" style="width:72px;color:#f5a030;border-color:#6a3a0a" oninput="recalc()" title="Average fuel burn per aircraft per departure">
         <span class="dep-label" style="margin-left:6px">🌿 CO2/AC</span>
-        <input class="dep-eta-input" id="co2BurnDep" type="number" placeholder="quotas" style="width:66px" oninput="recalc()" title="CO2 quotas burned per aircraft per departure">
+        <input class="dep-eta-input" id="co2BurnDep" type="number" placeholder="quotas" style="width:66px" oninput="recalc()" title="CO2 quotas burned per aircraft per departure event">
       </div>
-      <div style="display:flex;gap:6px;align-items:flex-start">
-        <button class="btn btn-dep" onclick="logDep('ALL')" title="Depart all fleets" style="align-self:center">ALL</button>
-        <div class="dep-col"><button class="btn btn-dep" onclick="logDep(21)" title="21-hour fleet">21H</button><input class="dep-eta-input" id="depCnt21" type="number" placeholder="A/C" title="Aircraft in 21H group" oninput="recalc()"><input class="dep-eta-input" id="depEta21" type="text" placeholder="ETA" title="Time until this fleet lands (h:mm)" oninput="recalc()"></div>
-        <div class="dep-col"><button class="btn btn-dep" onclick="logDep(14)" title="14-hour fleet">14H</button><input class="dep-eta-input" id="depCnt14" type="number" placeholder="A/C" title="Aircraft in 14H group" oninput="recalc()"><input class="dep-eta-input" id="depEta14" type="text" placeholder="ETA" title="Time until this fleet lands (h:mm)" oninput="recalc()"></div>
-        <div class="dep-col"><button class="btn btn-dep" onclick="logDep(7)" title="7-hour fleet">7H</button><input class="dep-eta-input" id="depCnt7" type="number" placeholder="A/C" title="Aircraft in 7H group" oninput="recalc()"><input class="dep-eta-input" id="depEta7" type="text" placeholder="ETA" title="Time until this fleet lands (h:mm)" oninput="recalc()"></div>
-        <div class="dep-col"><button class="btn btn-dep" onclick="logDep(3.5)" title="3.5-hour fleet">3.5H</button><input class="dep-eta-input" id="depCnt3_5" type="number" placeholder="A/C" title="Aircraft in 3.5H group" oninput="recalc()"><input class="dep-eta-input" id="depEta3_5" type="text" placeholder="ETA" title="Time until this fleet lands (h:mm)" oninput="recalc()"></div>
-      </div>
-      <div class="dep-status" id="depStatus" style="min-width:160px;margin-top:4px">Enter fleet counts + ETAs · buffer auto by fleet size</div>
+      <div class="dep-status" id="depStatus" style="min-width:160px">Enter A/C · TYPE · ETA per fleet — MAINT subtracts from active count</div>
     </div>
   </div>
+  <div class="fleet-cards" id="fleetCards"></div>
 </div>
 <div class="table-wrap">
 <table id="ftbl">
@@ -229,6 +248,7 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
     <div class="sum-box co2"><div class="sum-label">🌿 FIRST CO2 NEGATIVE</div><div class="sum-value" id="sumCO2Neg">—</div></div>
     <div class="sum-box co2"><div class="sum-label">🌿 TOTAL CO2 PURCHASED</div><div class="sum-value" id="sumCO2Bought">—</div></div>
     <div class="sum-box co2"><div class="sum-label">🌿 TOTAL CO2 COST</div><div class="sum-value" id="sumCO2Cost">—</div></div>
+    <div class="sum-box" style="border-color:#4a2a0a"><div class="sum-label">📊 TOTAL SV DROP</div><div class="sum-value" id="sumSVDrop" style="color:#f5a623">—</div></div>
   </div>
 </div>
 <div class="legend">
@@ -250,27 +270,42 @@ const MIN_FUEL = 15000000, SV = 40000000, MIN_CO2 = 15000000;
 const TIMES=Array.from({length:48},(_,i)=>{const h=Math.floor(i/2),m=(i%2)*30;return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;});
 
 // ── FLEET → DEPARTURE SCHEDULE ENGINE (player-driven; nothing hardcoded) ──
-// Fleet groups by flight duration (h). Player enters count + ETA (time until this
-// group next lands); game speed scales the real-time cycle. All start blank.
-const FLEET_GROUPS=[{dur:21,cnt:'depCnt21',eta:'depEta21'},{dur:14,cnt:'depCnt14',eta:'depEta14'},{dur:7,cnt:'depCnt7',eta:'depEta7'},{dur:3.5,cnt:'depCnt3_5',eta:'depEta3_5'}];
+// Fleet groups are GENERIC duration buckets (never the operator's personal flight
+// times). Each card: player enters A/C count, aircraft TYPE and ETA; MAINT stepper
+// subtracts grounded aircraft. Active A/C = total − MAINT. All start blank.
+const FLEET_GROUPS=[{key:'21',dur:21,label:'21H'},{key:'14',dur:14,label:'14H'},{key:'7',dur:7,label:'7H'},{key:'3_5',dur:3.5,label:'3.5H'}];
+const MAINT={'21':0,'14':0,'7':0,'3_5':0};   // aircraft in maintenance per bucket
+// Aircraft types — mirrors config.AIRCRAFT_BURN_HOUR keys (static page can't require()
+// server config, so kept in sync manually).
+const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300','A330-200','B747-8','B747-8F','B747SP','B787-10','B787-9','B787-8','A350-900ULR','DC-10','MC-21-400','Concorde','A320neo','B737 MAX 8','Spacejet M100'];
 let DEP_AC=new Array(48).fill(0);   // aircraft departing per slot — derived
 let BURNS =new Array(48).fill(0);   // fuel burn per slot — derived
 let CO2B  =new Array(48).fill(0);   // CO2 burn per slot — derived
 function parseEtaHours(v){ if(!v)return null; v=String(v).trim(); if(v.includes(':')){const[h,m]=v.split(':').map(Number); if(isNaN(h))return null; return h+(isNaN(m)?0:m/60);} const n=parseFloat(v); return isNaN(n)?null:n; }
 function gv(id){ const e=document.getElementById(id); return e?e.value:''; }
-// Landing/takeoff buffer minutes by total fleet size (WO-002): <500=2, 501-1200=3, >1200=4.
+// Landing/takeoff buffer minutes by total ACTIVE fleet size (WO-002): <500=2, 501-1200=3, >1200=4.
 function bufferMins(totalAc){ return totalAc>1200?4:totalAc>500?3:2; }
-// Build DEP_AC from fleet groups: a group departs every (duration ÷ speed) hours,
-// anchored so it next lands in ETA hours; each departure adds its count to that slot.
+// Active aircraft in a bucket = entered total − in-maintenance (floored at 0).
+function activeCount(key){ return Math.max(0,(parseInt(gv('cnt_'+key))||0)-(MAINT[key]||0)); }
+// Effective speed multiplier: Control 1 (game time mode 1/4/24) × Control 2 (4× boost).
+// Independent controls; both apply. cycle = flight duration ÷ this multiplier.
+function speedMult(){
+  const mode=parseFloat(gv('gameMode'))||1;
+  const b=document.getElementById('fourxBtn');
+  const fourx=b?b.classList.contains('on'):true;   // default ON
+  return mode*(fourx?4:1);
+}
+// Build DEP_AC from fleet groups: a group departs every (duration ÷ multiplier) hours,
+// anchored so it next lands in ETA hours; each departure adds its active count to that slot.
 function computeDepartures(){
   DEP_AC=new Array(48).fill(0);
-  const speed=parseFloat(gv('gameSpeed'))||1;
+  const mult=speedMult();
   const now=getGameNow();
   const nowH=now.getUTCHours()+now.getUTCMinutes()/60;   // current game time (UTC), in hours
   for(const g of FLEET_GROUPS){
-    const cnt=parseInt(gv(g.cnt))||0; if(cnt<=0)continue;
-    const eta=parseEtaHours(gv(g.eta)); if(eta===null)continue;
-    const cycle=g.dur/speed;                 // real-time hours between departures
+    const cnt=activeCount(g.key); if(cnt<=0)continue;
+    const eta=parseEtaHours(gv('eta_'+g.key)); if(eta===null)continue;
+    const cycle=g.dur/mult;                  // real-time hours between departures
     if(cycle<=0)continue;
     // ETA is time-until-landing from the CURRENT game time. Next departure lands at
     // nowH+ETA; align the cycle to that phase, then place departures across [0,24).
@@ -282,16 +317,97 @@ function computeDepartures(){
     }
   }
 }
-// Burn per slot = aircraft departing × avg fuel burn/aircraft + buffer burn on top.
+// Burn per slot = active aircraft departing × avg fuel burn/aircraft + buffer burn on top.
 function rebuildBurns(){
   computeDepartures();
   const avgBurn=parseFloat(gv('avgFuelBurn'))||0;   // lbs/aircraft/departure
-  const co2Dep =parseFloat(gv('co2BurnDep'))||0;    // CO2 quotas/aircraft/departure
-  // Buffer tier is set by TOTAL fleet size (sum of all groups), not the busiest slot.
-  let totalFleet=0; for(const g of FLEET_GROUPS) totalFleet+=parseInt(gv(g.cnt))||0;
-  const bufMin=bufferMins(totalFleet);
+  const co2Dep =parseFloat(gv('co2BurnDep'))||0;    // CO2 quotas/aircraft/departure event
+  // Buffer tier is set by TOTAL ACTIVE fleet size (sum of active across buckets).
+  let totalActive=0; for(const g of FLEET_GROUPS) totalActive+=activeCount(g.key);
+  const bufMin=bufferMins(totalActive);
   BURNS=DEP_AC.map(ac=> ac? ac*avgBurn + bufMin*(avgBurn/60)*ac : 0);
   CO2B =DEP_AC.map(ac=> ac? ac*co2Dep : 0);
+  refreshAllCard(totalActive,bufMin);
+}
+// ALL card is an aggregate summary: combined A/C, total in maintenance, ETA applies to all.
+function refreshAllCard(totalActive,bufMin){
+  let totCnt=0,totM=0;
+  for(const g of FLEET_GROUPS){ totCnt+=parseInt(gv('cnt_'+g.key))||0; totM+=MAINT[g.key]||0; }
+  const a=document.getElementById('acAll'); if(a)a.value=totCnt;
+  const m=document.getElementById('maintAll'); if(m)m.textContent=totM;
+  const st=document.getElementById('depStatus');
+  if(st) st.textContent = totCnt>0
+    ? `${(totCnt-totM).toLocaleString()} active A/C (${totM} in maint) · buffer ${bufMin} min`
+    : 'Enter A/C · TYPE · ETA per fleet — MAINT subtracts from active count';
+}
+// ── FLEET CARDS UI (WO-FUEL-CALC-OPTIMIZER-001) — approved 5-card layout ──
+function buildFleetCards(){
+  const wrap=document.getElementById('fleetCards'); if(!wrap)return;
+  const opts='<option value="">— Select —</option>'+AIRCRAFT_TYPES.map(t=>`<option>${t}</option>`).join('');
+  let html=`<div class="fcard all">
+    <div class="mnt"><span class="mlbl">MAINT</span><span class="mctl"><span class="mcount" id="maintAll">0</span></span></div>
+    <div class="dur"><div class="big">ALL</div></div>
+    <div class="frow"><span class="flbl">TYPE</span><select class="finput" disabled><option>— all —</option></select></div>
+    <div class="frow"><span class="flbl">A/C</span><input class="finput" id="acAll" type="text" value="0" readonly title="Combined A/C across all fleets"></div>
+    <div class="frow"><span class="flbl">ETA</span><input class="finput" id="eta_all" type="text" placeholder="00:00" title="Apply one ETA to all fleets" oninput="applyEtaAll(this.value)"></div>
+  </div>`;
+  for(const g of FLEET_GROUPS){
+    html+=`<div class="fcard">
+      <div class="mnt"><span class="mlbl">MAINT</span><span class="mctl">
+        <button class="stp" type="button" onclick="stepMaint('${g.key}',1)" title="Add aircraft to maintenance">+</button>
+        <span class="mcount" id="maint_${g.key}">0</span>
+        <button class="stp" type="button" onclick="stepMaint('${g.key}',-1)" title="Remove from maintenance">–</button></span></div>
+      <div class="dur"><div class="big">${g.label}</div></div>
+      <div class="frow"><span class="flbl">TYPE</span><select class="finput" id="type_${g.key}" onchange="saveCards();recalc()">${opts}</select></div>
+      <div class="frow"><span class="flbl">A/C</span><input class="finput" id="cnt_${g.key}" type="number" min="0" placeholder="0" oninput="saveCards();recalc()"></div>
+      <div class="frow"><span class="flbl">ETA</span><input class="finput" id="eta_${g.key}" type="text" placeholder="00:00" title="Hours:minutes until this fleet lands" oninput="saveCards();recalc()"></div>
+    </div>`;
+  }
+  wrap.innerHTML=html;
+}
+function stepMaint(key,d){
+  let m=(MAINT[key]||0)+d; if(m<0)m=0;   // cannot go below 0
+  MAINT[key]=m;
+  const el=document.getElementById('maint_'+key); if(el)el.textContent=m;
+  saveCards(); recalc();
+}
+function applyEtaAll(v){
+  for(const g of FLEET_GROUPS){ const el=document.getElementById('eta_'+g.key); if(el)el.value=v; }
+  saveCards(); recalc();
+}
+function setFourx(on){
+  const b=document.getElementById('fourxBtn'); if(!b)return;
+  b.classList.toggle('on',on);
+  b.textContent=on?'4× SPEED: ON':'4× SPEED: OFF';
+}
+function toggleFourx(){
+  const b=document.getElementById('fourxBtn'); if(!b)return;
+  setFourx(!b.classList.contains('on'));
+  saveCards(); recalc();
+}
+// Player fleet inputs persist per-browser (manual entry, holds until amended). Local
+// to each visitor — nothing baked into the served page, so a fresh visitor sees blanks.
+function saveCards(){
+  try{
+    const cards={};
+    for(const g of FLEET_GROUPS) cards[g.key]={cnt:gv('cnt_'+g.key),eta:gv('eta_'+g.key),type:gv('type_'+g.key)};
+    const b=document.getElementById('fourxBtn');
+    localStorage.setItem('bgl_fleet',JSON.stringify({cards,maint:MAINT,mode:gv('gameMode'),fourx:b?b.classList.contains('on'):true,etaAll:gv('eta_all')}));
+  }catch(e){}
+}
+function restoreCards(){
+  try{
+    const raw=localStorage.getItem('bgl_fleet'); if(!raw)return;
+    const d=JSON.parse(raw);
+    if(d.mode){const gm=document.getElementById('gameMode'); if(gm)gm.value=d.mode;}
+    if(typeof d.fourx==='boolean') setFourx(d.fourx);
+    if(d.cards) for(const g of FLEET_GROUPS){ const c=d.cards[g.key]; if(!c)continue;
+      const cnt=document.getElementById('cnt_'+g.key); if(cnt&&c.cnt)cnt.value=c.cnt;
+      const eta=document.getElementById('eta_'+g.key); if(eta&&c.eta)eta.value=c.eta;
+      const ty=document.getElementById('type_'+g.key); if(ty&&c.type)ty.value=c.type; }
+    if(d.maint) for(const k in MAINT){ MAINT[k]=parseInt(d.maint[k])||0; const el=document.getElementById('maint_'+k); if(el)el.textContent=MAINT[k]; }
+    if(d.etaAll){const ea=document.getElementById('eta_all'); if(ea)ea.value=d.etaAll;}
+  }catch(e){}
 }
 const PERTH=TIMES.map(t=>{const[h,m]=t.split(':').map(Number),tot=h*60+m+360,ph=Math.floor(tot/60)%24,pm=tot%60;return`${String(ph).padStart(2,'0')}:${String(pm).padStart(2,'0')}${tot>=1440?'+':''}`;});
 
@@ -501,6 +617,7 @@ function recalc(){
   setSum('sumCO2Bought',fmt(totCO2Bought)+' quotas','#90d060');
   setSum('sumFuelCost',fmtM(totCost),'#f0b429');
   setSum('sumCO2Cost',fmtM(totCO2Cost),'#90c060');
+  setSum('sumSVDrop','-'+((totCost+totCO2Cost)/SV).toFixed(2)+' SV','#f5a623');
   if(typeof highlightNowRow==='function') highlightNowRow();
 }
 
@@ -553,8 +670,12 @@ function resetAll(){
   co2Purchased=new Array(48).fill(0);co2ResOv=new Array(48).fill(null);co2ResAfterOv=new Array(48).fill(null);
   // Note: fuelTank/co2Tank are deliberately NOT cleared — they hold until overwritten.
   ['startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
-  document.querySelectorAll('.dep-eta-input').forEach(el=>el.value='');
-  const gs=document.getElementById('gameSpeed');if(gs)gs.value='1';
+  // Clear fleet cards (A/C, ETA, TYPE, MAINT) but keep the persisted tanks.
+  for(const g of FLEET_GROUPS){['cnt_','eta_','type_'].forEach(p=>{const e=document.getElementById(p+g.key);if(e)e.value='';});MAINT[g.key]=0;const m=document.getElementById('maint_'+g.key);if(m)m.textContent='0';}
+  const ea=document.getElementById('eta_all');if(ea)ea.value='';
+  const gm=document.getElementById('gameMode');if(gm)gm.value='1';
+  setFourx(true);
+  try{localStorage.removeItem('bgl_fleet');}catch(e){}
   recalc();
 }
 
@@ -697,7 +818,7 @@ function parseEta(val){
   return isNaN(n)?null:n;
 }
 function getFleetEta(fleet){
-  const idMap={21:'depEta21',14:'depEta14',7:'depEta7',3.5:'depEta3_5'};
+  const idMap={21:'eta_21',14:'eta_14',7:'eta_7',3.5:'eta_3_5'};
   const el=document.getElementById(idMap[fleet]);
   if(!el) return fleet;
   const eta=parseEta(el.value);
@@ -748,7 +869,9 @@ async function init(){
     if(r.ok) S=await r.json();
     else console.error('[FUEL] Schedule fetch failed:',r.status);
   }catch(e){console.error('[FUEL] Schedule fetch error:',e);}
+  buildFleetCards();
   restoreTanks();
+  restoreCards();
   loadDayPrices(getDenmarkDay());
   recalc();
   highlightNowRow();
