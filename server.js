@@ -90,6 +90,9 @@ const addSnapshot = (players, timestamp) => storage.addSnapshot(snapshotHistory,
 const visitorLog = [];
 function logVisit(req) {
   const ip   = req.headers['x-forwarded-for']?.split(',')[0] || req.ip;
+  // Skip internal health-check / keep-alive traffic (private IPs) — not real visitors.
+  const bare = String(ip).replace(/^::ffff:/, '').trim();
+  if (/^(10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)|^::1$/.test(bare)) return;
   const ua   = req.headers['user-agent'] || 'unknown';
   const time = new Date().toISOString();
   const device = ua.includes('Mobile') ? '📱 Mobile'
