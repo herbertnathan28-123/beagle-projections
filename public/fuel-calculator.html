@@ -256,7 +256,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
   <span style="color:#d4c040">FUEL PURCHASED — enter actual amount · cascades reserves down the table</span>
   <span style="color:#90d060">🌿 PURCHASED — enter CO2 bought · updates CO2 reserves</span>
   <span style="color:#6ab0e0">FORECAST RESERVES ✎ — click to override buffer · ✕ to restore</span>
-  <span style="color:#f5a030">⏱ DEPART FLEET — tap fleet size to highlight your buy window &amp; cheapest slots</span>
+  <span style="color:#f5a030">⏱ FLEET CARDS — enter A/C, TYPE &amp; ETA per fleet · MAINT subtracts grounded aircraft</span>
   <span style="color:#23a55a">GREEN price = cheap (≤$500 fuel / ≤$114 CO2)</span>
   <span style="color:#f0b429">AMBER price = moderate</span>
   <span style="color:#3a5a7a">GREY price = expensive — avoid if possible</span>
@@ -741,89 +741,11 @@ document.addEventListener('click',e=>{
   });
 });
 
-// ── DEPARTURES ──
-function getCurrentSlotIndex(){
-  return getGameSlotIndex();
-}
-function fmtUTC(totalMins){
-  const h=Math.floor(((totalMins%1440)+1440)%1440/60);
-  const m=((totalMins%60)+60)%60;
-  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-}
-function clearDepHighlights(){
-  document.querySelectorAll('#tbody tr').forEach(r=>{
-    r.classList.remove('dep-window','dep-window-best');
-    r.style.outline='';
-  });
-}
-function logDep(fleet){
-  clearDepHighlights();
-  const den=getDenmarkNow();
-  const nowMins=den.getUTCHours()*60+den.getUTCMinutes();
-  const startIdx=getCurrentSlotIndex();
-  const el=document.getElementById('depStatus');
-  const rows=document.querySelectorAll('#tbody tr');
-  const today=getDenmarkDay();
-
-  if(fleet==='ALL'){
-    // highlight entire remaining day
-    for(let i=startIdx;i<48;i++){
-      if(rows[i]) rows[i].classList.add('dep-window');
-    }
-    el.textContent=`ALL departed ${fmtUTC(nowMins)} UTC — full day window`;
-  } else {
-    const etaHours=getFleetEta(fleet);
-    const returnMins=nowMins+etaHours*60;
-    const returnIdx=Math.min(Math.floor(returnMins/30),47);
-    const crosses=returnMins>=1440;
-    // highlight window slots
-    const windowSlots=[];
-    if(!crosses){
-      for(let i=startIdx;i<=returnIdx&&i<48;i++){
-        if(rows[i]) rows[i].classList.add('dep-window');
-        windowSlots.push({idx:i,price:(S[today]&&S[today][TIMES[i]])?S[today][TIMES[i]][0]:9999});
-      }
-    } else {
-      // wraps midnight — highlight to end of day
-      for(let i=startIdx;i<48;i++){
-        if(rows[i]) rows[i].classList.add('dep-window');
-        windowSlots.push({idx:i,price:(S[today]&&S[today][TIMES[i]])?S[today][TIMES[i]][0]:9999});
-      }
-    }
-    // find top 3 cheapest slots in window and highlight green
-    const sorted=[...windowSlots].sort((a,b)=>a.price-b.price).slice(0,3);
-    sorted.forEach(s=>{
-      if(rows[s.idx]){
-        rows[s.idx].classList.remove('dep-window');
-        rows[s.idx].classList.add('dep-window-best');
-      }
-    });
-    // scroll to start of window
-    if(rows[startIdx]) rows[startIdx].scrollIntoView({behavior:'smooth',block:'center'});
-    const etaLabel=etaHours!==fleet?` (ETA ${etaHours.toFixed(1)}h)`:'';
-    el.textContent=`${fleet}H dep ${fmtUTC(nowMins)} → back ${fmtUTC(returnMins)}${crosses?' (+1d)':''} UTC${etaLabel}`;
-  }
-}
-
-// ── DEPARTURE ETA INPUTS ──
-function parseEta(val){
-  if(!val||!val.trim()) return null;
-  val=val.trim();
-  if(val.includes(':')){
-    const[h,m]=val.split(':').map(Number);
-    if(isNaN(h)) return null;
-    return h+(isNaN(m)?0:m/60);
-  }
-  const n=parseFloat(val);
-  return isNaN(n)?null:n;
-}
-function getFleetEta(fleet){
-  const idMap={21:'eta_21',14:'eta_14',7:'eta_7',3.5:'eta_3_5'};
-  const el=document.getElementById(idMap[fleet]);
-  if(!el) return fleet;
-  const eta=parseEta(el.value);
-  return eta!==null?eta:fleet;
-}
+// NOTE: the old logDep()/getFleetEta() "tap a fleet size to highlight the buy
+// window" workflow was removed here. It is superseded by the fleet cards (data
+// entry) + the optimizer's SUGGESTED BUY column, which surfaces the cheapest
+// slots across the whole day rather than a single tapped window.
+// (Codex PR #54 review — dangling trigger. WO-FUEL-CALC-OPTIMIZER-001.)
 
 function downloadXLSX(period){
   document.getElementById('xlsxMenu').classList.remove('open');
