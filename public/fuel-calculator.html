@@ -22,6 +22,8 @@ body{background:#060f1e;color:#e0e6f0;font-family:Arial,sans-serif;min-height:10
 .btn-pdf{background:#3a5a7a;color:#e0e6f0}
 .btn-png{background:#2a4a6a;color:#e0e6f0}
 .btn-xlsx{background:#1a3a1a;color:#70d070;border:1px solid #3a6a3a}
+.btn-undo{background:#20182a;color:#b090d0;border:1px solid #3a2a50}
+.btn-undo:disabled{opacity:.4;cursor:default}
 .btn-reset{background:#1a2030;color:#5a7a9a;border:1px solid #2a3a50}
 .btn-dep{background:#3a1a0a;color:#f5a030;border:1px solid #6a3a0a;font-size:11px}
 .btn-dep:hover{background:#4a2a0a}
@@ -205,6 +207,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
           <span class="dropdown-item" onclick="downloadXLSX('monthly')">📅 Monthly (Full June)</span>
         </div>
       </div>
+      <button class="btn btn-undo" id="undoBtn" onclick="undoLast()" disabled title="Nothing to undo">↶ UNDO</button>
       <button class="btn btn-reset" onclick="resetAll()">↺ RESET</button>
     </div>
   </div>
@@ -459,11 +462,13 @@ function applyDepartClasses(){
   }
 }
 function toggleDepart(key){
+  pushUndo();
   DEPARTED[key]=(DEPARTED[key]===false)?gameNowHour():false;   // press = depart NOW; press again = recall
   applyDepartClasses();
   saveCards(); recalc();
 }
 function departAll(){
+  pushUndo();
   const anyOff=FLEET_GROUPS.some(g=>DEPARTED[g.key]===false);   // any not departed → depart the rest now; else recall all
   const t=gameNowHour();
   for(const g of FLEET_GROUPS){
@@ -474,12 +479,14 @@ function departAll(){
   saveCards(); recalc();
 }
 function stepMaint(key,d){
+  pushUndo();
   let m=(MAINT[key]||0)+d; if(m<0)m=0;   // cannot go below 0
   MAINT[key]=m;
   const el=document.getElementById('maint_'+key); if(el)el.textContent=m;
   saveCards(); recalc();
 }
 function applyEtaAll(v){
+  pushUndo();
   for(const g of FLEET_GROUPS){ const el=document.getElementById('eta_'+g.key); if(el)el.value=v; }
   saveCards(); recalc();
 }
@@ -490,6 +497,7 @@ function setFourx(on){
 }
 function toggleFourx(){
   const b=document.getElementById('fourxBtn'); if(!b)return;
+  pushUndo();
   setFourx(!b.classList.contains('on'));
   saveCards(); recalc();
 }
@@ -519,6 +527,42 @@ function restoreCards(){
     if(d.etaAll){const ea=document.getElementById('eta_all'); if(ea)ea.value=d.etaAll;}
   }catch(e){}
 }
+// ── UNDO (revert the last change back to the previous entry) ──
+// Every input already auto-saves on each keystroke; undo captures a full snapshot of
+// the saved state at the moment an edit begins and reverts to it on demand. Covers typed
+// fields (reserves, tanks, burn, A/C, ETA, TYPE, game mode) and one-tap actions
+// (MAINT +/-, DEP, 4x, apply-ETA-to-all). In-session, per browser.
+const UNDO_STACK=[]; const UNDO_MAX=80; let _undoFocusSnap=null;
+const UNDO_TANK_IDS=['fuelTank','co2Tank','startRes','startCO2','avgFuelBurn','co2BurnDep'];
+function snapshotState(){
+  saveCards();   // flush current fleet state so the blob is never null (tank-only edits happen before any saveCards)
+  const tanks={}; UNDO_TANK_IDS.forEach(id=>{const e=document.getElementById(id); tanks[id]=e?e.value:'';});
+  return {tanks, fleet: localStorage.getItem('bgl_fleet')||''};
+}
+function updateUndoBtn(){ const b=document.getElementById('undoBtn'); if(!b)return; b.disabled=UNDO_STACK.length===0; b.title=UNDO_STACK.length?('Undo last change — '+UNDO_STACK.length+' step'+(UNDO_STACK.length>1?'s':'')+' back'):'Nothing to undo'; }
+function pushUndo(snap){ UNDO_STACK.push(snap||snapshotState()); if(UNDO_STACK.length>UNDO_MAX)UNDO_STACK.shift(); updateUndoBtn(); }
+function isUndoField(el){ return el&&(el.tagName==='INPUT'||el.tagName==='SELECT')&&el.id&&(UNDO_TANK_IDS.includes(el.id)||/^(cnt_|eta_|type_)/.test(el.id)||el.id==='gameMode'); }
+function undoFocusIn(e){ if(isUndoField(e.target)) _undoFocusSnap={id:e.target.id, before:e.target.value, state:snapshotState()}; }
+function undoCommit(e){
+  if(_undoFocusSnap && isUndoField(e.target) && e.target.id===_undoFocusSnap.id && e.target.value!==_undoFocusSnap.before){
+    pushUndo(_undoFocusSnap.state);
+  }
+  if(isUndoField(e.target)) _undoFocusSnap=null;
+}
+function restoreState(s){
+  UNDO_TANK_IDS.forEach(id=>{const e=document.getElementById(id); if(e)e.value=(s.tanks&&s.tanks[id]!=null)?s.tanks[id]:''; saveTank(id);});
+  // blank card fields first so a revert to an empty prior value actually clears them
+  for(const g of FLEET_GROUPS){ ['cnt_','eta_','type_'].forEach(p=>{const el=document.getElementById(p+g.key); if(el)el.value='';}); }
+  if(s.fleet){ localStorage.setItem('bgl_fleet',s.fleet); restoreCards(); }
+  else{ // no fleet blob → reset in-memory fleet state to defaults too, not just localStorage
+    try{localStorage.removeItem('bgl_fleet');}catch(_){}
+    for(const k in MAINT){ MAINT[k]=0; const el=document.getElementById('maint_'+k); if(el)el.textContent=0; }
+    for(const k in DEPARTED){ DEPARTED[k]=false; }
+    applyDepartClasses();
+  }
+  recalc();
+}
+function undoLast(){ if(!UNDO_STACK.length)return; const s=UNDO_STACK.pop(); restoreState(s); updateUndoBtn(); }
 // Populate the calculator from a registered player's stored profile (server-injected
 // on their ?did link, synced from n8n). Tank capacity, reserves and per-bucket fleet
 // (A/C + aircraft type) come from the profile; ETA stays manual (it's the real-time
@@ -1063,6 +1107,9 @@ async function init(){
     else console.error('[FUEL] Schedule fetch failed:',r.status);
   }catch(e){console.error('[FUEL] Schedule fetch error:',e);}
   buildFleetCards();
+  // Undo tracking: snapshot on focus, record on commit (delegated so it survives card rebuilds).
+  document.addEventListener('focusin',undoFocusIn,true);
+  document.addEventListener('change',undoCommit,true);
   // Population priority: (1) ?seed= link — a base64 profile in the URL, prefills the
   // fleet + per-fleet burn and persists it (a self-contained way to load a profile
   // without any server/n8n round-trip; n8n can generate these links per player);
