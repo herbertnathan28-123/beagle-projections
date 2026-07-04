@@ -503,6 +503,38 @@ function restoreCards(){
     if(d.etaAll){const ea=document.getElementById('eta_all'); if(ea)ea.value=d.etaAll;}
   }catch(e){}
 }
+// Populate the calculator from a registered player's stored profile (server-injected
+// on their ?did link, synced from n8n). Tank capacity, reserves and per-bucket fleet
+// (A/C + aircraft type) come from the profile; ETA stays manual (it's the real-time
+// sequencing signal, sharpened when the player taps DEP).
+function populateFromProfile(p){
+  try{
+    if(!p) return;
+    const set=(id,v)=>{const e=document.getElementById(id); if(e && v!=null && v!=='') e.value=v;};
+    set('fuelTank', p.fuel_tank_capacity);
+    set('co2Tank',  p.co2_tank_capacity);
+    set('startRes', p.fuel_reserves);
+    set('startCO2', p.co2_reserves);
+    set('qacFuelRes', p.fuel_reserves);
+    set('qacCO2Res',  p.co2_reserves);
+    // Map each fleet group to the nearest fixed duration bucket (21 / 14 / 7 / 3.5h),
+    // summing aircraft and keeping the dominant type per bucket.
+    const buckets=[21,14,7,3.5];
+    const agg={};
+    (p.fleet||[]).forEach(f=>{
+      const hrs=parseFloat(f.flight_hours); if(isNaN(hrs)) return;
+      const near=buckets.reduce((a,b)=>Math.abs(b-hrs)<Math.abs(a-hrs)?b:a);
+      const key=(near===3.5)?'3_5':String(near);
+      if(!agg[key]) agg[key]={cnt:0,type:''};
+      agg[key].cnt += parseInt(f.total_aircraft)||0;
+      if(!agg[key].type && f.type) agg[key].type=f.type;
+    });
+    for(const k in agg){
+      if(agg[k].cnt>0) set('cnt_'+k, agg[k].cnt);
+      set('type_'+k, agg[k].type);
+    }
+  }catch(e){ console.error('[FUEL] profile populate error:',e); }
+}
 const PERTH=TIMES.map(t=>{const[h,m]=t.split(':').map(Number),tot=h*60+m+360,ph=Math.floor(tot/60)%24,pm=tot%60;return`${String(ph).padStart(2,'0')}:${String(pm).padStart(2,'0')}${tot>=1440?'+':''}`;});
 
 // ── DYNAMIC PRICE DATA (fetched from server) ──
@@ -937,8 +969,11 @@ async function init(){
     else console.error('[FUEL] Schedule fetch failed:',r.status);
   }catch(e){console.error('[FUEL] Schedule fetch error:',e);}
   buildFleetCards();
-  restoreTanks();
-  restoreCards();
+  // Registered player's personal link: the server injects window.__FUEL_PROFILE__
+  // (synced from n8n). Populate from it — it is the source of truth. Otherwise fall
+  // back to this browser's own saved values.
+  if(window.__FUEL_PROFILE__){ populateFromProfile(window.__FUEL_PROFILE__); }
+  else { restoreTanks(); restoreCards(); }
   loadDayPrices(getDenmarkDay());
   recalc();
   highlightNowRow();
