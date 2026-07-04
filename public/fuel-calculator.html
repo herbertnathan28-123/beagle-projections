@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Beagle Global — Fuel & CO2 Calculator</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
@@ -1000,12 +1000,15 @@ function downloadPDF(period){
   doc.save('beagle-fuel-co2-buyplan-'+period+'-'+monTag+'.pdf');
 }
 function downloadPNG(period){
+  document.getElementById('pngMenu').classList.remove('open');
+  if(typeof html2canvas==='undefined'){ alert('PNG export library did not load (check your connection or an ad/privacy blocker, then refresh). PDF export still works.'); return; }
   const b=document.querySelector('.btn-row');b.style.display='none';
   const ds=document.querySelector('.dep-section');ds.style.display='none';
+  const restore=()=>{ b.style.display='flex'; ds.style.display='flex'; };   // always un-hide the toolbar, even on failure
   html2canvas(document.getElementById('app'),{backgroundColor:'#060f1e',scale:2,useCORS:true,scrollY:0,windowHeight:document.getElementById('app').scrollHeight}).then(c=>{
-    b.style.display='flex';ds.style.display='flex';
+    restore();
     const l=document.createElement('a');l.download='beagle-fuel-'+new Date().toISOString().slice(0,10)+(period?'-'+period:'')+'.png';l.href=c.toDataURL('image/png');l.click();
-  });
+  }).catch(e=>{ restore(); console.error('[PNG] export failed:',e); alert('PNG export failed: '+e.message); });
 }
 
 // ── DROPDOWN ──
@@ -1040,10 +1043,11 @@ function downloadXLSX(period){
   else if(period==='weekly'){for(let d=today;d<=Math.min(today+6,daysInMonth);d++)days.push(d);}
   else if(period==='fortnightly'){for(let d=Math.max(1,today-7);d<=Math.min(today+6,daysInMonth);d++)days.push(d);}
   else{for(let d=1;d<=31;d++)days.push(d);}
-  const wb=XLSX.utils.book_new();
+  const label={daily:today+' Jun',weekly:today+'-'+(Math.min(today+6,daysInMonth))+' Jun',fortnightly:(Math.max(1,today-7))+'-'+(Math.min(today+6,daysInMonth))+' Jun',monthly:'Full June'}[period];
+  // Build the data first (library-independent), so we can fall back to CSV if XLSX didn't load.
   const rows=[['DAY','UTC TIME','PERTH TIME','FUEL PRICE ($)','CO2 PRICE ($)','FUEL CHEAP?','CO2 CHEAP?','A/C DEP','FUEL BURN','CO2 BURN']];
   days.forEach(d=>{
-    const dd=S[d];if(!dd)return;
+    const dd=S[String(d)];if(!dd)return;
     slotKeys.forEach((sk,si)=>{
       const pair=dd[sk]||[0,0];const[fp,cp]=pair;
       const h=parseInt(sk),m2=sk.endsWith('30')?30:0,tot=h*60+m2+360,ph=Math.floor(tot/60)%24,pm=tot%60;
@@ -1051,15 +1055,23 @@ function downloadXLSX(period){
       rows.push([d,sk,perth,fp,cp,fp<=499?'✓ CHEAP':'',cp<=114?'✓ CHEAP':cp<=139?'○ MOD':'',DEP_AC[si]||0,BURNS[si]||0,CO2B[si]||0]);
     });
   });
+  const cheap=[['DAY','UTC TIME','PERTH TIME','FUEL PRICE','CO2 PRICE','TYPE']];
+  days.forEach(d=>{const dd=S[String(d)];if(!dd)return;slotKeys.forEach(sk=>{const[fp,cp]=dd[sk]||[0,0];if(fp<=499)cheap.push([d,sk,'',fp,'','⛽ FUEL CHEAP']);if(cp<=114)cheap.push([d,sk,'','',cp,'🌿 CO2 CHEAP']);});});
+  // Fallback: if the XLSX library didn't load, still deliver the data as a CSV (opens in
+  // Excel/Sheets) so the export is never dead.
+  if(typeof XLSX==='undefined'){
+    const esc=v=>{const s=String(v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+    const csv='﻿'+rows.concat([[]],cheap).map(r=>r.map(esc).join(',')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const l=document.createElement('a');l.href=URL.createObjectURL(blob);l.download=`beagle-fuel-co2-${period}-jun2026.csv`;l.click();
+    setTimeout(()=>URL.revokeObjectURL(l.href),1000);
+    return;
+  }
+  const wb=XLSX.utils.book_new();
   const ws=XLSX.utils.aoa_to_sheet(rows);
   ws['!cols']=[{wch:6},{wch:10},{wch:11},{wch:13},{wch:12},{wch:11},{wch:11},{wch:10},{wch:14},{wch:14}];
-  const label={daily:today+' Jun',weekly:today+'-'+(Math.min(today+6,daysInMonth))+' Jun',fortnightly:(Math.max(1,today-7))+'-'+(Math.min(today+6,daysInMonth))+' Jun',monthly:'Full June'}[period];
   XLSX.utils.book_append_sheet(wb,`Schedule ${label}`,ws);
-  // Cheap slots sheet
-  const cheap=[['DAY','UTC TIME','PERTH TIME','FUEL PRICE','CO2 PRICE','TYPE']];
-  days.forEach(d=>{const dd=S[d];if(!dd)return;slotKeys.forEach(sk=>{const[fp,cp]=dd[sk]||[0,0];if(fp<=499)cheap.push([d,sk,'',fp,'','⛽ FUEL CHEAP']);if(cp<=114)cheap.push([d,sk,'','',cp,'🌿 CO2 CHEAP']);});});
-  const ws2=XLSX.utils.aoa_to_sheet(cheap);
-  XLSX.utils.book_append_sheet(wb,'Cheap Slots',ws2);
+  XLSX.utils.book_append_sheet(wb,'Cheap Slots',XLSX.utils.aoa_to_sheet(cheap));
   XLSX.writeFile(wb,`beagle-fuel-co2-${period}-jun2026.xlsx`);
 }
 
