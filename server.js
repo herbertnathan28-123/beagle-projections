@@ -122,6 +122,9 @@ app.get('/fuel-calculator', (req, res, next) => {
     const json = JSON.stringify(fuelProfiles[did]).replace(/</g, '\\u003c');   // prevent </script> breakout
     html = html.replace('</head>', '<script>window.__FUEL_PROFILE__=' + json + ';</script>\n</head>');
     logFuelAccess(did, fuelProfiles[did].discord_name || '', 'calc_view');
+    // Never cache the per-player injected page — a cached copy could serve the wrong
+    // player's profile (or a stale one) to a shared browser.
+    res.set('Cache-Control', 'no-store');
     return res.type('html').send(html);
   } catch (e) {
     console.error('[FUEL-CALC] Profile inject failed:', e.message);
