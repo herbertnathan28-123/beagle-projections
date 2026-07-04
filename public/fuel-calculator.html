@@ -137,6 +137,23 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .finput:disabled{opacity:.55;cursor:default}
 .spd4x-btn{background:#1a2030;border:1px solid #2a3a50;color:#5a7a9a;font-size:10px;font-weight:800;letter-spacing:.4px;padding:4px 10px;border-radius:4px;cursor:pointer;font-family:inherit}
 .spd4x-btn.on{background:#0d2818;border-color:#23a55a;color:#33ff00}
+/* ── STRATEGY BOXES ── */
+.fleet-cards{flex-wrap:wrap}
+.box-ctrl{flex:0 0 100%;display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.box-ctrl .bc-lbl{font-size:10px;font-weight:800;letter-spacing:.8px;color:#c99a3a}
+.box-ctrl .bc-hint{font-size:9px;color:#5a6a7a;margin-left:6px}
+.box-ctrl .mcount{min-width:16px;text-align:center;color:#e0b24a;font-weight:800;font-size:12px}
+.fcard{flex:1 1 190px;max-width:280px;display:flex;flex-direction:column}
+.bhead{display:flex;align-items:center;gap:6px;background:#181206;padding:5px 7px;border-bottom:1px solid #241a08;min-height:28px}
+.ftime{display:flex;align-items:center;gap:2px;color:#f5a030;font-size:11px;font-weight:800}
+.finput.fdur{flex:0 0 46px;width:46px;color:#f5a030;font-weight:800;padding:4px 4px;font-family:inherit;text-align:center}
+.bhead .mnt{background:transparent;border:0;border-bottom:0;padding:0;min-height:0;margin-left:auto;gap:4px;justify-content:flex-end}
+.bhead .mnt .mlbl{color:#c99a3a}
+.xbox{width:18px;height:18px;border:1.5px solid #6a3a3a;background:transparent;border-radius:5px;color:#e07070;font-size:11px;font-weight:700;cursor:pointer;line-height:1;padding:0;flex:0 0 auto}
+.xbox:hover{background:#2a1010}
+.trows .frow{gap:4px}
+.finput.ftype{flex:1 1 auto;font-size:9px;padding:4px 4px}
+.finput.fac{flex:0 0 54px;width:54px;color:#8aa0b8}
 @media(max-width:1100px){.fleet-cards{flex-wrap:wrap}.fcard{flex:1 1 30%}}
 @media print{body{background:#fff;color:#000}.btn-row,.legend{display:none}.header{background:#f5f5f5}.co2-row{display:none!important}}
 /* ── QAC — QUICK ACCESS CALCULATOR (WO-FUEL-QAC-001) ── */
@@ -247,7 +264,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
         <span class="dep-label" style="margin-left:6px">🌿 CO2/AC</span>
         <input class="dep-eta-input" id="co2BurnDep" type="number" placeholder="quotas" style="width:66px" oninput="saveTank('co2BurnDep');recalc()" title="CO2 quotas burned per aircraft per departure event">
       </div>
-      <div class="dep-status" id="depStatus" style="min-width:160px">Enter A/C · TYPE · ETA per fleet — MAINT subtracts from active count</div>
+      <div class="dep-status" id="depStatus" style="min-width:160px">Add a box · set its flight time + aircraft · tap DEP when you launch in-game</div>
     </div>
   </div>
   <div class="fleet-cards" id="fleetCards"></div>
@@ -317,7 +334,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
   <span style="color:#d4c040">FUEL PURCHASED — enter actual amount · cascades reserves down the table</span>
   <span style="color:#90d060">🌿 PURCHASED — enter CO2 bought · updates CO2 reserves</span>
   <span style="color:#6ab0e0">FORECAST RESERVES ✎ — click to override buffer · ✕ to restore</span>
-  <span style="color:#f5a030">⏱ FLEET CARDS — enter A/C, TYPE &amp; ETA per fleet · MAINT subtracts grounded aircraft</span>
+  <span style="color:#f5a030">⏱ STRATEGY BOXES — one flight time each (defaults 24h) · up to 4 aircraft types + A/C · MAINT subtracts grounded aircraft</span>
   <span style="color:#23a55a">GREEN price = cheap (≤$500 fuel / ≤$114 CO2)</span>
   <span style="color:#f0b429">AMBER price = moderate</span>
   <span style="color:#3a5a7a">GREY price = expensive — avoid if possible</span>
@@ -331,17 +348,37 @@ const MIN_FUEL = 15000000, SV = 40000000, MIN_CO2 = 15000000;
 const TIMES=Array.from({length:48},(_,i)=>{const h=Math.floor(i/2),m=(i%2)*30;return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;});
 
 // ── FLEET → DEPARTURE SCHEDULE ENGINE (player-driven; nothing hardcoded) ──
-// Fleet groups are GENERIC duration buckets (never the operator's personal flight
-// times). Each card: player enters A/C count, aircraft TYPE and ETA; MAINT stepper
-// subtracts grounded aircraft. Active A/C = total − MAINT. All start blank.
-const FLEET_GROUPS=[{key:'21',dur:21,label:'21H'},{key:'14',dur:14,label:'14H'},{key:'3_5',dur:3.5,label:'3.5H'}];
-const MAINT={'21':0,'14':0,'3_5':0};   // aircraft in maintenance per bucket
-const DEPARTED={'21':false,'14':false,'3_5':false};   // per-bucket departed toggle (green) vs not (orange)
-// Per-bucket burn rates (fuel & CO2 per aircraft per departure). Populated from a
-// player's profile (weighted across the fleets in that bucket). null → fall back to
-// the global BURN/AC · CO2/AC fields, so manual users are unchanged.
-const BUCKET_FUEL={'21':null,'14':null,'3_5':null};
-const BUCKET_CO2 ={'21':null,'14':null,'3_5':null};
+// STRATEGY BOXES: the player nominates how many flight-time groups ("boxes") they run.
+// Each box is ONE flight time — it DEFAULTS to 24h until the player edits it — and holds
+// UP TO 4 aircraft types, each with its own manual A/C count. Flight times are the
+// PLAYER's own (e.g. Wingfoot's 14h + 4h VIP jets), never a fixed 21/14/3.5 imposed on
+// everyone. A box's active A/C = Σ its type counts − MAINT.
+const MAX_TYPES=4;      // aircraft types per box
+const DEFAULT_DUR=24;   // a fresh box shows 24h until the player changes it
+let BOX_SEQ=0;
+function mkType(){ return {type:'',count:'',fuel:null,co2:null}; }   // fuel/co2 = per-AC burn (from profile) or null → global fallback
+function mkBox(dur){ return {key:'b'+(++BOX_SEQ), dur:(dur!=null?dur:DEFAULT_DUR), maint:0, departed:false, types:[mkType()]}; }
+let BOXES=[mkBox()];
+function boxByKey(k){ return BOXES.find(b=>b.key===k); }
+function optsFor(v){ return '<option value="">— Select —</option>'+AIRCRAFT_TYPES.map(t=>`<option${t===v?' selected':''}>${t}</option>`).join(''); }
+// DOM → model sync: pull the editable fields (flight time, per-type type+count) back into
+// BOXES before any save/recalc. maint/departed live only in the model (button-driven).
+function syncBoxesFromDOM(){
+  for(const b of BOXES){
+    const d=document.getElementById('dur_'+b.key); if(d){ const v=parseFloat(d.value); if(!isNaN(v))b.dur=v; }
+    for(let i=0;i<MAX_TYPES;i++){
+      if(!b.types[i]) b.types[i]=mkType();
+      const ts=document.getElementById('type_'+b.key+'_'+i); if(ts) b.types[i].type=ts.value;
+      const cs=document.getElementById('cnt_'+b.key+'_'+i);  if(cs) b.types[i].count=cs.value;
+    }
+  }
+}
+function boxCount(b){ let s=0; for(const t of b.types) s+=parseInt(t.count)||0; return s; }   // total A/C entered in a box
+function onBoxInput(){ syncBoxesFromDOM(); saveCards(); recalc(); }
+function onTypeChange(key,i){ const b=boxByKey(key); if(b&&b.types[i]){ b.types[i].fuel=null; b.types[i].co2=null; } onBoxInput(); }   // manual type change drops the profile burn → global fallback
+function addBox(){ if(BOXES.length>=16)return; pushUndo(); syncBoxesFromDOM(); BOXES.push(mkBox()); buildFleetCards(); saveCards(); recalc(); }
+function removeBox(){ if(BOXES.length<=1)return; pushUndo(); syncBoxesFromDOM(); BOXES.pop(); buildFleetCards(); saveCards(); recalc(); }
+function removeBoxKey(k){ pushUndo(); syncBoxesFromDOM(); BOXES=BOXES.filter(b=>b.key!==k); if(!BOXES.length)BOXES=[mkBox()]; buildFleetCards(); saveCards(); recalc(); }
 // Aircraft types — mirrors config.AIRCRAFT_BURN_HOUR keys (static page can't require()
 // server config, so kept in sync manually).
 const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300','A330-200','B747-8','B747-8F','B747SP','B787-10','B787-9','B787-8','A350-900ULR','DC-10','MC-21-400','Concorde','A320neo','B737 MAX 8','Spacejet M100'];
@@ -354,8 +391,8 @@ function parseEtaHours(v){ if(!v)return null; v=String(v).trim(); if(v.includes(
 function gv(id){ const e=document.getElementById(id); return e?e.value:''; }
 // Landing/takeoff buffer minutes by total ACTIVE fleet size (WO-002): <500=2, 501-1200=3, >1200=4.
 function bufferMins(totalAc){ return totalAc>1200?4:totalAc>500?3:2; }
-// Active aircraft in a bucket = entered total − in-maintenance (floored at 0).
-function activeCount(key){ return Math.max(0,(parseInt(gv('cnt_'+key))||0)-(MAINT[key]||0)); }
+// Active aircraft in a box = Σ its type counts − in-maintenance (floored at 0).
+function activeCount(b){ return Math.max(0, boxCount(b)-(b.maint||0)); }
 // Effective speed multiplier: Control 1 (game time mode 1/4/24) × Control 2 (4× boost).
 // Independent controls; both apply. cycle = flight duration ÷ this multiplier.
 function speedMult(){
@@ -364,8 +401,8 @@ function speedMult(){
   const fourx=b?b.classList.contains('on'):true;   // default ON
   return mode*(fourx?4:1);
 }
-// Build DEP_AC from fleet groups: a group departs every (duration ÷ multiplier) hours,
-// anchored so it next lands in ETA hours; each departure adds its active count to that slot.
+// Build DEP_AC from the strategy boxes: each box departs every (flight time ÷ multiplier)
+// hours; each departure adds the box's active A/C to that slot and its per-type burn.
 function computeDepartures(){
   DEP_AC=new Array(48).fill(0);
   FUELACC=new Array(48).fill(0);
@@ -375,124 +412,110 @@ function computeDepartures(){
   const gCO2 =parseFloat(gv('co2BurnDep'))||0;    // global fallback CO2/AC
   const now=getGameNow();
   const nowH=now.getUTCHours()+now.getUTCMinutes()/60;   // current game time (UTC), in hours
-  for(const g of FLEET_GROUPS){
-    const cnt=activeCount(g.key); if(cnt<=0)continue;
-    // Per-bucket burn if the profile supplied it, else the global manual fields.
-    const fuelRate=(BUCKET_FUEL[g.key]!=null)?BUCKET_FUEL[g.key]:gFuel;
-    const co2Rate =(BUCKET_CO2[g.key]!=null)?BUCKET_CO2[g.key]:gCO2;
-    const cycle=g.dur/mult;                  // real-time hours between departures
+  for(const b of BOXES){
+    const act=activeCount(b); if(act<=0)continue;
+    const dur=parseFloat(b.dur)||DEFAULT_DUR;
+    const cycle=dur/mult;                    // real-time hours between departures
     if(cycle<=0)continue;
-    // Anchor priority: a DEParted fleet uses the ACTUAL press time (game-hour it was
-    // launched) so the schedule stays in sync with the real in-game departure. If it
-    // hasn't been DEParted, fall back to the manual ETA (planned next landing/takeoff
-    // from now). No timing at all → GENERIC default: schedule this fleet on its own
-    // duration cycle right across the 24h day (anchored at now). That way a profile that
-    // sets A/C counts but no ETA still produces a full forward burn + buy plan — the
-    // player then refines it with a real ETA or a DEP tap. Without this, an un-timed fleet
-    // scheduled nothing, so the reserve line sat flat and NO forward buys were suggested
-    // (the "CO2 depleting with no forward projections" case).
-    const depAt=DEPARTED[g.key];             // false, or game-hour when DEP was pressed
-    const eta=parseEtaHours(gv('eta_'+g.key));
-    let anchor;
-    if(depAt!==false && depAt!=null) anchor=depAt;
-    else if(eta!==null) anchor=nowH+eta;
-    else anchor=nowH;                        // generic 24h schedule until the player sets a real ETA / taps DEP
-    anchor-=Math.floor(anchor/cycle)*cycle;  // earliest departure of this phase in [0,cycle)
+    // Per-departure burn = Σ over the box's types of count × per-type rate (from profile,
+    // else the global BURN/AC · CO2/AC fields). MAINT removes A/C proportionally.
+    const tot=boxCount(b);
+    let fuelPerDep=0, co2PerDep=0;
+    for(const t of b.types){
+      const cnt=parseInt(t.count)||0; if(cnt<=0)continue;
+      fuelPerDep += cnt*((t.fuel!=null)?t.fuel:gFuel);
+      co2PerDep  += cnt*((t.co2 !=null)?t.co2 :gCO2);
+    }
+    if(tot>0 && act<tot){ const f=act/tot; fuelPerDep*=f; co2PerDep*=f; }
+    // Anchor: a DEParted box uses the ACTUAL press time (game-hour it was launched) so the
+    // schedule stays in sync with the real in-game departure. Otherwise GENERIC default —
+    // schedule it on its own cycle across the day (anchored at now), so a box with A/C but
+    // no DEP tap still produces a full forward burn + buy plan (the player refines with DEP).
+    const anchor0=(b.departed!==false && b.departed!=null)?b.departed:nowH;
+    let anchor=anchor0-Math.floor(anchor0/cycle)*cycle;   // earliest departure of this phase in [0,cycle)
     for(let d=anchor; d<24; d+=cycle){
-      const slot=Math.floor(Math.round(d*60)/30);  // round to the minute first — avoids FP drift (e.g. 16.9999… → 17:00 not 16:30)
-      if(slot>=0&&slot<48){ DEP_AC[slot]+=cnt; FUELACC[slot]+=cnt*fuelRate; CO2ACC[slot]+=cnt*co2Rate; }
+      const slot=Math.floor(Math.round(d*60)/30);  // round to the minute first — avoids FP drift
+      if(slot>=0&&slot<48){ DEP_AC[slot]+=act; FUELACC[slot]+=fuelPerDep; CO2ACC[slot]+=co2PerDep; }
     }
   }
 }
-// Burn per slot = active aircraft departing × avg fuel burn/aircraft + buffer burn on top.
+// Burn per slot = per-departure burn × (1 + buffer fraction). CO2 carries no buffer.
 function rebuildBurns(){
   computeDepartures();
-  // Buffer tier is set by TOTAL ACTIVE fleet size (sum of active across all buckets).
-  let totalActive=0; for(const g of FLEET_GROUPS) totalActive+=activeCount(g.key);
+  let totalActive=0; for(const b of BOXES) totalActive+=activeCount(b);   // buffer tier = total active across boxes
   const bufMin=bufferMins(totalActive);
-  // Fuel burn = accumulated per-bucket departure burn × (1 + buffer fraction). For a
-  // single global rate this equals the original ac·avgBurn·(1+bufMin/60). CO2 carries
-  // no buffer, matching the prior model.
   const bufFactor=1+bufMin/60;
   BURNS=FUELACC.map(f=> f? f*bufFactor : 0);
   CO2B =CO2ACC.slice();
-  refreshAllCard(totalActive,bufMin);
+  updateDepStatus(totalActive,bufMin);
 }
-// ALL card is an aggregate summary: combined A/C, total in maintenance, ETA applies to all.
-function refreshAllCard(totalActive,bufMin){
-  let totCnt=0,totM=0;
-  for(const g of FLEET_GROUPS){ totCnt+=parseInt(gv('cnt_'+g.key))||0; totM+=MAINT[g.key]||0; }
-  const a=document.getElementById('acAll'); if(a)a.value=totCnt;
-  const m=document.getElementById('maintAll'); if(m)m.textContent=totM;
-  const st=document.getElementById('depStatus');
-  let depActive=0; for(const g of FLEET_GROUPS) if(DEPARTED[g.key]!==false) depActive+=activeCount(g.key);
-  if(st) st.textContent = totCnt>0
+function updateDepStatus(totalActive,bufMin){
+  const st=document.getElementById('depStatus'); if(!st)return;
+  let depActive=0; for(const b of BOXES) if(b.departed!==false) depActive+=activeCount(b);
+  st.textContent = totalActive>0
     ? `${totalActive.toLocaleString()} active A/C · ${depActive.toLocaleString()} departed · buffer ${bufMin} min`
-    : 'Enter A/C · ETA per fleet · tap DEP when you launch in-game';
+    : 'Add a box · set its flight time + aircraft · tap DEP when you launch in-game';
 }
-// ── FLEET CARDS UI (WO-FUEL-CALC-OPTIMIZER-001) — approved 5-card layout ──
+// ── STRATEGY-BOX FLEET UI ──
+// One card per box: flight-time (h) + MAINT + DEP + remove, then up to 4 TYPE+A/C rows.
+// A leading control lets the player add/remove boxes (nominate how many they run).
 function buildFleetCards(){
   const wrap=document.getElementById('fleetCards'); if(!wrap)return;
-  const opts='<option value="">— Select —</option>'+AIRCRAFT_TYPES.map(t=>`<option>${t}</option>`).join('');
-  let html=`<div class="fcard all">
-    <div class="mnt"><span class="mlbl">MAINT</span><span class="mctl"><span class="mcount" id="maintAll">0</span></span></div>
-    <div class="dur" onclick="departAll()" title="Depart / recall all fleets"><div class="big">DEP ALL</div></div>
-    <div class="frow"><span class="flbl">TYPE</span><select class="finput" disabled><option>— all —</option></select></div>
-    <div class="frow"><span class="flbl">A/C</span><input class="finput" id="acAll" type="text" value="0" readonly title="Combined A/C across all fleets"></div>
-    <div class="frow"><span class="flbl">ETA</span><input class="finput" id="eta_all" type="text" placeholder="00:00" title="Apply one ETA to all fleets" oninput="applyEtaAll(this.value)"></div>
+  let html=`<div class="box-ctrl">
+    <span class="bc-lbl">STRATEGY BOXES</span>
+    <button class="stp" type="button" onclick="removeBox()" title="Remove the last box">–</button>
+    <span class="mcount" id="boxCount">${BOXES.length}</span>
+    <button class="stp" type="button" onclick="addBox()" title="Add a strategy box">+</button>
+    <span class="bc-hint">each box = one flight time · up to 4 aircraft types</span>
   </div>`;
-  for(const g of FLEET_GROUPS){
-    html+=`<div class="fcard" id="fcard_${g.key}">
-      <div class="mnt"><span class="mlbl">MAINT</span><span class="mctl">
-        <button class="stp" type="button" onclick="stepMaint('${g.key}',1)" title="Add aircraft to maintenance">+</button>
-        <span class="mcount" id="maint_${g.key}">0</span>
-        <button class="stp" type="button" onclick="stepMaint('${g.key}',-1)" title="Remove from maintenance">–</button></span></div>
-      <div class="dur" onclick="toggleDepart('${g.key}')" title="Toggle departed (green) / not departed (orange)"><div class="big">DEP ${g.label}</div></div>
-      <div class="frow"><span class="flbl">TYPE</span><select class="finput" id="type_${g.key}" onchange="saveCards();recalc()">${opts}</select></div>
-      <div class="frow"><span class="flbl">A/C</span><input class="finput" id="cnt_${g.key}" type="number" min="0" placeholder="0" oninput="saveCards();recalc()"></div>
-      <div class="frow"><span class="flbl">ETA</span><input class="finput" id="eta_${g.key}" type="text" placeholder="00:00" title="Hours:minutes until this fleet lands" oninput="saveCards();recalc()"></div>
+  for(const b of BOXES){
+    let rows='';
+    for(let i=0;i<MAX_TYPES;i++){
+      const t=b.types[i]||mkType();
+      rows+=`<div class="frow">
+        <select class="finput ftype" id="type_${b.key}_${i}" onchange="onTypeChange('${b.key}',${i})">${optsFor(t.type)}</select>
+        <input class="finput fac" id="cnt_${b.key}_${i}" type="number" min="0" placeholder="A/C" value="${t.count!=null?t.count:''}" oninput="onBoxInput()">
+      </div>`;
+    }
+    html+=`<div class="fcard" id="fcard_${b.key}">
+      <div class="bhead">
+        <span class="ftime"><input class="finput fdur" id="dur_${b.key}" type="number" min="0" step="0.5" value="${b.dur}" oninput="onBoxInput()" title="Flight time (hours) for this box">h</span>
+        <span class="mnt"><span class="mlbl">MAINT</span>
+          <button class="stp" type="button" onclick="stepMaint('${b.key}',1)" title="Add aircraft to maintenance">+</button>
+          <span class="mcount" id="maint_${b.key}">${b.maint||0}</span>
+          <button class="stp" type="button" onclick="stepMaint('${b.key}',-1)" title="Remove from maintenance">–</button></span>
+        <button class="xbox" type="button" onclick="removeBoxKey('${b.key}')" title="Remove this box">✕</button>
+      </div>
+      <div class="dur depbtn" onclick="toggleDepart('${b.key}')" title="Toggle departed (green) / not departed (orange)"><div class="big">DEP</div></div>
+      <div class="trows">${rows}</div>
     </div>`;
   }
   wrap.innerHTML=html;
   applyDepartClasses();
 }
-// Departure toggle. DEPARTED[key] holds either false (not departed → orange) or the
+// Departure toggle. box.departed holds either false (not departed → orange) or the
 // game-time hour at which DEP was pressed (departed → green). That press-time anchors
-// the fleet's schedule to the real in-game departure, keeping the fuel plan in sync.
+// the box's schedule to the real in-game departure, keeping the fuel plan in sync.
 function gameNowHour(){ const n=getGameNow(); return n.getUTCHours()+n.getUTCMinutes()/60; }
 function applyDepartClasses(){
-  for(const g of FLEET_GROUPS){
-    const card=document.getElementById('fcard_'+g.key);
-    if(card) card.classList.toggle('departed',DEPARTED[g.key]!==false);
+  for(const b of BOXES){
+    const card=document.getElementById('fcard_'+b.key);
+    if(card) card.classList.toggle('departed',b.departed!==false);
   }
 }
 function toggleDepart(key){
-  pushUndo();
-  DEPARTED[key]=(DEPARTED[key]===false)?gameNowHour():false;   // press = depart NOW; press again = recall
-  applyDepartClasses();
-  saveCards(); recalc();
-}
-function departAll(){
-  pushUndo();
-  const anyOff=FLEET_GROUPS.some(g=>DEPARTED[g.key]===false);   // any not departed → depart the rest now; else recall all
-  const t=gameNowHour();
-  for(const g of FLEET_GROUPS){
-    if(anyOff){ if(DEPARTED[g.key]===false) DEPARTED[g.key]=t; }  // stamp only not-yet-departed; keep earlier anchors intact
-    else DEPARTED[g.key]=false;                                   // all were departed → recall all
-  }
+  const b=boxByKey(key); if(!b)return;
+  pushUndo(); syncBoxesFromDOM();
+  b.departed=(b.departed===false)?gameNowHour():false;   // press = depart NOW; press again = recall
   applyDepartClasses();
   saveCards(); recalc();
 }
 function stepMaint(key,d){
-  pushUndo();
-  let m=(MAINT[key]||0)+d; if(m<0)m=0;   // cannot go below 0
-  MAINT[key]=m;
+  const b=boxByKey(key); if(!b)return;
+  pushUndo(); syncBoxesFromDOM();
+  let m=(b.maint||0)+d; if(m<0)m=0;   // cannot go below 0
+  b.maint=m;
   const el=document.getElementById('maint_'+key); if(el)el.textContent=m;
-  saveCards(); recalc();
-}
-function applyEtaAll(v){
-  pushUndo();
-  for(const g of FLEET_GROUPS){ const el=document.getElementById('eta_'+g.key); if(el)el.value=v; }
   saveCards(); recalc();
 }
 function setFourx(on){
@@ -526,10 +549,12 @@ const STORE_DID=(function(){
 const LSK=k=>STORE_DID?('bgl_'+STORE_DID+'_'+k):('bgl_'+k);
 function saveCards(){
   try{
-    const cards={};
-    for(const g of FLEET_GROUPS) cards[g.key]={cnt:gv('cnt_'+g.key),eta:gv('eta_'+g.key),type:gv('type_'+g.key)};
+    syncBoxesFromDOM();
     const b=document.getElementById('fourxBtn');
-    localStorage.setItem(LSK('fleet'),JSON.stringify({cards,maint:MAINT,departed:DEPARTED,mode:gv('gameMode'),fourx:b?b.classList.contains('on'):true,etaAll:gv('eta_all')}));
+    localStorage.setItem(LSK('fleet'),JSON.stringify({
+      boxes:BOXES.map(x=>({dur:x.dur,maint:x.maint,departed:x.departed,types:x.types.map(t=>({type:t.type,count:t.count,fuel:t.fuel,co2:t.co2}))})),
+      mode:gv('gameMode'), fourx:b?b.classList.contains('on'):true
+    }));
   }catch(e){}
 }
 function restoreCards(){
@@ -538,14 +563,31 @@ function restoreCards(){
     const d=JSON.parse(raw);
     if(d.mode){const gm=document.getElementById('gameMode'); if(gm)gm.value=d.mode;}
     if(typeof d.fourx==='boolean') setFourx(d.fourx);
-    if(d.cards) for(const g of FLEET_GROUPS){ const c=d.cards[g.key]; if(!c)continue;
-      const cnt=document.getElementById('cnt_'+g.key); if(cnt&&c.cnt)cnt.value=c.cnt;
-      const eta=document.getElementById('eta_'+g.key); if(eta&&c.eta)eta.value=c.eta;
-      const ty=document.getElementById('type_'+g.key); if(ty&&c.type)ty.value=c.type; }
-    if(d.maint) for(const k in MAINT){ MAINT[k]=parseInt(d.maint[k])||0; const el=document.getElementById('maint_'+k); if(el)el.textContent=MAINT[k]; }
-    if(d.departed) for(const k in DEPARTED){ const v=d.departed[k]; DEPARTED[k]=(typeof v==='number')?v:false; }
-    applyDepartClasses();
-    if(d.etaAll){const ea=document.getElementById('eta_all'); if(ea)ea.value=d.etaAll;}
+    if(Array.isArray(d.boxes) && d.boxes.length){
+      BOX_SEQ=0;
+      BOXES=d.boxes.map(x=>({
+        key:'b'+(++BOX_SEQ),
+        dur:(x.dur!=null?x.dur:DEFAULT_DUR),
+        maint:parseInt(x.maint)||0,
+        departed:(typeof x.departed==='number')?x.departed:false,
+        types:(Array.isArray(x.types)&&x.types.length?x.types:[mkType()]).slice(0,MAX_TYPES)
+          .map(t=>({type:t.type||'',count:(t.count!=null?t.count:''),fuel:(t.fuel!=null?t.fuel:null),co2:(t.co2!=null?t.co2:null)}))
+      }));
+      buildFleetCards();
+    } else if(d.cards){
+      // Migrate the old fixed 21/14/3.5 layout → one box per non-empty bucket.
+      const durMap={'21':21,'14':14,'7':7,'3_5':3.5};
+      BOX_SEQ=0; BOXES=[];
+      for(const k in d.cards){ const c=d.cards[k]; if(!c)continue;
+        const cnt=parseInt(c.cnt)||0; if(cnt<=0 && !c.type)continue;
+        BOXES.push({key:'b'+(++BOX_SEQ),dur:(durMap[k]||DEFAULT_DUR),
+          maint:(d.maint&&parseInt(d.maint[k]))||0,
+          departed:(d.departed&&typeof d.departed[k]==='number')?d.departed[k]:false,
+          types:[{type:c.type||'',count:(c.cnt||''),fuel:null,co2:null}]});
+      }
+      if(!BOXES.length)BOXES=[mkBox()];
+      buildFleetCards();
+    }
   }catch(e){}
 }
 // ── UNDO (revert the last change back to the previous entry) ──
@@ -562,7 +604,7 @@ function snapshotState(){
 }
 function updateUndoBtn(){ const b=document.getElementById('undoBtn'); if(!b)return; b.disabled=UNDO_STACK.length===0; b.title=UNDO_STACK.length?('Undo last change — '+UNDO_STACK.length+' step'+(UNDO_STACK.length>1?'s':'')+' back'):'Nothing to undo'; }
 function pushUndo(snap){ UNDO_STACK.push(snap||snapshotState()); if(UNDO_STACK.length>UNDO_MAX)UNDO_STACK.shift(); updateUndoBtn(); }
-function isUndoField(el){ return el&&(el.tagName==='INPUT'||el.tagName==='SELECT')&&el.id&&(UNDO_TANK_IDS.includes(el.id)||/^(cnt_|eta_|type_)/.test(el.id)||el.id==='gameMode'); }
+function isUndoField(el){ return el&&(el.tagName==='INPUT'||el.tagName==='SELECT')&&el.id&&(UNDO_TANK_IDS.includes(el.id)||/^(cnt_|type_|dur_)/.test(el.id)||el.id==='gameMode'); }
 function undoFocusIn(e){ if(isUndoField(e.target)) _undoFocusSnap={id:e.target.id, before:e.target.value, state:snapshotState()}; }
 function undoCommit(e){
   if(_undoFocusSnap && isUndoField(e.target) && e.target.id===_undoFocusSnap.id && e.target.value!==_undoFocusSnap.before){
@@ -572,22 +614,19 @@ function undoCommit(e){
 }
 function restoreState(s){
   UNDO_TANK_IDS.forEach(id=>{const e=document.getElementById(id); if(e)e.value=(s.tanks&&s.tanks[id]!=null)?s.tanks[id]:''; saveTank(id);});
-  // blank card fields first so a revert to an empty prior value actually clears them
-  for(const g of FLEET_GROUPS){ ['cnt_','eta_','type_'].forEach(p=>{const el=document.getElementById(p+g.key); if(el)el.value='';}); }
   if(s.fleet){ localStorage.setItem(LSK('fleet'),s.fleet); restoreCards(); }
-  else{ // no fleet blob → reset in-memory fleet state to defaults too, not just localStorage
+  else{ // no fleet blob → reset boxes to a single blank 24h box
     try{localStorage.removeItem(LSK('fleet'));}catch(_){}
-    for(const k in MAINT){ MAINT[k]=0; const el=document.getElementById('maint_'+k); if(el)el.textContent=0; }
-    for(const k in DEPARTED){ DEPARTED[k]=false; }
-    applyDepartClasses();
+    BOX_SEQ=0; BOXES=[mkBox()]; buildFleetCards();
   }
   recalc();
 }
 function undoLast(){ if(!UNDO_STACK.length)return; const s=UNDO_STACK.pop(); restoreState(s); updateUndoBtn(); }
 // Populate the calculator from a registered player's stored profile (server-injected
-// on their ?did link, synced from n8n). Tank capacity, reserves and per-bucket fleet
-// (A/C + aircraft type) come from the profile; ETA stays manual (it's the real-time
-// sequencing signal, sharpened when the player taps DEP).
+// on their ?did link, synced from n8n). Tank capacity, reserves and the player's OWN
+// flight-time groups become strategy boxes — one box per distinct flight time (e.g.
+// Wingfoot's 14h + 4h), each holding up to 4 aircraft types with their real A/C counts
+// and per-type burn. NOTHING is bucketed into a fixed 21/14/3.5 any more.
 function populateFromProfile(p){
   try{
     if(!p) return;
@@ -598,41 +637,41 @@ function populateFromProfile(p){
     set('startCO2', p.co2_reserves);
     set('qacFuelRes', p.fuel_reserves);
     set('qacCO2Res',  p.co2_reserves);
-    // Map each fleet entry to the nearest fixed duration bucket (21 / 14 / 7 / 3.5h).
-    // A bucket may hold several types (e.g. three at 14H): sum aircraft, take the
-    // biggest as the shown type, and compute an aircraft-weighted burn per bucket so
-    // per-slot burn is correct even when types are mixed. Accepts both the new shape
+    // Group fleet entries by the player's OWN flight time. Accepts the new shape
     // ({count, duration, fuel_per_ac, co2_per_ac}), the old registration shape
-    // ({total_aircraft, flight_hours}), and the n8n/Render sync shape which labels the
-    // duration as dep_group ("14h" / "21h" / "3h"). Without the dep_group fallback a
-    // synced ?did profile set the tanks but the fleet silently stayed empty.
-    const buckets=[21,14,3.5];
-    const agg={};
-    let gF=0,gFn=0,gC=0,gCn=0;   // fleet-wide weighted-avg accumulators (for the global fields)
+    // ({total_aircraft, flight_hours}), and the n8n/Render sync shape ({dep_group:"14h"}).
+    const groups=new Map();
+    let gF=0,gFn=0,gC=0,gCn=0;   // fleet-wide weighted-avg accumulators (global fallback fields)
     (p.fleet||[]).forEach(f=>{
       let hrs=parseFloat(f.duration!=null?f.duration:f.flight_hours);
       if(isNaN(hrs) && f.dep_group!=null) hrs=parseFloat(String(f.dep_group));   // "14h" -> 14
-      if(isNaN(hrs)) return;
+      if(isNaN(hrs)) hrs=DEFAULT_DUR;   // unknown flight time → generic 24h; player edits
       const cnt=parseInt(f.count!=null?f.count:f.total_aircraft)||0; if(cnt<=0) return;
-      const near=buckets.reduce((a,b)=>Math.abs(b-hrs)<Math.abs(a-hrs)?b:a);
-      const key=(near===3.5)?'3_5':String(near);
-      if(!agg[key]) agg[key]={cnt:0,type:'',topCnt:0,fSum:0,fN:0,cSum:0,cN:0};
-      const a=agg[key];
-      a.cnt+=cnt;
-      if(cnt>a.topCnt){ a.topCnt=cnt; if(f.type) a.type=f.type; }
+      const key=String(Math.round(hrs*100)/100);
+      if(!groups.has(key)) groups.set(key,{dur:hrs,types:[]});
       const fpa=parseFloat(f.fuel_per_ac), cpa=parseFloat(f.co2_per_ac);
-      if(!isNaN(fpa)){ a.fSum+=cnt*fpa; a.fN+=cnt; gF+=cnt*fpa; gFn+=cnt; }
-      if(!isNaN(cpa)){ a.cSum+=cnt*cpa; a.cN+=cnt; gC+=cnt*cpa; gCn+=cnt; }   // skips "pending"/non-numeric
+      groups.get(key).types.push({type:f.type||'',count:cnt,fuel:isNaN(fpa)?null:fpa,co2:isNaN(cpa)?null:cpa});
+      if(!isNaN(fpa)){ gF+=cnt*fpa; gFn+=cnt; }
+      if(!isNaN(cpa)){ gC+=cnt*cpa; gCn+=cnt; }
     });
-    for(const k in agg){
-      const a=agg[k];
-      if(a.cnt>0) set('cnt_'+k, a.cnt);
-      set('type_'+k, a.type);
-      BUCKET_FUEL[k]=a.fN>0?Math.round(a.fSum/a.fN):null;
-      BUCKET_CO2[k] =a.cN>0?Math.round(a.cSum/a.cN):null;
+    BOX_SEQ=0; BOXES=[];
+    // Longest flight time first (matches the old 21→3.5 top-down order).
+    const keys=[...groups.keys()].sort((a,b)=>groups.get(b).dur-groups.get(a).dur);
+    for(const k of keys){
+      const g=groups.get(k);
+      g.types.sort((a,b)=>b.count-a.count);   // biggest fleet first within the box
+      let types=g.types.slice(0,MAX_TYPES);
+      if(g.types.length>MAX_TYPES){   // >4 types → fold the surplus counts into the 4th row
+        const extra=g.types.slice(MAX_TYPES).reduce((s,t)=>s+t.count,0);
+        types[MAX_TYPES-1]={...types[MAX_TYPES-1], count:types[MAX_TYPES-1].count+extra};
+      }
+      BOXES.push({key:'b'+(++BOX_SEQ),dur:g.dur,maint:0,departed:false,
+        types:types.map(t=>({type:t.type,count:t.count,fuel:t.fuel,co2:t.co2}))});
     }
-    // Fill the global BURN/AC · CO2/AC fields with the fleet-wide weighted average so
-    // they aren't blank (display + fallback for any bucket with no burn data).
+    if(!BOXES.length) BOXES=[mkBox()];
+    buildFleetCards();
+    // Global BURN/AC · CO2/AC = fleet-wide weighted average (display + fallback for any
+    // type with no per-AC burn in the profile).
     if(gFn>0) set('avgFuelBurn', Math.round(gF/gFn));
     if(gCn>0) set('co2BurnDep',  Math.round(gC/gCn));
   }catch(e){ console.error('[FUEL] profile populate error:',e); }
@@ -958,10 +997,8 @@ function resetAll(){
   co2Purchased=new Array(48).fill(0);co2ResOv=new Array(48).fill(null);co2ResAfterOv=new Array(48).fill(null);
   // Note: fuelTank/co2Tank are deliberately NOT cleared — they hold until overwritten.
   ['startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';saveTank(id);});  // clear values + their saved copies
-  // Clear fleet cards (A/C, ETA, TYPE, MAINT) but keep the persisted tanks.
-  for(const g of FLEET_GROUPS){['cnt_','eta_','type_'].forEach(p=>{const e=document.getElementById(p+g.key);if(e)e.value='';});MAINT[g.key]=0;DEPARTED[g.key]=false;BUCKET_FUEL[g.key]=null;BUCKET_CO2[g.key]=null;const m=document.getElementById('maint_'+g.key);if(m)m.textContent='0';}
-  applyDepartClasses();
-  const ea=document.getElementById('eta_all');if(ea)ea.value='';
+  // Reset strategy boxes to a single blank 24h box (keep the persisted tanks).
+  BOX_SEQ=0; BOXES=[mkBox()]; buildFleetCards();
   const gm=document.getElementById('gameMode');if(gm)gm.value='1';
   setFourx(true);
   try{localStorage.removeItem(LSK('fleet'));}catch(e){}
@@ -1000,7 +1037,7 @@ function downloadPDF(period){
   const fuel=plan(startRes,fuelTank,MIN_FUEL,BURNS,0,fPurchased);
   const co2 =plan(startCO2,co2Tank,MIN_CO2,CO2B,1,co2Purchased);
   const svDrop=((fuel.totCost+co2.totCost)/SV).toFixed(2);
-  const fleetCnt=FLEET_GROUPS.reduce((s,g)=>s+(parseInt(gv('cnt_'+g.key))||0),0);
+  const fleetCnt=BOXES.reduce((s,b)=>s+boxCount(b),0);
 
   const doc=new JS({orientation:'landscape',unit:'pt',format:'a4'});
   doc.setFontSize(15);doc.setTextColor(20,20,20);
