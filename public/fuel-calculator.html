@@ -448,9 +448,12 @@ function toggleDepart(key){
   saveCards(); recalc();
 }
 function departAll(){
-  const anyOff=FLEET_GROUPS.some(g=>DEPARTED[g.key]===false);   // any not departed → depart all now; else recall all
+  const anyOff=FLEET_GROUPS.some(g=>DEPARTED[g.key]===false);   // any not departed → depart the rest now; else recall all
   const t=gameNowHour();
-  for(const g of FLEET_GROUPS) DEPARTED[g.key]=anyOff?t:false;
+  for(const g of FLEET_GROUPS){
+    if(anyOff){ if(DEPARTED[g.key]===false) DEPARTED[g.key]=t; }  // stamp only not-yet-departed; keep earlier anchors intact
+    else DEPARTED[g.key]=false;                                   // all were departed → recall all
+  }
   applyDepartClasses();
   saveCards(); recalc();
 }
