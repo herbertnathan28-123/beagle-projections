@@ -237,8 +237,8 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
     <div class="dep-section" style="flex-direction:column;align-items:flex-start;margin-left:auto">
       <div class="dep-label" style="margin-bottom:4px">⏱ FLEET &amp; DEPARTURES</div>
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
-        <span class="dep-label">GAME TIME</span>
-        <select id="gameMode" class="dep-eta-input" style="width:62px;color:#f5a030;border-color:#6a3a0a" onchange="saveCards();recalc()" title="Control 1 — game time mode (game hours per real hour)">
+        <span class="dep-label">4× DURATION</span>
+        <select id="gameMode" class="dep-eta-input" style="width:62px;color:#f5a030;border-color:#6a3a0a" onchange="saveCards();recalc()" title="Game hours per real hour">
           <option value="1">1 hr</option><option value="4">4 hrs</option><option value="24">24 hrs</option>
         </select>
         <button id="fourxBtn" class="spd4x-btn on" onclick="toggleFourx()" title="Control 2 — 4× speed boost. When ON, all flight durations ÷ 4. Independent of game time mode.">4× SPEED: ON</button>
@@ -334,14 +334,14 @@ const TIMES=Array.from({length:48},(_,i)=>{const h=Math.floor(i/2),m=(i%2)*30;re
 // Fleet groups are GENERIC duration buckets (never the operator's personal flight
 // times). Each card: player enters A/C count, aircraft TYPE and ETA; MAINT stepper
 // subtracts grounded aircraft. Active A/C = total − MAINT. All start blank.
-const FLEET_GROUPS=[{key:'21',dur:21,label:'21H'},{key:'14',dur:14,label:'14H'},{key:'7',dur:7,label:'7H'},{key:'3_5',dur:3.5,label:'3.5H'}];
-const MAINT={'21':0,'14':0,'7':0,'3_5':0};   // aircraft in maintenance per bucket
-const DEPARTED={'21':false,'14':false,'7':false,'3_5':false};   // per-bucket departed toggle (green) vs not (orange)
+const FLEET_GROUPS=[{key:'21',dur:21,label:'21H'},{key:'14',dur:14,label:'14H'},{key:'3_5',dur:3.5,label:'3.5H'}];
+const MAINT={'21':0,'14':0,'3_5':0};   // aircraft in maintenance per bucket
+const DEPARTED={'21':false,'14':false,'3_5':false};   // per-bucket departed toggle (green) vs not (orange)
 // Per-bucket burn rates (fuel & CO2 per aircraft per departure). Populated from a
 // player's profile (weighted across the fleets in that bucket). null → fall back to
 // the global BURN/AC · CO2/AC fields, so manual users are unchanged.
-const BUCKET_FUEL={'21':null,'14':null,'7':null,'3_5':null};
-const BUCKET_CO2 ={'21':null,'14':null,'7':null,'3_5':null};
+const BUCKET_FUEL={'21':null,'14':null,'3_5':null};
+const BUCKET_CO2 ={'21':null,'14':null,'3_5':null};
 // Aircraft types — mirrors config.AIRCRAFT_BURN_HOUR keys (static page can't require()
 // server config, so kept in sync manually).
 const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300','A330-200','B747-8','B747-8F','B747SP','B787-10','B787-9','B787-8','A350-900ULR','DC-10','MC-21-400','Concorde','A320neo','B737 MAX 8','Spacejet M100'];
@@ -601,7 +601,7 @@ function populateFromProfile(p){
     // ({total_aircraft, flight_hours}), and the n8n/Render sync shape which labels the
     // duration as dep_group ("14h" / "21h" / "3h"). Without the dep_group fallback a
     // synced ?did profile set the tanks but the fleet silently stayed empty.
-    const buckets=[21,14,7,3.5];
+    const buckets=[21,14,3.5];
     const agg={};
     let gF=0,gFn=0,gC=0,gCn=0;   // fleet-wide weighted-avg accumulators (for the global fields)
     (p.fleet||[]).forEach(f=>{

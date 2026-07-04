@@ -113,6 +113,10 @@ app.use(express.json());
 // auto-populates. Must run BEFORE express.static, which would otherwise serve the
 // blank fuel-calculator.html directly. No did / no profile → fall through to the
 // static blank page, so nothing is exposed on the bare public URL.
+// Never let the browser (or an edge cache) hold onto this page — a stale copy could show a
+// different player's injected profile, or run pre-fix JS. Applies to BOTH the injected route
+// below and the static-served fallback.
+app.use('/fuel-calculator', (req, res, next) => { res.set('Cache-Control', 'no-store, no-cache, must-revalidate'); next(); });
 app.get('/fuel-calculator', (req, res, next) => {
   const did = String(req.query.did || '').replace(/[^0-9]/g, '');
   if (!did || !fuelProfiles[did]) return next();
