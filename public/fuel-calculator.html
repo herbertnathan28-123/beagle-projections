@@ -616,32 +616,71 @@ const co2ResCol=r=>r<=MIN_CO2?'#e74c3c':r<=MIN_CO2*4?'#f0b429':'#70c060';
 function lasts(res,from,burns){let r=res;for(let i=from+1;i<48;i++){r-=burns[i];if(r<=MIN_FUEL)return((i-from)*.5).toFixed(1)+'h';}return'>24h';}
 
 // ── OPTIMIZATION ──
-function calcSuggested(startRes, tank, minR, burns, prices){
-  const sug=new Array(48).fill(0);
-  for(let iter=0;iter<60;iter++){
-    let res=startRes,path=[];
-    for(let i=0;i<48;i++){res=res-burns[i]+sug[i];path.push(res);}
-    const crit=path.findIndex(r=>r<=minR);
-    if(crit===-1)break;
-    // Bridge-buy slot selection: cheapest priced slot BEFORE the deficit that has
-    // headroom (reserves below tank). The tank-cur>0 test is what correctly skips
-    // early slots where reserves still sit above the tank line and picks the first
-    // drawn-down cheap slot instead (e.g. 15:00 rather than an over-full 10:30).
-    let best=-1,bestP=Infinity,sim=startRes;
-    for(let i=0;i<=crit;i++){const cur=sim-burns[i]+sug[i];if(tank-cur>0&&prices[i]<bestP){bestP=prices[i];best=i;}sim=cur;}
-    if(best===-1)break;
-    // Cover the FULL deficit at that one slot. Do not cap the amount by tank-room:
-    // in live game state reserves routinely exceed the tank-capacity field, so a
-    // room cap here forces the balance into a costlier later slot ($870 instead of
-    // $850) — and for CO2 can suppress the bridge buy entirely.
-    sug[best]+=(minR+1-path[crit]);
+// ── FULL-MONTH OPTIMIZER (WO-FUEL-OPTIMIZER-CORE-DOCTRINE-001) ──
+// One continuous cheapest pathway from the current reserves to end of month — never
+// per day. Capacity-aware: at each slot buy enough to reach the next STRICTLY cheaper
+// slot (so cheap fuel is carried forward past expensive upcoming slots), capped by tank
+// headroom, never dropping below the floor. Linear cost + single store + known demand →
+// this greedy is the globally cheapest plan. Manual purchases are committed into the
+// reserve so the remaining pathway re-optimises around them.
+function monthOptimize(startRes, tank, minR, price, burn, manual){
+  const N=price.length;
+  const sug=new Array(N).fill(0);
+  // Net demand folds committed purchases in as supply: d = burn − manual. So a slot
+  // where the player already bought reduces (or reverses) the demand the optimizer
+  // must still cover — no double-buying, and the plan re-optimises around it.
+  const d=new Array(N); for(let i=0;i<N;i++) d[i]=burn[i]-(manual[i]||0);
+  const pre=new Array(N+1); pre[0]=0;
+  for(let i=0;i<N;i++) pre[i+1]=pre[i]+d[i];           // prefix net-demand
+  const nextCheaper=new Array(N).fill(N);              // next STRICTLY cheaper slot
+  const st=[];
+  for(let i=N-1;i>=0;i--){
+    while(st.length && price[st[st.length-1]]>=price[i]) st.pop();
+    nextCheaper[i]=st.length?st[st.length-1]:N;
+    st.push(i);
   }
-  let sim=startRes;
-  for(let i=0;i<48;i++){
-    sim=sim-burns[i]+sug[i];
-    if(prices[i]<=499){const room=tank-sim;if(room>5000000){let fb=0,nxt=48;for(let j=i+1;j<48;j++){if(sug[j]>0||prices[j]<=499){nxt=j;break;}}for(let j=i+1;j<=Math.min(nxt,47);j++)fb+=burns[j];const tu=Math.max(0,Math.min(fb+minR-sim,room));if(tu>0){sug[i]+=tu;sim+=tu;}}}
+  let reserve=startRes;
+  for(let i=0;i<N;i++){
+    if(isFinite(price[i])){
+      const k=nextCheaper[i];
+      const need=pre[k]-pre[i];                         // net demand from i until the next cheaper slot
+      const want=Math.max(0,(minR+need)-reserve);       // enough to reach k above the floor
+      const cap=Math.max(0,tank-reserve);               // tank headroom
+      const b=Math.min(want,cap);
+      if(b>0){ sug[i]=b; reserve+=b; }
+    }
+    reserve-=d[i];                                       // net: consume burn, credit committed purchase
   }
   return sug;
+}
+// Build the month sequence (current slot → end of month, one repeating daily burn
+// pattern) and run the optimizer once. Returns today's suggestions + full buy rows.
+function monthPathway(startR, tank, minR, dayBurn, priceIdx, manualToday){
+  const den=getGameNow(), today=getGameDay();
+  const daysInMonth=new Date(den.getUTCFullYear(),den.getUTCMonth()+1,0).getDate();
+  const nowSlot=getGameSlotIndex();
+  const price=[],burn=[],manual=[],dayOf=[],slotOf=[];
+  for(let day=today; day<=daysInMonth; day++){
+    const dd=S[String(day)];
+    for(let s=0;s<48;s++){
+      const pastToday=(day===today && s<nowSlot);       // already-passed → not buyable, no burn
+      price.push(pastToday?Infinity:((dd&&dd[TIMES[s]])?dd[TIMES[s]][priceIdx]:Infinity));
+      burn.push(pastToday?0:(dayBurn[s]||0));
+      manual.push(day===today?(manualToday[s]||0):0);
+      dayOf.push(day); slotOf.push(s);
+    }
+  }
+  const sug=monthOptimize(startR,tank,minR,price,burn,manual);
+  let res=startR,totBuy=0,totCost=0,firstNeg='';
+  const rows=[], resByGlobal=new Array(sug.length);
+  for(let i=0;i<sug.length;i++){
+    res+=(manual[i]||0)+sug[i]-burn[i];
+    resByGlobal[i]=res;
+    if(!firstNeg && res<0) firstNeg='Day '+dayOf[i]+' '+TIMES[slotOf[i]];
+    if(sug[i]>0){ const cost=sug[i]*price[i]/1000; totBuy+=sug[i]; totCost+=cost;
+      rows.push({day:dayOf[i],slot:slotOf[i],price:price[i],buy:sug[i],cost,resAfter:res}); }
+  }
+  return {sug:sug.slice(0,48),rows,resByGlobal,totBuy,totCost,endRes:res,firstNeg,today,nowSlot};
 }
 
 // ── MAIN RECALC ──
@@ -651,8 +690,10 @@ function recalc(){
   const fuelTank=parseFloat(document.getElementById('fuelTank').value)||0;
   const startCO2=parseFloat(document.getElementById('startCO2').value)||0;
   const co2Tank=parseFloat(document.getElementById('co2Tank').value)||0;
-  const fSug=calcSuggested(startRes,fuelTank,MIN_FUEL,BURNS,PRICES);
-  const cSug=calcSuggested(startCO2,co2Tank,MIN_CO2,CO2B,CO2P);
+  // Suggested buys come from the full-month optimizer (not per-day). Manual purchases
+  // (fPurchased / co2Purchased) are committed so the remaining pathway re-optimises.
+  const fSug=monthPathway(startRes,fuelTank,MIN_FUEL,BURNS,0,fPurchased).sug;
+  const cSug=monthPathway(startCO2,co2Tank,MIN_CO2,CO2B,1,co2Purchased).sug;
   const tbody=document.getElementById('tbody');
   tbody.innerHTML='';
   let res=startRes,co2Res=startCO2;
@@ -862,34 +903,20 @@ function downloadPDF(period){
   else if(period==='fortnight'){const e=Math.min(today+13,daysInMonth);for(let d=today;d<=e;d++)days.push(d);label='Days '+today+'-'+e;}
   else{for(let d=today;d<=daysInMonth;d++)days.push(d);label='Day '+today+'-'+daysInMonth;}
   if(days.every(d=>!S[String(d)])){alert('No schedule data loaded yet — please try again in a moment.');return;}
-  // Cheapest-path plan: cascade reserves across the period, buying at each day's
-  // optimal slots (calcSuggested) so reserves stay above the floor at least cost.
-  const nowSlot=getGameSlotIndex();   // current game slot — reserves are "as of now"
-  const plan=(startR,tank,minR,burns,idx)=>{
-    let res=startR, totBuy=0, totCost=0, firstNeg='';
-    const rows=[];
-    days.forEach(d=>{
-      const dd=S[String(d)]; if(!dd) return;
-      let dp=TIMES.map(t=>dd[t]?dd[t][idx]:0);
-      let bd=burns;
-      if(d===today){
-        // Reserves are as of NOW: mask already-passed slots (no burn, unbuyable price)
-        // so the plan never recommends a past slot or re-subtracts burn already spent.
-        dp=dp.map((v,i)=>i<nowSlot?Infinity:v);
-        bd=burns.map((v,i)=>i<nowSlot?0:v);
-      }
-      const sug=calcSuggested(res,tank,minR,bd,dp);
-      for(let i=0;i<48;i++){
-        res=res-bd[i]+sug[i];
-        if(!firstNeg && res<0) firstNeg='Day '+d+' '+TIMES[i];
-        if(sug[i]>0){ const cost=sug[i]*dp[i]/1000; totBuy+=sug[i]; totCost+=cost;
-          rows.push([String(d),TIMES[i],'$'+dp[i],fmt(sug[i]),'$'+fmt(Math.round(cost)),fmt(Math.round(res))]); }
-      }
-    });
-    return {rows,totBuy,totCost,endRes:res,firstNeg};
+  // The optimizer ALWAYS plans the full month in one pass (monthPathway); a period
+  // (today / week / fortnight / rest of month) is just a view — we filter its rows.
+  const lastDay=days[days.length-1];
+  const plan=(startR,tank,minR,burns,idx,manualToday)=>{
+    const mp=monthPathway(startR,tank,minR,burns,idx,manualToday);
+    const daySet=new Set(days);
+    let totBuy=0,totCost=0;
+    const rows=mp.rows.filter(r=>daySet.has(r.day)).map(r=>{ totBuy+=r.buy; totCost+=r.cost;
+      return [String(r.day),TIMES[r.slot],'$'+r.price,fmt(r.buy),'$'+fmt(Math.round(r.cost)),fmt(Math.round(r.resAfter))]; });
+    const endRes=mp.resByGlobal[(lastDay-mp.today)*48+47];   // reserve at end of the period
+    return {rows,totBuy,totCost,endRes:(endRes==null?mp.endRes:endRes),firstNeg:mp.firstNeg};
   };
-  const fuel=plan(startRes,fuelTank,MIN_FUEL,BURNS,0);
-  const co2 =plan(startCO2,co2Tank,MIN_CO2,CO2B,1);
+  const fuel=plan(startRes,fuelTank,MIN_FUEL,BURNS,0,fPurchased);
+  const co2 =plan(startCO2,co2Tank,MIN_CO2,CO2B,1,co2Purchased);
   const svDrop=((fuel.totCost+co2.totCost)/SV).toFixed(2);
   const fleetCnt=FLEET_GROUPS.reduce((s,g)=>s+(parseInt(gv('cnt_'+g.key))||0),0);
 
@@ -1017,15 +1044,11 @@ function runQAC(){
   // Optional purchase-amount fields top up the starting reserves (a "what-if" buy now).
   const fuelRes=(parseFloat(gv('qacFuelRes'))||0)+(parseFloat(gv('qacFuelBuy'))||0);
   const co2Res =(parseFloat(gv('qacCO2Res'))||0)+(parseFloat(gv('qacCO2Buy'))||0);
-  // QAC reserves are "as of NOW", but calcSuggested simulates the whole day from
-  // slot 0. Mask out past slots — zero their burn (don't re-spend consumption that
-  // already happened) and make their price unpickable (no buy recommendation in a
-  // slot that has passed) — so the projection starts at the current slot.
-  const nowSlot=getGameSlotIndex();
-  const maskBurn=arr=>arr.map((v,i)=>i<nowSlot?0:v);
-  const maskPrice=arr=>arr.map((v,i)=>i<nowSlot?Infinity:v);
-  const fSug=calcSuggested(fuelRes,fuelTank,MIN_FUEL,maskBurn(BURNS),maskPrice(PRICES));
-  const cSug=calcSuggested(co2Res,co2Tank,MIN_CO2,maskBurn(CO2B),maskPrice(CO2P));
+  // Next buys come from the same full-month optimizer (today's portion), so QAC's
+  // recommendations match the master plan's cross-day pathway.
+  const noManual=new Array(48).fill(0);
+  const fSug=monthPathway(fuelRes,fuelTank,MIN_FUEL,BURNS,0,noManual).sug;
+  const cSug=monthPathway(co2Res,co2Tank,MIN_CO2,CO2B,1,noManual).sug;
   renderQACBuys('qacFuelBuys',qacRows(fSug,PRICES),false,'lbs');
   renderQACBuys('qacCO2Buys',qacRows(cSug,CO2P),true,'quotas');
 }
