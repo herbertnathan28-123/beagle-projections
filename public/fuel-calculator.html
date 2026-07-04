@@ -311,7 +311,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 <table id="ftbl">
   <thead><tr>
     <th class="c" style="width:16px"></th>
-    <th class="c">DEN</th><th class="c">PERTH</th><th class="c">PRICE</th>
+    <th class="c">DEN</th><th class="c" id="localColHead">PERTH</th><th class="c">PRICE</th>
     <th class="c">A/C</th><th>DEP BURN</th>
     <th class="sug" style="color:#5a8aba;white-space:normal;max-width:70px">FORECAST<br>RESERVES ✎</th>
     <th>RES AFTER DEP</th>
@@ -658,6 +658,7 @@ function undoLast(){ if(!UNDO_STACK.length)return; const s=UNDO_STACK.pop(); res
 function populateFromProfile(p){
   try{
     if(!p) return;
+    if(p.timezone) applyLocalTZ(p.timezone);   // second clock column → this player's local time
     const set=(id,v)=>{const e=document.getElementById(id); if(e && v!=null && v!=='') e.value=v;};
     set('fuelTank', p.fuel_tank_capacity);
     set('co2Tank',  p.co2_tank_capacity);
@@ -704,7 +705,37 @@ function populateFromProfile(p){
     if(gCn>0) set('co2BurnDep',  Math.round(gC/gCn));
   }catch(e){ console.error('[FUEL] profile populate error:',e); }
 }
-const PERTH=TIMES.map(t=>{const[h,m]=t.split(':').map(Number),tot=h*60+m+360,ph=Math.floor(tot/60)%24,pm=tot%60;return`${String(ph).padStart(2,'0')}:${String(pm).padStart(2,'0')}${tot>=1440?'+':''}`;});
+// Second clock column = the PLAYER's local time. The DEN column is Denmark game time
+// (UTC+2 in summer); the local column is offset from it by (player UTC offset − 2h). A
+// registered player's profile carries their timezone (e.g. "UTC-5" for Wingfoot in
+// Central time), which overrides the default Perth (+6h) column on load.
+const DENMARK_OFFSET_MIN=120;   // DEN column ≈ Denmark summer time (UTC+2)
+let LOCAL_OFFSET_MIN=360;       // minutes added to DEN for the local column (default +6h = Perth)
+let LOCAL_LABEL='PERTH';
+function parseTZOffsetMin(tz){
+  if(!tz) return null;
+  const m=String(tz).match(/UTC\s*([+-]?\d{1,2})(?::?(\d{2}))?/i);
+  if(!m) return null;
+  const h=parseInt(m[1],10)||0, mm=m[2]?parseInt(m[2],10):0;
+  return h*60 + (h<0?-mm:mm);
+}
+function buildLocalCol(){
+  return TIMES.map(t=>{const[h,m]=t.split(':').map(Number); let tot=h*60+m+LOCAL_OFFSET_MIN; let d='';
+    while(tot>=1440){tot-=1440;d='+';} while(tot<0){tot+=1440;d='−';}
+    const ph=Math.floor(tot/60)%24,pm=tot%60;
+    return String(ph).padStart(2,'0')+':'+String(pm).padStart(2,'0')+d;});
+}
+let PERTH=buildLocalCol();
+// Apply a player's timezone to the local column + header. Falls back to the default (Perth)
+// when the profile has no usable timezone.
+function applyLocalTZ(tz){
+  const off=parseTZOffsetMin(tz);
+  if(off==null) return;
+  LOCAL_OFFSET_MIN=off-DENMARK_OFFSET_MIN;
+  LOCAL_LABEL=String(tz).toUpperCase();
+  PERTH=buildLocalCol();
+  const th=document.getElementById('localColHead'); if(th)th.textContent=LOCAL_LABEL;
+}
 
 // ── DYNAMIC PRICE DATA (fetched from server) ──
 let S = {};           // full month schedule — populated from /api/fuel-schedule
