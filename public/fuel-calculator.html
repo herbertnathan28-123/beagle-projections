@@ -745,23 +745,36 @@ function recalc(){
   let totCO2Bought=0,totCO2Cost=0,lastCO2Res=startCO2;
   let firstFuelNeg=-1,firstCO2Neg=-1;   // first slot where reserves go negative
 
+  const nowSlot=getGameSlotIndex();
   for(let i=0;i<48;i++){
     if(resOv[i]!==null)res=resOv[i];
     if(co2ResOv[i]!==null)co2Res=co2ResOv[i];
-    const burn=BURNS[i],resBefore=res,afterBurn=res-burn;
+    // The header reserve is the player's reserve RIGHT NOW, so the forecast starts at the
+    // current slot: past slots are done — no burn, no buys — leaving the reserve parked at
+    // the entered value until now, then drawing down forward. Mirrors the optimizer, which
+    // masks past slots too. Without this the reserve burned down from 00:00 and the player
+    // had to re-pin their current reserve on the NOW row by hand.
+    const past=i<nowSlot;
+    const burn=past?0:BURNS[i],resBefore=res,afterBurn=res-burn;
     const maxBuy=Math.max(0,fuelTank-Math.max(0,afterBurn));
     const bought=Math.min(fPurchased[i]||0,maxBuy);
     const overLimit=(fPurchased[i]||0)>maxBuy&&(fPurchased[i]||0)>0;
-    const afterPurchase=afterBurn+bought;
+    // FORECAST RESERVES follows the plan: apply the optimizer's suggested buy at slots
+    // where the player hasn't entered a manual purchase. Without this the reserve line
+    // draws down as if nothing was bought and shows a false shortfall right next to a
+    // suggested buy that would have prevented it.
+    const planBuy=past?0:((fPurchased[i]||0)>0?bought:fSug[i]);
+    const afterPurchase=afterBurn+planBuy;
     const cost=bought*PRICES[i]/1000,sv=cost/SV;
     const surplus=afterPurchase-MIN_FUEL;
     totBought+=bought;totCost+=cost;totSV+=sv;lastRes=afterPurchase;res=afterPurchase;
     // CO2
-    const co2Burn=CO2B[i],co2Before=co2Res,co2AfterBurn=co2Res-co2Burn;
+    const co2Burn=past?0:CO2B[i],co2Before=co2Res,co2AfterBurn=co2Res-co2Burn;
     const co2MaxBuy=Math.max(0,co2Tank-Math.max(0,co2AfterBurn));
     const co2Bought=Math.min(co2Purchased[i]||0,co2MaxBuy);
     const co2OverLimit=(co2Purchased[i]||0)>co2MaxBuy&&(co2Purchased[i]||0)>0;
-    const co2AfterPurchase=co2AfterBurn+co2Bought;
+    const co2PlanBuy=past?0:((co2Purchased[i]||0)>0?co2Bought:cSug[i]);   // CO2 forecast follows the plan too
+    const co2AfterPurchase=co2AfterBurn+co2PlanBuy;
     const co2Cost=co2Bought*CO2P[i]/1000;
     const co2Final=co2ResAfterOv[i]!==null?co2ResAfterOv[i]:co2AfterPurchase;
     const isCO2ResOv=co2ResAfterOv[i]!==null;
@@ -1062,7 +1075,16 @@ function toggleQAC(){
 function openQAC(){
   const w=document.getElementById('qacWrap');
   if(w && !w.classList.contains('open')) toggleQAC();
+  qacSyncReserves();
   document.getElementById('qacPanel').scrollIntoView({behavior:'smooth',block:'center'});
+}
+// Mirror the header reserves into the QAC so the player doesn't re-type them. Only fills
+// blanks — anything the player typed into the QAC (an off-plan "current" figure) is kept.
+function qacSyncReserves(){
+  const f=document.getElementById('qacFuelRes'), c=document.getElementById('qacCO2Res');
+  const sr=gv('startRes'), sc=gv('startCO2');
+  if(f && !f.value && sr) f.value=sr;
+  if(c && !c.value && sc) c.value=sc;
 }
 // QAC is a RESCUE calculator, not a price finder. It reads the master optimizer's
 // full-month pathway (mp.rows — the scheduled buy checkpoints), takes the next up to 3
@@ -1099,8 +1121,8 @@ function runQAC(){
   const fuelTank=parseFloat(gv('fuelTank'))||0;
   const co2Tank =parseFloat(gv('co2Tank'))||0;
   // Optional purchase-amount fields top up the starting reserves (a "what-if" buy now).
-  const fuelRes=(parseFloat(gv('qacFuelRes'))||0)+(parseFloat(gv('qacFuelBuy'))||0);
-  const co2Res =(parseFloat(gv('qacCO2Res'))||0)+(parseFloat(gv('qacCO2Buy'))||0);
+  const fuelRes=(parseFloat(gv('qacFuelRes'))||parseFloat(gv('startRes'))||0)+(parseFloat(gv('qacFuelBuy'))||0);
+  const co2Res =(parseFloat(gv('qacCO2Res'))||parseFloat(gv('startCO2'))||0)+(parseFloat(gv('qacCO2Buy'))||0);
   // Recompute the full-month pathway from the player's CURRENT reserves — this is the
   // cheapest bridge from where they are now back onto the master plan.
   const noManual=new Array(48).fill(0);
