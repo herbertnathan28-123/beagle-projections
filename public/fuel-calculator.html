@@ -1063,10 +1063,20 @@ async function init(){
     else console.error('[FUEL] Schedule fetch failed:',r.status);
   }catch(e){console.error('[FUEL] Schedule fetch error:',e);}
   buildFleetCards();
-  // Registered player's personal link: the server injects window.__FUEL_PROFILE__
-  // (synced from n8n). Populate from it — it is the source of truth. Otherwise fall
-  // back to this browser's own saved values.
-  if(window.__FUEL_PROFILE__){ populateFromProfile(window.__FUEL_PROFILE__); }
+  // Population priority: (1) ?seed= link — a base64 profile in the URL, prefills the
+  // fleet + per-fleet burn and persists it (a self-contained way to load a profile
+  // without any server/n8n round-trip; n8n can generate these links per player);
+  // (2) server-injected window.__FUEL_PROFILE__ (?did link); (3) this browser's saved
+  // values.
+  const __seed=new URLSearchParams(location.search).get('seed');
+  if(__seed){
+    try{
+      const prof=JSON.parse(decodeURIComponent(escape(atob(__seed.replace(/ /g,'+')))));
+      populateFromProfile(prof);
+      ['fuelTank','co2Tank','startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>saveTank(id));
+      saveCards();
+    }catch(e){ console.error('[FUEL] seed load error:',e); restoreTanks(); restoreCards(); }
+  } else if(window.__FUEL_PROFILE__){ populateFromProfile(window.__FUEL_PROFILE__); }
   else { restoreTanks(); restoreCards(); }
   loadDayPrices(getDenmarkDay());
   recalc();
