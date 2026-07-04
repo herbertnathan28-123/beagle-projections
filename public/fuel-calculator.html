@@ -503,17 +503,33 @@ function toggleFourx(){
 }
 // Player fleet inputs persist per-browser (manual entry, holds until amended). Local
 // to each visitor — nothing baked into the served page, so a fresh visitor sees blanks.
+// localStorage is per-BROWSER, so it must be namespaced per PLAYER — otherwise opening one
+// player's ?did link in a browser that already holds another player's data shows (or worse,
+// overwrites) the wrong player's fleet/reserves. STORE_DID is the current player's Discord ID
+// (from ?did, the injected profile, or a ?seed profile); LSK() prefixes every key with it. No
+// did (plain single-user calculator) → the original global 'bgl_' keys.
+const STORE_DID=(function(){
+  try{
+    const p=new URLSearchParams(location.search);
+    const q=p.get('did'); if(q){const d=q.replace(/[^0-9]/g,''); if(d)return d;}
+    if(window.__FUEL_PROFILE__&&window.__FUEL_PROFILE__.discord_id) return String(window.__FUEL_PROFILE__.discord_id).replace(/[^0-9]/g,'');
+    const s=p.get('seed');
+    if(s){ const prof=JSON.parse(decodeURIComponent(escape(atob(s.replace(/ /g,'+'))))); if(prof&&prof.discord_id) return String(prof.discord_id).replace(/[^0-9]/g,''); }
+  }catch(e){}
+  return '';
+})();
+const LSK=k=>STORE_DID?('bgl_'+STORE_DID+'_'+k):('bgl_'+k);
 function saveCards(){
   try{
     const cards={};
     for(const g of FLEET_GROUPS) cards[g.key]={cnt:gv('cnt_'+g.key),eta:gv('eta_'+g.key),type:gv('type_'+g.key)};
     const b=document.getElementById('fourxBtn');
-    localStorage.setItem('bgl_fleet',JSON.stringify({cards,maint:MAINT,departed:DEPARTED,mode:gv('gameMode'),fourx:b?b.classList.contains('on'):true,etaAll:gv('eta_all')}));
+    localStorage.setItem(LSK('fleet'),JSON.stringify({cards,maint:MAINT,departed:DEPARTED,mode:gv('gameMode'),fourx:b?b.classList.contains('on'):true,etaAll:gv('eta_all')}));
   }catch(e){}
 }
 function restoreCards(){
   try{
-    const raw=localStorage.getItem('bgl_fleet'); if(!raw)return;
+    const raw=localStorage.getItem(LSK('fleet')); if(!raw)return;
     const d=JSON.parse(raw);
     if(d.mode){const gm=document.getElementById('gameMode'); if(gm)gm.value=d.mode;}
     if(typeof d.fourx==='boolean') setFourx(d.fourx);
@@ -537,7 +553,7 @@ const UNDO_TANK_IDS=['fuelTank','co2Tank','startRes','startCO2','avgFuelBurn','c
 function snapshotState(){
   saveCards();   // flush current fleet state so the blob is never null (tank-only edits happen before any saveCards)
   const tanks={}; UNDO_TANK_IDS.forEach(id=>{const e=document.getElementById(id); tanks[id]=e?e.value:'';});
-  return {tanks, fleet: localStorage.getItem('bgl_fleet')||''};
+  return {tanks, fleet: localStorage.getItem(LSK('fleet'))||''};
 }
 function updateUndoBtn(){ const b=document.getElementById('undoBtn'); if(!b)return; b.disabled=UNDO_STACK.length===0; b.title=UNDO_STACK.length?('Undo last change — '+UNDO_STACK.length+' step'+(UNDO_STACK.length>1?'s':'')+' back'):'Nothing to undo'; }
 function pushUndo(snap){ UNDO_STACK.push(snap||snapshotState()); if(UNDO_STACK.length>UNDO_MAX)UNDO_STACK.shift(); updateUndoBtn(); }
@@ -553,9 +569,9 @@ function restoreState(s){
   UNDO_TANK_IDS.forEach(id=>{const e=document.getElementById(id); if(e)e.value=(s.tanks&&s.tanks[id]!=null)?s.tanks[id]:''; saveTank(id);});
   // blank card fields first so a revert to an empty prior value actually clears them
   for(const g of FLEET_GROUPS){ ['cnt_','eta_','type_'].forEach(p=>{const el=document.getElementById(p+g.key); if(el)el.value='';}); }
-  if(s.fleet){ localStorage.setItem('bgl_fleet',s.fleet); restoreCards(); }
+  if(s.fleet){ localStorage.setItem(LSK('fleet'),s.fleet); restoreCards(); }
   else{ // no fleet blob → reset in-memory fleet state to defaults too, not just localStorage
-    try{localStorage.removeItem('bgl_fleet');}catch(_){}
+    try{localStorage.removeItem(LSK('fleet'));}catch(_){}
     for(const k in MAINT){ MAINT[k]=0; const el=document.getElementById('maint_'+k); if(el)el.textContent=0; }
     for(const k in DEPARTED){ DEPARTED[k]=false; }
     applyDepartClasses();
@@ -927,11 +943,11 @@ function clearCO2Reserve(){
 // per-browser so they hold their position across reloads and resets, until the
 // player types a new value. localStorage is local to each visitor; nothing is
 // baked into the served page, so a fresh visitor still sees blank fields.
-function saveTank(id){try{const v=document.getElementById(id).value;if(v==='')localStorage.removeItem('bgl_'+id);else localStorage.setItem('bgl_'+id,v);}catch(e){}}
+function saveTank(id){try{const v=document.getElementById(id).value;if(v==='')localStorage.removeItem(LSK(id));else localStorage.setItem(LSK(id),v);}catch(e){}}
 // Player-entered numbers persist per-browser so they hold across reloads and can be
 // updated manually. Tank capacity, current reserves and burn rates all stick until
 // changed. Local to each browser — a fresh public visitor still sees blank fields.
-function restoreTanks(){try{['fuelTank','co2Tank','startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>{const v=localStorage.getItem('bgl_'+id);if(v!==null&&v!==''){const e=document.getElementById(id);if(e)e.value=v;}});}catch(e){}}
+function restoreTanks(){try{['fuelTank','co2Tank','startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>{const v=localStorage.getItem(LSK(id));if(v!==null&&v!==''){const e=document.getElementById(id);if(e)e.value=v;}});}catch(e){}}
 function resetAll(){
   fPurchased=new Array(48).fill(0);resOv=new Array(48).fill(null);
   co2Purchased=new Array(48).fill(0);co2ResOv=new Array(48).fill(null);co2ResAfterOv=new Array(48).fill(null);
@@ -943,7 +959,7 @@ function resetAll(){
   const ea=document.getElementById('eta_all');if(ea)ea.value='';
   const gm=document.getElementById('gameMode');if(gm)gm.value='1';
   setFourx(true);
-  try{localStorage.removeItem('bgl_fleet');}catch(e){}
+  try{localStorage.removeItem(LSK('fleet'));}catch(e){}
   recalc();
 }
 
@@ -1169,7 +1185,7 @@ async function init(){
   // Reserves are the player's LIVE fuel/CO2 stock — they change every session, so a value
   // this browser previously saved is more current than any profile/seed snapshot. Capture it
   // BEFORE populating so a ?did / ?seed load can't clobber the player's saved reserves.
-  const _savedRes={ startRes:localStorage.getItem('bgl_startRes'), startCO2:localStorage.getItem('bgl_startCO2') };
+  const _savedRes={ startRes:localStorage.getItem(LSK('startRes')), startCO2:localStorage.getItem(LSK('startCO2')) };
   const __seed=new URLSearchParams(location.search).get('seed');
   if(__seed){
     try{
