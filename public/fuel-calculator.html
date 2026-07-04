@@ -237,8 +237,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
     <div class="dep-section" style="flex-direction:column;align-items:flex-start;margin-left:auto">
       <div class="dep-label" style="margin-bottom:4px">⏱ FLEET &amp; DEPARTURES</div>
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
-        <span class="dep-label">GAME TIME</span>
-        <select id="gameMode" class="dep-eta-input" style="width:62px;color:#f5a030;border-color:#6a3a0a" onchange="saveCards();recalc()" title="Control 1 — game time mode (game hours per real hour)">
+        <select id="gameMode" class="dep-eta-input" style="width:62px;color:#f5a030;border-color:#6a3a0a" onchange="saveCards();recalc()" title="Game hours per real hour">
           <option value="1">1 hr</option><option value="4">4 hrs</option><option value="24">24 hrs</option>
         </select>
         <button id="fourxBtn" class="spd4x-btn on" onclick="toggleFourx()" title="Control 2 — 4× speed boost. When ON, all flight durations ÷ 4. Independent of game time mode.">4× SPEED: ON</button>
