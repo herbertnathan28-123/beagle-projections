@@ -110,6 +110,11 @@ app.use(express.json());
 // Static files MUST be served BEFORE all route handlers.
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
+// Root: no index.html lives in /public, so bare "/" would otherwise 404 (and
+// reads as a 502 to uptime monitors hitting during a deploy cutover). Send it to
+// the calculator so the domain root and health pings always resolve cleanly.
+app.get('/', (req, res) => res.redirect(302, '/fuel-calculator'));
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ROUTES — specific routes MUST come before the wildcard app.get('*')
 // ═══════════════════════════════════════════════════════════════════════════
@@ -600,11 +605,30 @@ app.post('/api/maintenance/:discordId', (req, res) => {
 // ── ENROLLMENT CHECK — for generic alert workflow exclusion ────────────────
 // Part 6: n8n generic fuel alert workflow checks this before sending alerts.
 // If enrolled === true, skip the member (they get Stepping Stone DMs instead).
+// Two modes:
+//  - Single-player check:  ?discord_id=<id>        → { discord_id, enrolled }
+//  - Roster (n8n, token):  ?token=<N8N_TOKEN>       → { members:[...], count }
+// n8n polls this on a 30-min schedule with the token (no discord_id), so the
+// token path must return the enrolled roster rather than 400.
 app.get('/api/fuel-enrolled', (req, res) => {
-  const did = String(req.query.discord_id || '');
-  if (!did) return res.status(400).json({ error: 'discord_id required' });
-  const enrolled = !!fuelProfiles[did];
-  res.json({ discord_id: did, enrolled });
+  const did = String(req.query.discord_id || '').replace(/[^0-9]/g, '');
+  if (did) {
+    const enrolled = !!(fuelProfiles[did] && fuelProfiles[did].setup_complete);
+    return res.json({ discord_id: did, enrolled });
+  }
+  if (req.query.token === N8N_TOKEN || req.query.token === SECRET) {
+    const members = [];
+    for (const [key, profile] of Object.entries(fuelProfiles)) {
+      if (!profile || !profile.setup_complete) continue;   // registered players only
+      members.push({
+        discord_id: String(profile.discord_id || key),
+        discord_name: profile.discord_name || '',
+        enrolled: true,
+      });
+    }
+    return res.json({ members, count: members.length });
+  }
+  return res.status(400).json({ error: 'discord_id or valid token required' });
 });
 
 // ── FUEL APPROVED USERS MANAGEMENT ─────────────────────────────────────────
