@@ -385,13 +385,18 @@ function computeDepartures(){
     // Anchor priority: a DEParted fleet uses the ACTUAL press time (game-hour it was
     // launched) so the schedule stays in sync with the real in-game departure. If it
     // hasn't been DEParted, fall back to the manual ETA (planned next landing/takeoff
-    // from now). No timing at all → nothing to schedule.
+    // from now). No timing at all → GENERIC default: schedule this fleet on its own
+    // duration cycle right across the 24h day (anchored at now). That way a profile that
+    // sets A/C counts but no ETA still produces a full forward burn + buy plan — the
+    // player then refines it with a real ETA or a DEP tap. Without this, an un-timed fleet
+    // scheduled nothing, so the reserve line sat flat and NO forward buys were suggested
+    // (the "CO2 depleting with no forward projections" case).
     const depAt=DEPARTED[g.key];             // false, or game-hour when DEP was pressed
     const eta=parseEtaHours(gv('eta_'+g.key));
     let anchor;
     if(depAt!==false && depAt!=null) anchor=depAt;
     else if(eta!==null) anchor=nowH+eta;
-    else continue;
+    else anchor=nowH;                        // generic 24h schedule until the player sets a real ETA / taps DEP
     anchor-=Math.floor(anchor/cycle)*cycle;  // earliest departure of this phase in [0,cycle)
     for(let d=anchor; d<24; d+=cycle){
       const slot=Math.floor(Math.round(d*60)/30);  // round to the minute first — avoids FP drift (e.g. 16.9999… → 17:00 not 16:30)
@@ -1180,12 +1185,7 @@ async function init(){
   // Population priority: (1) ?seed= link — a base64 profile in the URL, prefills the
   // fleet + per-fleet burn and persists it (a self-contained way to load a profile
   // without any server/n8n round-trip; n8n can generate these links per player);
-  // (2) server-injected window.__FUEL_PROFILE__ (?did link); (3) this browser's saved
-  // values.
-  // Reserves are the player's LIVE fuel/CO2 stock — they change every session, so a value
-  // this browser previously saved is more current than any profile/seed snapshot. Capture it
-  // BEFORE populating so a ?did / ?seed load can't clobber the player's saved reserves.
-  const _savedRes={ startRes:localStorage.getItem(LSK('startRes')), startCO2:localStorage.getItem(LSK('startCO2')) };
+  // (2) server-injected window.__FUEL_PROFILE__ (?did link). No injected profile → BLANK.
   const __seed=new URLSearchParams(location.search).get('seed');
   if(__seed){
     try{
@@ -1195,12 +1195,22 @@ async function init(){
       saveCards();
     }catch(e){ console.error('[FUEL] seed load error:',e); restoreTanks(); restoreCards(); }
   } else if(window.__FUEL_PROFILE__){ populateFromProfile(window.__FUEL_PROFILE__); }
-  else { restoreTanks(); restoreCards(); }
-  // A profile/seed sets the reserves on first load, but once this browser has its own saved
-  // reserves those are the player's live figures — restore them so edits persist across reloads.
-  if(__seed || window.__FUEL_PROFILE__){
-    ['startRes','startCO2'].forEach(id=>{ const v=_savedRes[id]; if(v!==null&&v!==''){ const e=document.getElementById(id); if(e)e.value=v; saveTank(id); } });
+  else {
+    // NO profile injected this load and NO ?seed. Historically this branch restored the
+    // browser's saved fleet/tanks — but on a shared/operator device that saved data is the
+    // OPERATOR's strategy, and it was surfacing on the bare /fuel-calculator page and on any
+    // player link whose profile wasn't injected. That is the "every page showed my flight
+    // times" leak. Hard rule now: a page ONLY ever shows data the server injected for that
+    // exact Discord ID (?did) or a ?seed link. Anything else renders BLANK — never restore
+    // this browser's storage on load. (Edits still save per-id and are re-injected by the
+    // server on that player's own link.)
+    /* intentionally blank — no restoreTanks()/restoreCards() */
   }
+  // Reserves come from the server profile (screenshot → n8n → /api/fuel-profile → this link),
+  // which is the authoritative live figure. The profile value populated above stands — we no
+  // longer let this browser's previously-saved reserve override it, which had two failure
+  // modes: a stale/empty local value blanked the operator's real reserves ("my link shows no
+  // reserves"), and a saved value from a shared device leaked onto another id's page.
   loadDayPrices(getDenmarkDay());
   recalc();
   highlightNowRow();
