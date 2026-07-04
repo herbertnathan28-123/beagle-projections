@@ -154,6 +154,17 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .trows .frow{gap:5px;padding:6px 8px}
 .finput.ftype{flex:1 1 auto;font-size:13px;font-weight:700;padding:8px 6px}
 .finput.fac{flex:0 0 62px;width:62px;color:#8aa0b8;font-size:13px;padding:8px 4px}
+.depall-btn{margin-left:10px;background:linear-gradient(180deg,#2a1c08,#180f03);border:1.5px solid #ff9900;color:#ff9900;font-size:11px;font-weight:800;letter-spacing:.5px;padding:5px 12px;border-radius:6px;cursor:pointer;font-family:inherit}
+.depall-btn:hover{filter:brightness(1.2)}
+/* ── DAY NAVIGATOR (visual plan preview) ── */
+.day-nav{display:flex;align-items:center;gap:10px;margin:10px 0 4px;padding:6px 10px;background:#0c1119;border:1px solid #1c2430;border-radius:8px}
+.daynav-btn{width:30px;height:26px;background:#141d2a;border:1px solid #2a3a50;color:#9ab8d8;font-size:13px;font-weight:800;border-radius:6px;cursor:pointer}
+.daynav-btn:hover:not(:disabled){background:#1c2a3c}
+.daynav-btn:disabled{opacity:.35;cursor:default}
+.daynav-lbl{font-size:13px;font-weight:800;letter-spacing:.6px;color:#7ab0d0;min-width:230px}
+.daynav-today{background:#1a2030;border:1px solid #3a5a7a;color:#8ab0d0;font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:inherit}
+.daynav-today:hover{background:#22344a}
+.daynav-ro{font-size:11px;color:#c99a3a;font-style:italic}
 @media(max-width:1100px){.fleet-cards{flex-wrap:wrap}.fcard{flex:1 1 30%}}
 @media print{body{background:#fff;color:#000}.btn-row,.legend{display:none}.header{background:#f5f5f5}.co2-row{display:none!important}}
 /* ── QAC — QUICK ACCESS CALCULATOR (WO-FUEL-QAC-001) ── */
@@ -288,6 +299,13 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
       <div class="qac-col co2"><h4>🌿 CO2 — NEXT 3 PATHWAY CHECKPOINTS</h4><div class="qac-buys" id="qacCO2Buys"><div class="qac-empty">Enter current reserves and press Calculate.</div></div></div>
     </div>
   </div>
+</div>
+<div class="day-nav">
+  <button id="dayNavPrev" class="daynav-btn" type="button" onclick="dayStepView(-1)" title="Previous day">◀</button>
+  <span id="dayNavLbl" class="daynav-lbl">TODAY</span>
+  <button id="dayNavNext" class="daynav-btn" type="button" onclick="dayStepView(1)" title="Next day (preview the plan)">▶</button>
+  <button id="dayNavToday" class="daynav-today" type="button" onclick="dayViewToday()" style="display:none">↩ TODAY</button>
+  <span id="dayNavRO" class="daynav-ro" style="display:none">preview only — buys are entered on today</span>
 </div>
 <div class="table-wrap">
 <table id="ftbl">
@@ -466,6 +484,7 @@ function buildFleetCards(){
     <button class="stp" type="button" onclick="removeBox()" title="Remove the last box">–</button>
     <span class="mcount" id="boxCount">${BOXES.length}</span>
     <button class="stp" type="button" onclick="addBox()" title="Add a strategy box">+</button>
+    <button class="depall-btn" type="button" onclick="departAll()" title="Depart / recall ALL boxes at once">DEP ALL</button>
     <span class="bc-hint">each box = one flight time · up to 4 aircraft types</span>
   </div>`;
   for(const b of BOXES){
@@ -517,6 +536,15 @@ function stepMaint(key,d){
   b.maint=m;
   const el=document.getElementById('maint_'+key); if(el)el.textContent=m;
   saveCards(); recalc();
+}
+// Depart / recall ALL boxes at once. If any box is not departed, stamp the un-departed ones
+// with the current game-hour (keeping earlier anchors intact); if all are departed, recall all.
+function departAll(){
+  pushUndo(); syncBoxesFromDOM();
+  const anyOff=BOXES.some(b=>b.departed===false);
+  const t=gameNowHour();
+  for(const b of BOXES){ if(anyOff){ if(b.departed===false) b.departed=t; } else b.departed=false; }
+  applyDepartClasses(); saveCards(); recalc();
 }
 function setFourx(on){
   const b=document.getElementById('fourxBtn'); if(!b)return;
@@ -712,6 +740,24 @@ function getDenmarkNow() { return getGameNow(); }
 let fPurchased=new Array(48).fill(0), resOv=new Array(48).fill(null);
 let co2Purchased=new Array(48).fill(0), co2ResOv=new Array(48).fill(null);
 let co2ResAfterOv=new Array(48).fill(null);
+// Day the table is showing: 0 = today (live, editable); +n = n days ahead (read-only plan preview).
+let VIEW_OFFSET=0;
+function dayStepView(d){ VIEW_OFFSET=Math.max(0,VIEW_OFFSET+d); recalc(); }
+function dayViewToday(){ VIEW_OFFSET=0; recalc(); }
+function updateDayNav(vDay,today,daysInMonth,isToday){
+  const lbl=document.getElementById('dayNavLbl');
+  if(lbl){
+    const g=getGameNow(); const dt=new Date(Date.UTC(g.getUTCFullYear(),g.getUTCMonth(),vDay));
+    const ds=dt.toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short',timeZone:'UTC'}).toUpperCase();
+    lbl.textContent=(isToday?'TODAY · ':'PREVIEW · ')+'DAY '+vDay+' · '+ds;
+    lbl.style.color=isToday?'#7ab0d0':'#f0b429';
+  }
+  const prev=document.getElementById('dayNavPrev'), next=document.getElementById('dayNavNext'), tdy=document.getElementById('dayNavToday'), ro=document.getElementById('dayNavRO');
+  if(prev)prev.disabled=(vDay<=today);
+  if(next)next.disabled=(vDay>=daysInMonth);
+  if(tdy)tdy.style.display=isToday?'none':'';
+  if(ro)ro.style.display=isToday?'none':'';
+}
 
 // ── HELPERS ──
 const fmt=n=>Math.round(n).toLocaleString();
@@ -788,7 +834,7 @@ function monthPathway(startR, tank, minR, dayBurn, priceIdx, manualToday){
     if(sug[i]>0){ const cost=sug[i]*price[i]/1000; totBuy+=sug[i]; totCost+=cost;
       rows.push({day:dayOf[i],slot:slotOf[i],price:price[i],buy:sug[i],cost,resAfter:res}); }
   }
-  return {sug:sug.slice(0,48),rows,resByGlobal,totBuy,totCost,endRes:res,firstNeg,today,nowSlot};
+  return {sug:sug.slice(0,48),sugAll:sug,rows,resByGlobal,totBuy,totCost,endRes:res,firstNeg,today,nowSlot,daysInMonth};
 }
 
 // ── MAIN RECALC ──
@@ -798,21 +844,40 @@ function recalc(){
   const fuelTank=parseFloat(document.getElementById('fuelTank').value)||0;
   const startCO2=parseFloat(document.getElementById('startCO2').value)||0;
   const co2Tank=parseFloat(document.getElementById('co2Tank').value)||0;
-  // Suggested buys come from the full-month optimizer (not per-day). Manual purchases
-  // (fPurchased / co2Purchased) are committed so the remaining pathway re-optimises.
-  const fSug=monthPathway(startRes,fuelTank,MIN_FUEL,BURNS,0,fPurchased).sug;
-  const cSug=monthPathway(startCO2,co2Tank,MIN_CO2,CO2B,1,co2Purchased).sug;
+  // Full-month optimizer plan (fuel + CO2). TODAY renders live and editable; a FUTURE day
+  // (VIEW_OFFSET>0) renders that day's slice of the SAME plan, read-only — a visual preview
+  // only. The PDF/roadmap export is untouched.
+  const fPlan=monthPathway(startRes,fuelTank,MIN_FUEL,BURNS,0,fPurchased);
+  const cPlan=monthPathway(startCO2,co2Tank,MIN_CO2,CO2B,1,co2Purchased);
+  const today=fPlan.today, daysInMonth=fPlan.daysInMonth;
+  const vDay=Math.max(today,Math.min(today+(VIEW_OFFSET||0),daysInMonth));
+  VIEW_OFFSET=vDay-today;                        // clamp offset into range
+  const isToday=(vDay===today), offset=(vDay-today)*48;
+  updateDayNav(vDay,today,daysInMonth,isToday);
+  // Prices for the viewed day, and the per-slot sources (live arrays today; plan-only future).
+  const dd=S[String(vDay)]||{};
+  const dPRICES=TIMES.map(t=>{const p=dd[t];return p?p[0]:0;});
+  const dCO2P =TIMES.map(t=>{const p=dd[t];return p?p[1]:0;});
+  const fSug=isToday?fPlan.sug:TIMES.map((_,i)=>fPlan.sugAll[offset+i]||0);
+  const cSug=isToday?cPlan.sug:TIMES.map((_,i)=>cPlan.sugAll[offset+i]||0);
+  const fPur=isToday?fPurchased:new Array(48).fill(0);
+  const cPur=isToday?co2Purchased:new Array(48).fill(0);
+  const fResOv=isToday?resOv:new Array(48).fill(null);
+  const cResAfterOvV=isToday?co2ResAfterOv:new Array(48).fill(null);
   const tbody=document.getElementById('tbody');
   tbody.innerHTML='';
-  let res=startRes,co2Res=startCO2;
-  let totBought=0,totCost=0,totSV=0,lastRes=startRes;
-  let totCO2Bought=0,totCO2Cost=0,lastCO2Res=startCO2;
+  // Seed the day's opening reserve: today = the entered reserve; a future day = the plan's
+  // reserve at the end of the previous day.
+  let res=isToday?startRes:(offset>0?(fPlan.resByGlobal[offset-1]||0):startRes);
+  let co2Res=isToday?startCO2:(offset>0?(cPlan.resByGlobal[offset-1]||0):startCO2);
+  let totBought=0,totCost=0,totSV=0,lastRes=res;
+  let totCO2Bought=0,totCO2Cost=0,lastCO2Res=co2Res;
   let firstFuelNeg=-1,firstCO2Neg=-1;   // first slot where reserves go negative
 
-  const nowSlot=getGameSlotIndex();
+  const nowSlot=isToday?getGameSlotIndex():-1;   // future day → nothing is masked as "past"
   for(let i=0;i<48;i++){
-    if(resOv[i]!==null)res=resOv[i];
-    if(co2ResOv[i]!==null)co2Res=co2ResOv[i];
+    if(fResOv[i]!==null)res=fResOv[i];
+    if(isToday&&co2ResOv[i]!==null)co2Res=co2ResOv[i];
     // The header reserve is the player's reserve RIGHT NOW, so the forecast starts at the
     // current slot: past slots are done — no burn, no buys — leaving the reserve parked at
     // the entered value until now, then drawing down forward. Mirrors the optimizer, which
@@ -821,31 +886,31 @@ function recalc(){
     const past=i<nowSlot;
     const burn=past?0:BURNS[i],resBefore=res,afterBurn=res-burn;
     const maxBuy=Math.max(0,fuelTank-Math.max(0,afterBurn));
-    const bought=Math.min(fPurchased[i]||0,maxBuy);
-    const overLimit=(fPurchased[i]||0)>maxBuy&&(fPurchased[i]||0)>0;
+    const bought=Math.min(fPur[i]||0,maxBuy);
+    const overLimit=(fPur[i]||0)>maxBuy&&(fPur[i]||0)>0;
     // FORECAST RESERVES follows the plan: apply the optimizer's suggested buy at slots
     // where the player hasn't entered a manual purchase. Without this the reserve line
     // draws down as if nothing was bought and shows a false shortfall right next to a
     // suggested buy that would have prevented it.
-    const planBuy=past?0:((fPurchased[i]||0)>0?bought:fSug[i]);
+    const planBuy=past?0:((fPur[i]||0)>0?bought:fSug[i]);
     const afterPurchase=afterBurn+planBuy;
-    const cost=bought*PRICES[i]/1000,sv=cost/SV;
+    const cost=bought*dPRICES[i]/1000,sv=cost/SV;
     const surplus=afterPurchase-MIN_FUEL;
     totBought+=bought;totCost+=cost;totSV+=sv;lastRes=afterPurchase;res=afterPurchase;
     // CO2
     const co2Burn=past?0:CO2B[i],co2Before=co2Res,co2AfterBurn=co2Res-co2Burn;
     const co2MaxBuy=Math.max(0,co2Tank-Math.max(0,co2AfterBurn));
-    const co2Bought=Math.min(co2Purchased[i]||0,co2MaxBuy);
-    const co2OverLimit=(co2Purchased[i]||0)>co2MaxBuy&&(co2Purchased[i]||0)>0;
-    const co2PlanBuy=past?0:((co2Purchased[i]||0)>0?co2Bought:cSug[i]);   // CO2 forecast follows the plan too
+    const co2Bought=Math.min(cPur[i]||0,co2MaxBuy);
+    const co2OverLimit=(cPur[i]||0)>co2MaxBuy&&(cPur[i]||0)>0;
+    const co2PlanBuy=past?0:((cPur[i]||0)>0?co2Bought:cSug[i]);   // CO2 forecast follows the plan too
     const co2AfterPurchase=co2AfterBurn+co2PlanBuy;
-    const co2Cost=co2Bought*CO2P[i]/1000;
-    const co2Final=co2ResAfterOv[i]!==null?co2ResAfterOv[i]:co2AfterPurchase;
-    const isCO2ResOv=co2ResAfterOv[i]!==null;
+    const co2Cost=co2Bought*dCO2P[i]/1000;
+    const co2Final=cResAfterOvV[i]!==null?cResAfterOvV[i]:co2AfterPurchase;
+    const isCO2ResOv=cResAfterOvV[i]!==null;
     totCO2Bought+=co2Bought;totCO2Cost+=co2Cost;lastCO2Res=co2Final;co2Res=co2Final;
     if(firstFuelNeg<0&&afterPurchase<0)firstFuelNeg=i;
     if(firstCO2Neg<0&&co2Final<0)firstCO2Neg=i;
-    const hasSug=fSug[i]>0,hasBought=bought>0,isOv=resOv[i]!==null;
+    const hasSug=fSug[i]>0,hasBought=bought>0,isOv=fResOv[i]!==null;
     const crit=afterPurchase<=MIN_FUEL,warn=afterPurchase<=MIN_FUEL*4;
     let rowBg='';
     if(crit)rowBg='bg-crit';else if(warn)rowBg='bg-warn';else if(hasBought)rowBg='bg-bought';else if(hasSug)rowBg='bg-sug';
@@ -862,36 +927,36 @@ function recalc(){
       <td class="ind" style="text-align:center;padding:3px">${hasSug?`<span style="color:${hasBought?'#23a55a':'#2a6040'}">◆</span>`:''}</td>
       <td class="c" style="color:${hasSug?'#70b080':'#5a8aaa'};font-weight:${hasSug?600:400}">${TIMES[i]}</td>
       <td class="c" style="color:#3a6070;font-size:10px">${PERTH[i]}</td>
-      <td class="c"><span style="color:${priceCol(PRICES[i])};font-weight:700;font-size:13px">$${PRICES[i]}</span></td>
+      <td class="c"><span style="color:${priceCol(dPRICES[i])};font-weight:700;font-size:13px">$${dPRICES[i]}</span></td>
       <td class="c" style="color:${DEP_AC[i]?'#8aa0b8':'#2a4060'}">${DEP_AC[i]||'—'}</td>
       <td style="color:${burn?'#906020':'#2a4060'}">${burn?fmt(burn):'—'}</td>
       <td style="padding:2px 4px">
         <span style="display:inline-flex;align-items:center;gap:2px">
-          <input type="number" class="cell-input ${isOv?'ov-active':''}" value="${fmt(resBefore).replace(/,/g,'')}" step="1000000" style="color:${isOv?'#6ab0e0':resCol(resBefore)};width:118px" onchange="setResOv(${i},this.value)">
-          ${isOv?`<button class="clear-btn" onclick="clearResOv(${i})">✕</button>`:''}
+          <input type="number" class="cell-input ${isOv?'ov-active':''}" value="${fmt(resBefore).replace(/,/g,'')}" step="1000000" style="color:${isOv?'#6ab0e0':resCol(resBefore)};width:118px" ${isToday?`onchange="setResOv(${i},this.value)"`:'readonly'}>
+          ${isToday&&isOv?`<button class="clear-btn" onclick="clearResOv(${i})">✕</button>`:''}
         </span>
       </td>
       <td style="color:${resCol(afterBurn)}">${fmt(afterBurn)}</td>
       <td style="color:${hasSug?'#6a9a80':'#2a4060'};font-style:${hasSug?'italic':'normal'};font-weight:${hasSug?600:400}">${fmt(fSug[i])}</td>
       <td style="color:${lc}">${lastsStr}</td>
       <td style="padding:3px 5px;background:#141a0a;border-left:1px solid #2a3a10;border-right:1px solid #2a3a10">
-        <input type="number" class="cell-input buy-input ${hasBought?'has-val':''} ${overLimit?'over-limit':''}" value="${hasBought?(fPurchased[i]||''):''}" placeholder="${fmt(maxBuy)}" min="0" max="${maxBuy}" step="1000000" oninput="setBought(${i},this.value,${maxBuy})">
+        <input type="number" class="cell-input buy-input ${hasBought?'has-val':''} ${overLimit?'over-limit':''}" value="${hasBought?(fPur[i]||''):''}" placeholder="${isToday?fmt(maxBuy):fmt(fSug[i])}" min="0" max="${maxBuy}" step="1000000" ${isToday?`oninput="setBought(${i},this.value,${maxBuy})"`:'readonly'}>
         ${overLimit?`<div class="warn-msg">⚠ Exceeds max ${fmt(maxBuy)} lbs</div>`:''}
       </td>
       <td class="c" style="border-left:3px solid #2a5a2a">
-        <span style="color:${co2Col(CO2P[i])};font-weight:700;font-size:12px">$${CO2P[i]}</span>
+        <span style="color:${co2Col(dCO2P[i])};font-weight:700;font-size:12px">$${dCO2P[i]}</span>
       </td>
       <td class="c" style="color:${cSug[i]>0?'#6a9a80':'#3a5a50'};font-style:${cSug[i]>0?'italic':'normal'}">
         ${cSug[i]>0?fmt(cSug[i]):'—'}
       </td>
       <td style="padding:3px 4px;border-left:1px solid #1a3a1a">
-        <input type="number" class="cell-input co2-buy-input ${co2Bought>0?'has-val':''} ${co2OverLimit?'over-limit':''}" value="${co2Bought>0?(co2Purchased[i]||''):''}" placeholder="${sugValC}" min="0" max="${co2MaxBuy}" step="1000000" oninput="setCO2Bought(${i},this.value,${co2MaxBuy})" style="color:${co2Bought>0?'#90d060':'#4a7a40'};width:95px">
+        <input type="number" class="cell-input co2-buy-input ${co2Bought>0?'has-val':''} ${co2OverLimit?'over-limit':''}" value="${co2Bought>0?(cPur[i]||''):''}" placeholder="${sugValC}" min="0" max="${co2MaxBuy}" step="1000000" ${isToday?`oninput="setCO2Bought(${i},this.value,${co2MaxBuy})"`:'readonly'} style="color:${co2Bought>0?'#90d060':'#4a7a40'};width:95px">
         ${co2OverLimit?`<div class="warn-msg">⚠ Over limit</div>`:''}
       </td>
       <td style="padding:2px 4px">
         <span style="display:inline-flex;align-items:center;gap:2px">
-          <input type="number" class="co2-res-input ${isCO2ResOv?'ov-active':''}" value="${fmt(co2Final).replace(/,/g,'')}" step="1000000" style="color:${isCO2ResOv?'#70d070':co2ResCol(co2Final)}" onchange="setCO2ResAfter(${i},this.value)">
-          ${isCO2ResOv?`<button class="clear-btn" onclick="clearCO2ResAfter(${i})" style="color:#3a7a3a">✕</button>`:''}
+          <input type="number" class="co2-res-input ${isCO2ResOv?'ov-active':''}" value="${fmt(co2Final).replace(/,/g,'')}" step="1000000" style="color:${isCO2ResOv?'#70d070':co2ResCol(co2Final)}" ${isToday?`onchange="setCO2ResAfter(${i},this.value)"`:'readonly'}>
+          ${isToday&&isCO2ResOv?`<button class="clear-btn" onclick="clearCO2ResAfter(${i})" style="color:#3a7a3a">✕</button>`:''}
         </span>
       </td>`;
 
@@ -939,7 +1004,7 @@ function recalc(){
   setSum('sumFuelCost',fmtM(totCost),'#f0b429');
   setSum('sumCO2Cost',fmtM(totCO2Cost),'#90c060');
   setSum('sumSVDrop','-'+((totCost+totCO2Cost)/SV).toFixed(2)+' SV','#f5a623');
-  if(typeof highlightNowRow==='function') highlightNowRow();
+  if(isToday && typeof highlightNowRow==='function') highlightNowRow();   // NOW badge only on today's view
 }
 
 // ── ACTIONS ──
@@ -1253,9 +1318,14 @@ async function init(){
   highlightNowRow();
   // /qac standalone route serves this page with ?qac=1 → open the QAC panel.
   if(new URLSearchParams(location.search).get('qac')==='1') openQAC();
+  let _lastSlot=getGameSlotIndex();
   setInterval(()=>{
     const newDay=getDenmarkDay();
+    const slot=getGameSlotIndex();
     if(PRICES.length===0||!S[String(newDay)]){loadDayPrices(newDay);recalc();}
+    else if(slot!==_lastSlot){ recalc(); }   // a buy window (slot) just passed → re-anchor NOW so any
+                                              // missed suggested buy disappears instead of counting as bought
+    _lastSlot=slot;
     highlightNowRow();
   },30000);
 }
