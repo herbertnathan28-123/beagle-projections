@@ -381,7 +381,7 @@ function removeBox(){ if(BOXES.length<=1)return; pushUndo(); syncBoxesFromDOM();
 function removeBoxKey(k){ pushUndo(); syncBoxesFromDOM(); BOXES=BOXES.filter(b=>b.key!==k); if(!BOXES.length)BOXES=[mkBox()]; buildFleetCards(); saveCards(); recalc(); }
 // Aircraft types — mirrors config.AIRCRAFT_BURN_HOUR keys (static page can't require()
 // server config, so kept in sync manually).
-const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300','A330-200','B747-8','B747-8F','B747SP','B787-10','B787-9','B787-8','A350-900ULR','DC-10','MC-21-400','Concorde','A320neo','B737 MAX 8','Spacejet M100'];
+const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300','A330-200','B747-8','B747-8F','B747SP','B787-10','B787-9','B787-8','A350-900ULR','DC-10','MC-21-400','Concorde','A320neo','B737 MAX 8','Spacejet M100','A320-VIP','Cessna Citation X-VIP','Bombardier Challenger 605-VIP'];
 let DEP_AC=new Array(48).fill(0);   // aircraft departing per slot — derived
 let FUELACC=new Array(48).fill(0);  // fuel burn per slot before buffer — derived
 let CO2ACC =new Array(48).fill(0);  // CO2 burn per slot — derived
