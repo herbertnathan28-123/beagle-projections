@@ -267,8 +267,8 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
     </div>
     <button class="qac-calc" onclick="runQAC()">▶ CALCULATE</button>
     <div class="qac-results">
-      <div class="qac-col fuel"><h4>⛽ FUEL — NEXT 3 BUYS</h4><div class="qac-buys" id="qacFuelBuys"><div class="qac-empty">Enter reserves and press Calculate.</div></div></div>
-      <div class="qac-col co2"><h4>🌿 CO2 — NEXT 3 BUYS</h4><div class="qac-buys" id="qacCO2Buys"><div class="qac-empty">Enter reserves and press Calculate.</div></div></div>
+      <div class="qac-col fuel"><h4>⛽ FUEL — NEXT 3 PATHWAY CHECKPOINTS</h4><div class="qac-buys" id="qacFuelBuys"><div class="qac-empty">Enter current reserves and press Calculate.</div></div></div>
+      <div class="qac-col co2"><h4>🌿 CO2 — NEXT 3 PATHWAY CHECKPOINTS</h4><div class="qac-buys" id="qacCO2Buys"><div class="qac-empty">Enter current reserves and press Calculate.</div></div></div>
     </div>
   </div>
 </div>
@@ -691,7 +691,7 @@ function monthOptimize(startRes, tank, minR, price, burn, manual){
       const want=Math.max(0,(minR+need)-reserve);       // enough to reach k above the floor
       const cap=Math.max(0,tank-Math.max(0,reserve-burn[i]));   // headroom after burn, clamped — matches the table's maxBuy = tank - max(0, afterBurn); never exceeds one tank
       const b=Math.min(want,cap);
-      if(b>0){ sug[i]=b; reserve+=b; }
+      if(b>1){ sug[i]=b; reserve+=b; }   // >1 (not >0): drop sub-lb floating-point dust buys that pollute the plan/PDF/QAC
     }
     reserve-=d[i];                                       // net: consume burn, credit committed purchase
   }
@@ -1064,21 +1064,34 @@ function openQAC(){
   if(w && !w.classList.contains('open')) toggleQAC();
   document.getElementById('qacPanel').scrollIntoView({behavior:'smooth',block:'center'});
 }
-// Next up-to-3 slots from the current game time where the optimizer suggests a buy.
-function qacRows(sug,prices){
-  const nowSlot=getGameSlotIndex();
+// QAC is a RESCUE calculator, not a price finder. It reads the master optimizer's
+// full-month pathway (mp.rows — the scheduled buy checkpoints), takes the next up to 3
+// from the current game time forward (crossing day boundaries), and for each shows the
+// exact bridge quantity the optimizer buys there to carry reserves to the NEXT checkpoint.
+// Not "cheapest prices" — the actual planned checkpoints and quantities from wherever the
+// player's reserves are right now. Purchase timing is price/reserve driven only; fleet
+// position is irrelevant (fuel can be bought whether aircraft are in the air or landed).
+function qacRows(mp){
+  const today=getGameDay(), nowSlot=getGameSlotIndex();
+  const gof=r=>(r.day-today)*48+r.slot;                 // global slot offset from start of today
+  const rows=(mp.rows||[]).filter(r=>gof(r)>=nowSlot && Math.round(r.buy)>0);  // checkpoints from now forward, across days; skip dust rows
   const out=[];
-  for(let i=nowSlot;i<48 && out.length<3;i++){
-    if(sug[i]>0) out.push({t:TIMES[i],h:((i-nowSlot)*0.5).toFixed(1),price:prices[i],qty:sug[i]});
+  for(let n=0;n<rows.length && out.length<3;n++){
+    const r=rows[n], next=rows[n+1];
+    const hrs=(gof(r)-nowSlot)*0.5;
+    const bridge = next ? ((next.day!==today?'Day '+next.day+' ':'')+TIMES[next.slot])
+                        : 'end of month';               // no further buy → reserves reach month-end
+    out.push({day:r.day,today,t:TIMES[r.slot],h:hrs.toFixed(1),price:r.price,qty:r.buy,bridge});
   }
   return out;
 }
 function renderQACBuys(elId,rows,isCO2,unit){
   const el=document.getElementById(elId); if(!el)return;
-  if(!rows.length){ el.innerHTML='<div class="qac-empty">No buy needed in the remaining day — reserves cover it.</div>'; return; }
-  el.innerHTML=rows.map(r=>{
+  if(!rows.length){ el.innerHTML='<div class="qac-empty">On plan — reserves already carry you to the next scheduled checkpoint.</div>'; return; }
+  el.innerHTML=rows.map((r,i)=>{
     const col=isCO2?co2Col(r.price):priceCol(r.price);
-    return `<div class="qac-buy"><span class="t">${r.t}</span><span class="h">(${r.h}hr)</span><span class="p" style="color:${col}">$${r.price}</span><span class="q">${fmt(r.qty)} ${unit}</span></div>`;
+    const when = (i===0 && r.h==='0.0') ? 'NOW' : ((r.day!==r.today?'D'+r.day+' ':'')+r.t);
+    return `<div class="qac-buy"><span class="t">${when}</span><span class="h">(${r.h}hr)</span><span class="p" style="color:${col}">$${r.price}</span><span class="q">${fmt(r.qty)} ${unit}<br><span style="color:#4a6072;font-size:10px">→ bridge to ${r.bridge}</span></span></div>`;
   }).join('');
 }
 function runQAC(){
@@ -1088,13 +1101,13 @@ function runQAC(){
   // Optional purchase-amount fields top up the starting reserves (a "what-if" buy now).
   const fuelRes=(parseFloat(gv('qacFuelRes'))||0)+(parseFloat(gv('qacFuelBuy'))||0);
   const co2Res =(parseFloat(gv('qacCO2Res'))||0)+(parseFloat(gv('qacCO2Buy'))||0);
-  // Next buys come from the same full-month optimizer (today's portion), so QAC's
-  // recommendations match the master plan's cross-day pathway.
+  // Recompute the full-month pathway from the player's CURRENT reserves — this is the
+  // cheapest bridge from where they are now back onto the master plan.
   const noManual=new Array(48).fill(0);
-  const fSug=monthPathway(fuelRes,fuelTank,MIN_FUEL,BURNS,0,noManual).sug;
-  const cSug=monthPathway(co2Res,co2Tank,MIN_CO2,CO2B,1,noManual).sug;
-  renderQACBuys('qacFuelBuys',qacRows(fSug,PRICES),false,'lbs');
-  renderQACBuys('qacCO2Buys',qacRows(cSug,CO2P),true,'quotas');
+  const mpF=monthPathway(fuelRes,fuelTank,MIN_FUEL,BURNS,0,noManual);
+  const mpC=monthPathway(co2Res,co2Tank,MIN_CO2,CO2B,1,noManual);
+  renderQACBuys('qacFuelBuys',qacRows(mpF),false,'lbs');
+  renderQACBuys('qacCO2Buys',qacRows(mpC),true,'quotas');
 }
 
 async function init(){
