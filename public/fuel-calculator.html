@@ -645,7 +645,7 @@ function monthOptimize(startRes, tank, minR, price, burn, manual){
       const k=nextCheaper[i];
       const need=pre[k]-pre[i];                         // net demand from i until the next cheaper slot
       const want=Math.max(0,(minR+need)-reserve);       // enough to reach k above the floor
-      const cap=Math.max(0,tank-reserve);               // tank headroom
+      const cap=Math.max(0,tank-Math.max(0,reserve-burn[i]));   // headroom after burn, clamped — matches the table's maxBuy = tank - max(0, afterBurn); never exceeds one tank
       const b=Math.min(want,cap);
       if(b>0){ sug[i]=b; reserve+=b; }
     }
@@ -666,7 +666,7 @@ function monthPathway(startR, tank, minR, dayBurn, priceIdx, manualToday){
       const pastToday=(day===today && s<nowSlot);       // already-passed → not buyable, no burn
       price.push(pastToday?Infinity:((dd&&dd[TIMES[s]])?dd[TIMES[s]][priceIdx]:Infinity));
       burn.push(pastToday?0:(dayBurn[s]||0));
-      manual.push(day===today?(manualToday[s]||0):0);
+      manual.push((day===today && !pastToday)?(manualToday[s]||0):0);   // past-slot buys already in current reserve — don't credit twice
       dayOf.push(day); slotOf.push(s);
     }
   }
@@ -1063,10 +1063,20 @@ async function init(){
     else console.error('[FUEL] Schedule fetch failed:',r.status);
   }catch(e){console.error('[FUEL] Schedule fetch error:',e);}
   buildFleetCards();
-  // Registered player's personal link: the server injects window.__FUEL_PROFILE__
-  // (synced from n8n). Populate from it — it is the source of truth. Otherwise fall
-  // back to this browser's own saved values.
-  if(window.__FUEL_PROFILE__){ populateFromProfile(window.__FUEL_PROFILE__); }
+  // Population priority: (1) ?seed= link — a base64 profile in the URL, prefills the
+  // fleet + per-fleet burn and persists it (a self-contained way to load a profile
+  // without any server/n8n round-trip; n8n can generate these links per player);
+  // (2) server-injected window.__FUEL_PROFILE__ (?did link); (3) this browser's saved
+  // values.
+  const __seed=new URLSearchParams(location.search).get('seed');
+  if(__seed){
+    try{
+      const prof=JSON.parse(decodeURIComponent(escape(atob(__seed.replace(/ /g,'+')))));
+      populateFromProfile(prof);
+      ['fuelTank','co2Tank','startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>saveTank(id));
+      saveCards();
+    }catch(e){ console.error('[FUEL] seed load error:',e); restoreTanks(); restoreCards(); }
+  } else if(window.__FUEL_PROFILE__){ populateFromProfile(window.__FUEL_PROFILE__); }
   else { restoreTanks(); restoreCards(); }
   loadDayPrices(getDenmarkDay());
   recalc();
