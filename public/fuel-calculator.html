@@ -362,17 +362,22 @@ function computeDepartures(){
   const now=getGameNow();
   const nowH=now.getUTCHours()+now.getUTCMinutes()/60;   // current game time (UTC), in hours
   for(const g of FLEET_GROUPS){
-    if(!DEPARTED[g.key]) continue;           // only DEPARTED (green) fleets feed the schedule
     const cnt=activeCount(g.key); if(cnt<=0)continue;
-    const eta=parseEtaHours(gv('eta_'+g.key)); if(eta===null)continue;
     const cycle=g.dur/mult;                  // real-time hours between departures
     if(cycle<=0)continue;
-    // ETA is time-until-landing from the CURRENT game time. Next departure lands at
-    // nowH+ETA; align the cycle to that phase, then place departures across [0,24).
-    let anchor=nowH+eta;
+    // Anchor priority: a DEParted fleet uses the ACTUAL press time (game-hour it was
+    // launched) so the schedule stays in sync with the real in-game departure. If it
+    // hasn't been DEParted, fall back to the manual ETA (planned next landing/takeoff
+    // from now). No timing at all → nothing to schedule.
+    const depAt=DEPARTED[g.key];             // false, or game-hour when DEP was pressed
+    const eta=parseEtaHours(gv('eta_'+g.key));
+    let anchor;
+    if(depAt!==false && depAt!=null) anchor=depAt;
+    else if(eta!==null) anchor=nowH+eta;
+    else continue;
     anchor-=Math.floor(anchor/cycle)*cycle;  // earliest departure of this phase in [0,cycle)
-    for(let dep=anchor; dep<24; dep+=cycle){
-      const slot=Math.floor(Math.round(dep*60)/30);  // round to the minute first — avoids FP drift (e.g. 16.9999… → 17:00 not 16:30)
+    for(let d=anchor; d<24; d+=cycle){
+      const slot=Math.floor(Math.round(d*60)/30);  // round to the minute first — avoids FP drift (e.g. 16.9999… → 17:00 not 16:30)
       if(slot>=0&&slot<48) DEP_AC[slot]+=cnt;
     }
   }
@@ -382,8 +387,8 @@ function rebuildBurns(){
   computeDepartures();
   const avgBurn=parseFloat(gv('avgFuelBurn'))||0;   // lbs/aircraft/departure
   const co2Dep =parseFloat(gv('co2BurnDep'))||0;    // CO2 quotas/aircraft/departure event
-  // Buffer tier is set by TOTAL ACTIVE DEPARTED fleet size (sum of active across departed buckets).
-  let totalActive=0; for(const g of FLEET_GROUPS) if(DEPARTED[g.key]) totalActive+=activeCount(g.key);
+  // Buffer tier is set by TOTAL ACTIVE fleet size (sum of active across all buckets).
+  let totalActive=0; for(const g of FLEET_GROUPS) totalActive+=activeCount(g.key);
   const bufMin=bufferMins(totalActive);
   BURNS=DEP_AC.map(ac=> ac? ac*avgBurn + bufMin*(avgBurn/60)*ac : 0);
   CO2B =DEP_AC.map(ac=> ac? ac*co2Dep : 0);
@@ -396,9 +401,10 @@ function refreshAllCard(totalActive,bufMin){
   const a=document.getElementById('acAll'); if(a)a.value=totCnt;
   const m=document.getElementById('maintAll'); if(m)m.textContent=totM;
   const st=document.getElementById('depStatus');
+  let depActive=0; for(const g of FLEET_GROUPS) if(DEPARTED[g.key]!==false) depActive+=activeCount(g.key);
   if(st) st.textContent = totCnt>0
-    ? `${totalActive.toLocaleString()} departed A/C · ${totM} in maint · buffer ${bufMin} min`
-    : 'Enter A/C · TYPE · ETA, then tap DEP to activate each fleet';
+    ? `${totalActive.toLocaleString()} active A/C · ${depActive.toLocaleString()} departed · buffer ${bufMin} min`
+    : 'Enter A/C · ETA per fleet · tap DEP when you launch in-game';
 }
 // ── FLEET CARDS UI (WO-FUEL-CALC-OPTIMIZER-001) — approved 5-card layout ──
 function buildFleetCards(){
@@ -426,21 +432,28 @@ function buildFleetCards(){
   wrap.innerHTML=html;
   applyDepartClasses();
 }
-// Departure toggle: green = departed (feeds the schedule), orange = not departed.
+// Departure toggle. DEPARTED[key] holds either false (not departed → orange) or the
+// game-time hour at which DEP was pressed (departed → green). That press-time anchors
+// the fleet's schedule to the real in-game departure, keeping the fuel plan in sync.
+function gameNowHour(){ const n=getGameNow(); return n.getUTCHours()+n.getUTCMinutes()/60; }
 function applyDepartClasses(){
   for(const g of FLEET_GROUPS){
     const card=document.getElementById('fcard_'+g.key);
-    if(card) card.classList.toggle('departed',!!DEPARTED[g.key]);
+    if(card) card.classList.toggle('departed',DEPARTED[g.key]!==false);
   }
 }
 function toggleDepart(key){
-  DEPARTED[key]=!DEPARTED[key];
+  DEPARTED[key]=(DEPARTED[key]===false)?gameNowHour():false;   // press = depart NOW; press again = recall
   applyDepartClasses();
   saveCards(); recalc();
 }
 function departAll(){
-  const anyOff=FLEET_GROUPS.some(g=>!DEPARTED[g.key]);   // any not departed → depart all; else recall all
-  for(const g of FLEET_GROUPS) DEPARTED[g.key]=anyOff;
+  const anyOff=FLEET_GROUPS.some(g=>DEPARTED[g.key]===false);   // any not departed → depart the rest now; else recall all
+  const t=gameNowHour();
+  for(const g of FLEET_GROUPS){
+    if(anyOff){ if(DEPARTED[g.key]===false) DEPARTED[g.key]=t; }  // stamp only not-yet-departed; keep earlier anchors intact
+    else DEPARTED[g.key]=false;                                   // all were departed → recall all
+  }
   applyDepartClasses();
   saveCards(); recalc();
 }
@@ -485,10 +498,42 @@ function restoreCards(){
       const eta=document.getElementById('eta_'+g.key); if(eta&&c.eta)eta.value=c.eta;
       const ty=document.getElementById('type_'+g.key); if(ty&&c.type)ty.value=c.type; }
     if(d.maint) for(const k in MAINT){ MAINT[k]=parseInt(d.maint[k])||0; const el=document.getElementById('maint_'+k); if(el)el.textContent=MAINT[k]; }
-    if(d.departed) for(const k in DEPARTED){ DEPARTED[k]=!!d.departed[k]; }
+    if(d.departed) for(const k in DEPARTED){ const v=d.departed[k]; DEPARTED[k]=(typeof v==='number')?v:false; }
     applyDepartClasses();
     if(d.etaAll){const ea=document.getElementById('eta_all'); if(ea)ea.value=d.etaAll;}
   }catch(e){}
+}
+// Populate the calculator from a registered player's stored profile (server-injected
+// on their ?did link, synced from n8n). Tank capacity, reserves and per-bucket fleet
+// (A/C + aircraft type) come from the profile; ETA stays manual (it's the real-time
+// sequencing signal, sharpened when the player taps DEP).
+function populateFromProfile(p){
+  try{
+    if(!p) return;
+    const set=(id,v)=>{const e=document.getElementById(id); if(e && v!=null && v!=='') e.value=v;};
+    set('fuelTank', p.fuel_tank_capacity);
+    set('co2Tank',  p.co2_tank_capacity);
+    set('startRes', p.fuel_reserves);
+    set('startCO2', p.co2_reserves);
+    set('qacFuelRes', p.fuel_reserves);
+    set('qacCO2Res',  p.co2_reserves);
+    // Map each fleet group to the nearest fixed duration bucket (21 / 14 / 7 / 3.5h),
+    // summing aircraft and keeping the dominant type per bucket.
+    const buckets=[21,14,7,3.5];
+    const agg={};
+    (p.fleet||[]).forEach(f=>{
+      const hrs=parseFloat(f.flight_hours); if(isNaN(hrs)) return;
+      const near=buckets.reduce((a,b)=>Math.abs(b-hrs)<Math.abs(a-hrs)?b:a);
+      const key=(near===3.5)?'3_5':String(near);
+      if(!agg[key]) agg[key]={cnt:0,type:''};
+      agg[key].cnt += parseInt(f.total_aircraft)||0;
+      if(!agg[key].type && f.type) agg[key].type=f.type;
+    });
+    for(const k in agg){
+      if(agg[k].cnt>0) set('cnt_'+k, agg[k].cnt);
+      set('type_'+k, agg[k].type);
+    }
+  }catch(e){ console.error('[FUEL] profile populate error:',e); }
 }
 const PERTH=TIMES.map(t=>{const[h,m]=t.split(':').map(Number),tot=h*60+m+360,ph=Math.floor(tot/60)%24,pm=tot%60;return`${String(ph).padStart(2,'0')}:${String(pm).padStart(2,'0')}${tot>=1440?'+':''}`;});
 
@@ -924,8 +969,11 @@ async function init(){
     else console.error('[FUEL] Schedule fetch failed:',r.status);
   }catch(e){console.error('[FUEL] Schedule fetch error:',e);}
   buildFleetCards();
-  restoreTanks();
-  restoreCards();
+  // Registered player's personal link: the server injects window.__FUEL_PROFILE__
+  // (synced from n8n). Populate from it — it is the source of truth. Otherwise fall
+  // back to this browser's own saved values.
+  if(window.__FUEL_PROFILE__){ populateFromProfile(window.__FUEL_PROFILE__); }
+  else { restoreTanks(); restoreCards(); }
   loadDayPrices(getDenmarkDay());
   recalc();
   highlightNowRow();

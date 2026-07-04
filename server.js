@@ -108,6 +108,26 @@ function logVisit(req) {
 app.use(cors());
 app.use(express.json());
 // Static files MUST be served BEFORE all route handlers.
+// Registered player's personal calculator link (/fuel-calculator?did=<id>): inject
+// their stored profile (synced from n8n via POST /api/fuel-profile) so the page
+// auto-populates. Must run BEFORE express.static, which would otherwise serve the
+// blank fuel-calculator.html directly. No did / no profile → fall through to the
+// static blank page, so nothing is exposed on the bare public URL.
+app.get('/fuel-calculator', (req, res, next) => {
+  const did = String(req.query.did || '').replace(/[^0-9]/g, '');
+  if (!did || !fuelProfiles[did]) return next();
+  try {
+    logVisit(req);
+    let html = fs.readFileSync(path.join(__dirname, 'public', 'fuel-calculator.html'), 'utf8');
+    const json = JSON.stringify(fuelProfiles[did]).replace(/</g, '\\u003c');   // prevent </script> breakout
+    html = html.replace('</head>', '<script>window.__FUEL_PROFILE__=' + json + ';</script>\n</head>');
+    logFuelAccess(did, fuelProfiles[did].discord_name || '', 'calc_view');
+    return res.type('html').send(html);
+  } catch (e) {
+    console.error('[FUEL-CALC] Profile inject failed:', e.message);
+    return next();
+  }
+});
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
 // Root: no index.html lives in /public, so bare "/" would otherwise 404 (and
@@ -456,8 +476,9 @@ app.get('/fuel-setup', (req, res) => {
   res.type('html').send(FUEL_SETUP_HTML);
 });
 
-// Explicit route for /fuel-calculator — belt-and-suspenders to ensure static file
-// is always served even if express.static extensions resolution fails.
+// Explicit route for /fuel-calculator — belt-and-suspenders to ensure the static
+// file is served even if express.static extensions resolution fails. (Profile
+// injection for ?did links is handled by the pre-static route above.)
 app.get('/fuel-calculator', (req, res) => {
   logVisit(req);
   res.sendFile(path.join(__dirname, 'public', 'fuel-calculator.html'));
