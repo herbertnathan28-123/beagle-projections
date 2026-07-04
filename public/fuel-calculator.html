@@ -1166,6 +1166,10 @@ async function init(){
   // without any server/n8n round-trip; n8n can generate these links per player);
   // (2) server-injected window.__FUEL_PROFILE__ (?did link); (3) this browser's saved
   // values.
+  // Reserves are the player's LIVE fuel/CO2 stock — they change every session, so a value
+  // this browser previously saved is more current than any profile/seed snapshot. Capture it
+  // BEFORE populating so a ?did / ?seed load can't clobber the player's saved reserves.
+  const _savedRes={ startRes:localStorage.getItem('bgl_startRes'), startCO2:localStorage.getItem('bgl_startCO2') };
   const __seed=new URLSearchParams(location.search).get('seed');
   if(__seed){
     try{
@@ -1176,6 +1180,11 @@ async function init(){
     }catch(e){ console.error('[FUEL] seed load error:',e); restoreTanks(); restoreCards(); }
   } else if(window.__FUEL_PROFILE__){ populateFromProfile(window.__FUEL_PROFILE__); }
   else { restoreTanks(); restoreCards(); }
+  // A profile/seed sets the reserves on first load, but once this browser has its own saved
+  // reserves those are the player's live figures — restore them so edits persist across reloads.
+  if(__seed || window.__FUEL_PROFILE__){
+    ['startRes','startCO2'].forEach(id=>{ const v=_savedRes[id]; if(v!==null&&v!==''){ const e=document.getElementById(id); if(e)e.value=v; saveTank(id); } });
+  }
   loadDayPrices(getDenmarkDay());
   recalc();
   highlightNowRow();
