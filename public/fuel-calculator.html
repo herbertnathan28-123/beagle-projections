@@ -872,8 +872,15 @@ function runQAC(){
   // Optional purchase-amount fields top up the starting reserves (a "what-if" buy now).
   const fuelRes=(parseFloat(gv('qacFuelRes'))||0)+(parseFloat(gv('qacFuelBuy'))||0);
   const co2Res =(parseFloat(gv('qacCO2Res'))||0)+(parseFloat(gv('qacCO2Buy'))||0);
-  const fSug=calcSuggested(fuelRes,fuelTank,MIN_FUEL,BURNS,PRICES);
-  const cSug=calcSuggested(co2Res,co2Tank,MIN_CO2,CO2B,CO2P);
+  // QAC reserves are "as of NOW", but calcSuggested simulates the whole day from
+  // slot 0. Mask out past slots — zero their burn (don't re-spend consumption that
+  // already happened) and make their price unpickable (no buy recommendation in a
+  // slot that has passed) — so the projection starts at the current slot.
+  const nowSlot=getGameSlotIndex();
+  const maskBurn=arr=>arr.map((v,i)=>i<nowSlot?0:v);
+  const maskPrice=arr=>arr.map((v,i)=>i<nowSlot?Infinity:v);
+  const fSug=calcSuggested(fuelRes,fuelTank,MIN_FUEL,maskBurn(BURNS),maskPrice(PRICES));
+  const cSug=calcSuggested(co2Res,co2Tank,MIN_CO2,maskBurn(CO2B),maskPrice(CO2P));
   renderQACBuys('qacFuelBuys',qacRows(fSug,PRICES),false,'lbs');
   renderQACBuys('qacCO2Buys',qacRows(cSug,CO2P),true,'quotas');
 }
