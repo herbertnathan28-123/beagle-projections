@@ -115,6 +115,10 @@ app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] })
 // the calculator so the domain root and health pings always resolve cleanly.
 app.get('/', (req, res) => res.redirect(302, '/fuel-calculator'));
 
+// QAC standalone: serve the calculator with the Quick Access panel auto-opened,
+// so there is one engine/page to maintain rather than a duplicate optimizer.
+app.get('/qac', (req, res) => res.redirect(302, '/fuel-calculator?qac=1'));
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ROUTES — specific routes MUST come before the wildcard app.get('*')
 // ═══════════════════════════════════════════════════════════════════════════

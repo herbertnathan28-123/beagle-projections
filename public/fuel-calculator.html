@@ -132,6 +132,39 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .spd4x-btn.on{background:#0d2818;border-color:#23a55a;color:#33ff00}
 @media(max-width:1100px){.fleet-cards{flex-wrap:wrap}.fcard{flex:1 1 30%}}
 @media print{body{background:#fff;color:#000}.btn-row,.legend{display:none}.header{background:#f5f5f5}.co2-row{display:none!important}}
+/* ── QAC — QUICK ACCESS CALCULATOR (WO-FUEL-QAC-001) ── */
+.qac-wrap{margin:10px 12px 0}
+.qac-tab{position:fixed;left:0;top:50%;transform:translateY(-50%) rotate(180deg);writing-mode:vertical-rl;background:#0d1e36;border:1px solid #1a5a3a;border-left:none;border-radius:6px 0 0 6px;color:#33ff00;font-size:11px;font-weight:800;letter-spacing:2px;padding:12px 6px;cursor:pointer;z-index:60;display:flex;align-items:center;gap:8px;user-select:none}
+.qac-tab:hover{background:#123049}
+.qac-dot{width:8px;height:8px;border-radius:50%;background:#33ff00;box-shadow:0 0 6px #33ff00;display:inline-block;flex-shrink:0;animation:qacpulse 1.6s ease-in-out infinite}
+@keyframes qacpulse{0%,100%{opacity:1}50%{opacity:.35}}
+.qac-toggle{display:flex;align-items:center;gap:8px;background:#0d1e36;border:1px solid #1a5a3a;border-radius:6px;color:#33ff00;font-size:12px;font-weight:800;letter-spacing:1.5px;padding:9px 14px;cursor:pointer;user-select:none}
+.qac-toggle .chev{margin-left:auto;color:#3a7a3a;transition:transform .15s}
+.qac-panel{display:none;background:#080e18;border:1px solid #17324a;border-top:none;border-radius:0 0 8px 8px;padding:16px}
+.qac-panel.open{display:block}
+.qac-wrap.open .qac-toggle{border-radius:6px 6px 0 0}
+.qac-wrap.open .qac-toggle .chev{transform:rotate(90deg)}
+.qac-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.qac-field label{display:block;font-size:10px;font-weight:700;letter-spacing:.6px;margin-bottom:4px}
+.qac-field.fuel label{color:#ff9900}
+.qac-field.co2 label{color:#33ff00}
+.qac-field input{width:100%;background:#0a1420;border:1px solid #23384f;border-radius:5px;color:#e6ecf4;font-size:14px;font-family:monospace;padding:9px 11px;outline:none}
+.qac-field input:focus{border-color:#3a70b0}
+.qac-field input::placeholder{color:#3a4d5f}
+.qac-calc{width:100%;background:#0d2818;border:1px solid #23a55a;color:#33ff00;font-size:13px;font-weight:800;letter-spacing:2px;padding:11px;border-radius:6px;cursor:pointer;margin-bottom:14px}
+.qac-calc:hover{background:#123a22}
+.qac-results{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.qac-col h4{font-size:11px;font-weight:800;letter-spacing:1px;margin-bottom:8px}
+.qac-col.fuel h4{color:#ff9900}
+.qac-col.co2 h4{color:#33ff00}
+.qac-buys{display:flex;flex-direction:column;gap:6px}
+.qac-buy{display:grid;grid-template-columns:auto auto auto 1fr;gap:10px;align-items:baseline;background:#0a1420;border:1px solid #16283a;border-radius:5px;padding:8px 10px;font-family:monospace}
+.qac-buy .t{color:#fff;font-weight:700;font-size:13px}
+.qac-buy .h{color:#5a7284;font-size:11px}
+.qac-buy .p{font-weight:700;font-size:13px}
+.qac-buy .q{color:#fff;text-align:right;font-size:12px;white-space:nowrap}
+.qac-empty{color:#3a4d5f;font-size:12px;font-style:italic;padding:8px 0}
+@media(max-width:760px){.qac-grid2,.qac-results{grid-template-columns:1fr}.qac-tab{display:none}}
 </style>
 </head>
 <body>
@@ -210,6 +243,26 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
     </div>
   </div>
   <div class="fleet-cards" id="fleetCards"></div>
+</div>
+<!-- QAC — QUICK ACCESS CALCULATOR (WO-FUEL-QAC-001) -->
+<div class="qac-tab" id="qacTab" onclick="openQAC()" title="Open Quick Access Calculator"><span class="qac-dot"></span>◆ QAC — QUICK ACCESS CALCULATOR</div>
+<div class="qac-wrap" id="qacWrap">
+  <div class="qac-toggle" onclick="toggleQAC()"><span class="qac-dot"></span>◆ QAC — QUICK ACCESS CALCULATOR<span class="chev">▸</span></div>
+  <div class="qac-panel" id="qacPanel">
+    <div class="qac-grid2">
+      <div class="qac-field fuel"><label>⛽ CURRENT FUEL RESERVES (LBS)</label><input id="qacFuelRes" type="number" placeholder="Enter current reserves"></div>
+      <div class="qac-field co2"><label>🌿 CURRENT CO2 RESERVES (QUOTAS)</label><input id="qacCO2Res" type="number" placeholder="Enter current reserves"></div>
+    </div>
+    <div class="qac-grid2">
+      <div class="qac-field fuel"><label>FUEL PURCHASE AMOUNT</label><input id="qacFuelBuy" type="number" placeholder="Enter current"></div>
+      <div class="qac-field co2"><label>CO2 PURCHASE AMOUNT</label><input id="qacCO2Buy" type="number" placeholder="Enter current"></div>
+    </div>
+    <button class="qac-calc" onclick="runQAC()">▶ CALCULATE</button>
+    <div class="qac-results">
+      <div class="qac-col fuel"><h4>⛽ FUEL — NEXT 3 BUYS</h4><div class="qac-buys" id="qacFuelBuys"><div class="qac-empty">Enter reserves and press Calculate.</div></div></div>
+      <div class="qac-col co2"><h4>🌿 CO2 — NEXT 3 BUYS</h4><div class="qac-buys" id="qacCO2Buys"><div class="qac-empty">Enter reserves and press Calculate.</div></div></div>
+    </div>
+  </div>
 </div>
 <div class="table-wrap">
 <table id="ftbl">
@@ -782,6 +835,49 @@ function downloadXLSX(period){
 }
 
 // ── INIT — fetch schedule from server, then render ──
+// ── QAC — QUICK ACCESS CALCULATOR (WO-FUEL-QAC-001) ──
+// Reuses the master calculator's engine: tank capacity, fleet burns (BURNS/CO2B),
+// price schedule (PRICES/CO2P), min floors and buffers. Player enters only their
+// current reserves; Calculate returns the next 3 cheapest buy slots for each.
+function toggleQAC(){
+  document.getElementById('qacWrap').classList.toggle('open');
+  document.getElementById('qacPanel').classList.toggle('open');
+}
+function openQAC(){
+  const w=document.getElementById('qacWrap');
+  if(w && !w.classList.contains('open')) toggleQAC();
+  document.getElementById('qacPanel').scrollIntoView({behavior:'smooth',block:'center'});
+}
+// Next up-to-3 slots from the current game time where the optimizer suggests a buy.
+function qacRows(sug,prices){
+  const nowSlot=getGameSlotIndex();
+  const out=[];
+  for(let i=nowSlot;i<48 && out.length<3;i++){
+    if(sug[i]>0) out.push({t:TIMES[i],h:((i-nowSlot)*0.5).toFixed(1),price:prices[i],qty:sug[i]});
+  }
+  return out;
+}
+function renderQACBuys(elId,rows,isCO2,unit){
+  const el=document.getElementById(elId); if(!el)return;
+  if(!rows.length){ el.innerHTML='<div class="qac-empty">No buy needed in the remaining day — reserves cover it.</div>'; return; }
+  el.innerHTML=rows.map(r=>{
+    const col=isCO2?co2Col(r.price):priceCol(r.price);
+    return `<div class="qac-buy"><span class="t">${r.t}</span><span class="h">(${r.h}hr)</span><span class="p" style="color:${col}">$${r.price}</span><span class="q">${fmt(r.qty)} ${unit}</span></div>`;
+  }).join('');
+}
+function runQAC(){
+  rebuildBurns();   // pull current fleet-driven burns from the master calculator
+  const fuelTank=parseFloat(gv('fuelTank'))||0;
+  const co2Tank =parseFloat(gv('co2Tank'))||0;
+  // Optional purchase-amount fields top up the starting reserves (a "what-if" buy now).
+  const fuelRes=(parseFloat(gv('qacFuelRes'))||0)+(parseFloat(gv('qacFuelBuy'))||0);
+  const co2Res =(parseFloat(gv('qacCO2Res'))||0)+(parseFloat(gv('qacCO2Buy'))||0);
+  const fSug=calcSuggested(fuelRes,fuelTank,MIN_FUEL,BURNS,PRICES);
+  const cSug=calcSuggested(co2Res,co2Tank,MIN_CO2,CO2B,CO2P);
+  renderQACBuys('qacFuelBuys',qacRows(fSug,PRICES),false,'lbs');
+  renderQACBuys('qacCO2Buys',qacRows(cSug,CO2P),true,'quotas');
+}
+
 async function init(){
   const den=getDenmarkNow();
   const dayLabel=den.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).toUpperCase();
@@ -797,6 +893,8 @@ async function init(){
   loadDayPrices(getDenmarkDay());
   recalc();
   highlightNowRow();
+  // /qac standalone route serves this page with ?qac=1 → open the QAC panel.
+  if(new URLSearchParams(location.search).get('qac')==='1') openQAC();
   setInterval(()=>{
     const newDay=getDenmarkDay();
     if(PRICES.length===0||!S[String(newDay)]){loadDayPrices(newDay);recalc();}
