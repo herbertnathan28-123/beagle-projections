@@ -89,9 +89,10 @@ select option{background:#040C18;color:#E2EAF4}
     <div class="card">
       <div class="card-title">Your Identity</div>
       <div class="card-body">
-        <div class="field" style="margin-bottom:16px;max-width:320px">
-            <label>Discord Username</label>
-            <input id="discord_name" type="text" placeholder="e.g. atlas.4693" required>
+        <div class="field" style="margin-bottom:16px;max-width:380px">
+            <label>Discord ID <span style="color:#c99a3a">(numbers only — this is your login)</span></label>
+            <input id="discord_id_input" type="text" inputmode="numeric" pattern="[0-9]{17,20}" placeholder="e.g. 690861328507731978" required>
+            <div style="font-size:11px;color:#6a8296;margin-top:5px;line-height:1.45">In Discord: <b>Settings → Advanced → Developer Mode ON</b>, then right-click your name → <b>Copy User ID</b>. This is a number, not your username — it's what loads your saved fleet.</div>
         </div>
         <div class="field" style="max-width:320px">
           <label>Your Timezone</label>
@@ -207,34 +208,6 @@ select option{background:#040C18;color:#E2EAF4}
       </div>
     </div>
 
-    <!-- DEPARTURE TIMES -->
-    <div class="card">
-      <div class="card-title">Departure Times</div>
-      <div class="card-body">
-        <button type="button" class="select-all-btn" onclick="depNowAll()">&#10003; SELECT ALL &mdash; LOG CURRENT GAME TIME</button>
-        <div id="dep-times-rows">
-          <div class="dep-empty">Add fleet groups above &mdash; departure time fields appear here automatically.</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 4X BOOST -->
-    <div class="card">
-      <div class="card-title">4X Speed Boost</div>
-      <div class="card-body">
-        <div class="hint" style="margin-bottom:12px">Tap &#10003; when you activate 4x speed.</div>
-        <div class="dep-wrap" style="border-bottom:none;margin-bottom:0;padding-bottom:0">
-          <label>Activated at</label>
-          <input type="time" id="boost_time">
-          <button type="button" class="now-btn" onclick="depNow('boost_time')" title="Log current Game Time">&#10003;</button>
-          <span class="dep-tz">Game Time (Denmark)</span>
-        </div>
-        <div class="dur-wrap">
-          <button type="button" class="dur-btn on" disabled style="cursor:default;opacity:1">24 HOURS</button>
-        </div>
-      </div>
-    </div>
-
     <div class="footer-note">
       &#9432; Purchase buffers are applied automatically based on your total fleet size:<br>
       Under 500 aircraft = 2 min &nbsp;&middot;&nbsp; 501&ndash;1,200 = 3 min &nbsp;&middot;&nbsp; Above 1,200 = 4 min
@@ -271,6 +244,7 @@ let spd4x=false;
   const editMode=params.get('edit')==='1';
   if(did){
     document.getElementById('discord_id').value=did;
+    const _idIn=document.getElementById('discord_id_input'); if(_idIn) _idIn.value=did.replace(/\D/g,'');
     // If edit=1, skip "already registered" screen and show form directly
     if(!editMode){
       fetch('/api/fuel-check?did='+encodeURIComponent(did))
@@ -332,67 +306,18 @@ function addFleetRow(){
     '<option>Concorde</option><option>A320neo</option><option>B737 MAX 8</option><option>Spacejet M100</option>'+
     '</select></div>'+
     '<div class="field"><label>Total Aircraft</label><input type="number" class="ac-total" min="1" placeholder="0" required oninput="updateFleetTotal()" onchange="updateFleetTotal()"></div>'+
-    '<div class="field"><label>Flight Time (hrs)</label><input type="number" class="ac-hours" min="0.5" step="0.5" placeholder="e.g. 12" required onchange="updateDepTimes()" onblur="updateDepTimes()"></div>'+
+    '<div class="field"><label>Flight Time (hrs)</label><input type="number" class="ac-hours" min="0.5" step="0.5" placeholder="e.g. 12" required></div>'+
     '<button type="button" class="rm-btn" onclick="removeFleetRow(this)" title="Remove">&#10005;</button>';
   list.appendChild(d);
 }
 
 function removeFleetRow(btn){
   btn.closest('.fleet-row').remove();
-  updateDepTimes();
   updateFleetTotal();
 }
 
-function updateDepTimes(){
-  const container=document.getElementById('dep-times-rows');
-  const hoursSet=new Set();
-  document.querySelectorAll('.ac-hours').forEach(inp=>{
-    const v=parseFloat(inp.value);
-    if(v>0) hoursSet.add(v);
-  });
-  const sorted=[...hoursSet].sort((a,b)=>a-b);
-  const existing={};
-  container.querySelectorAll('.dep-row').forEach(row=>{
-    const h=row.dataset.hours;
-    const val=row.querySelector('input[type=time]').value;
-    if(val) existing[h]=val;
-  });
-  container.innerHTML='';
-  if(sorted.length===0){
-    container.innerHTML='<div class="dep-empty">Add fleet groups above &mdash; departure time fields appear here automatically.</div>';
-    return;
-  }
-  sorted.forEach((h,i)=>{
-    const hKey=h.toString();
-    const id='dep_h'+hKey.replace('.','_');
-    const isLast=(i===sorted.length-1);
-    const div=document.createElement('div');
-    div.className='dep-wrap dep-row';
-    if(isLast) div.style.borderBottom='none';
-    div.dataset.hours=hKey;
-    div.innerHTML=
-      '<label>'+h+'h Cycle</label>'+
-      '<input type="time" id="'+id+'" value="'+(existing[hKey]||'')+'">'+
-      '<button type="button" class="now-btn" data-depid="'+id+'" title="Log current Game Time">&#10003;</button>'+
-      '<span class="dep-tz">Game Time (Denmark)</span>';
-    container.appendChild(div);
-  });
-}
-
-document.getElementById('dep-times-rows').addEventListener('click',function(e){
-  var btn=e.target.closest('.now-btn[data-depid]');
-  if(btn) depNow(btn.getAttribute('data-depid'));
-});
-
-function collectDepTimes(){
-  const result={};
-  document.querySelectorAll('#dep-times-rows .dep-row').forEach(row=>{
-    const h=row.dataset.hours;
-    const val=row.querySelector('input[type=time]').value;
-    if(val) result[h]=val;
-  });
-  return result;
-}
+// Departure times and 4x speed are set live on the calculator, not at registration.
+function updateDepTimes(){}
 
 function collectFleet(){
   return [...document.querySelectorAll('.fleet-row')].map(r=>({
@@ -412,23 +337,23 @@ document.getElementById('f').addEventListener('submit',async e=>{
     err.textContent='Please add at least one aircraft group.';
     err.style.display='block';return;
   }
+  const didVal=(document.getElementById('discord_id_input').value||'').replace(/\D/g,'')
+    || (document.getElementById('discord_id').value||'').replace(/\D/g,'');
+  if(!/^\d{17,20}$/.test(didVal)){
+    err.textContent='Enter your Discord ID — a 17–19 digit number. In Discord: Settings → Advanced → Developer Mode, then right-click your name → Copy User ID. (Not your username.)';
+    err.style.display='block';return;
+  }
   btn.textContent='SAVING...';btn.disabled=true;
   const profile={
-    discord_id:document.getElementById('discord_id').value.trim()||null,
-    discord_name:document.getElementById('discord_name').value.trim(),
+    discord_id:didVal,
+    discord_name:didVal,
     timezone:document.getElementById('timezone').value,
     fuel_tank_capacity:parseInt(document.getElementById('fuel_tank').value)||0,
     co2_tank_capacity:parseInt(document.getElementById('co2_tank').value)||0,
     fuel_reserves:parseInt(document.getElementById('fuel_reserves').value)||0,
     co2_reserves:parseInt(document.getElementById('co2_reserves').value)||0,
     reserve_buffer:parseInt(document.getElementById('reserve_buffer').value)||10000,
-    speed_4x:spd4x?1:0,
-    departure_times:collectDepTimes(),
     fleet:fleet,
-    boost_4x:{
-      activated_at:document.getElementById('boost_time').value||null,
-      duration_hours:24
-    },
     setup_complete:1
   };
   try{
@@ -438,7 +363,7 @@ document.getElementById('f').addEventListener('submit',async e=>{
       document.getElementById('f').style.display='none';
       document.getElementById('ok-box').style.display='block';
       const dl=document.getElementById('dash-link');
-      dl.href='/fuel/'+encodeURIComponent(document.getElementById('discord_id').value||'');
+      dl.href='/fuel-calculator?did='+encodeURIComponent(didVal);
       dl.style.display='inline-block';
       window.scrollTo(0,0);
     } else {

@@ -581,13 +581,17 @@ function populateFromProfile(p){
     // A bucket may hold several types (e.g. three at 14H): sum aircraft, take the
     // biggest as the shown type, and compute an aircraft-weighted burn per bucket so
     // per-slot burn is correct even when types are mixed. Accepts both the new shape
-    // ({count, duration, fuel_per_ac, co2_per_ac}) and the old registration shape
-    // ({total_aircraft, flight_hours}).
+    // ({count, duration, fuel_per_ac, co2_per_ac}), the old registration shape
+    // ({total_aircraft, flight_hours}), and the n8n/Render sync shape which labels the
+    // duration as dep_group ("14h" / "21h" / "3h"). Without the dep_group fallback a
+    // synced ?did profile set the tanks but the fleet silently stayed empty.
     const buckets=[21,14,7,3.5];
     const agg={};
     let gF=0,gFn=0,gC=0,gCn=0;   // fleet-wide weighted-avg accumulators (for the global fields)
     (p.fleet||[]).forEach(f=>{
-      const hrs=parseFloat(f.duration!=null?f.duration:f.flight_hours); if(isNaN(hrs)) return;
+      let hrs=parseFloat(f.duration!=null?f.duration:f.flight_hours);
+      if(isNaN(hrs) && f.dep_group!=null) hrs=parseFloat(String(f.dep_group));   // "14h" -> 14
+      if(isNaN(hrs)) return;
       const cnt=parseInt(f.count!=null?f.count:f.total_aircraft)||0; if(cnt<=0) return;
       const near=buckets.reduce((a,b)=>Math.abs(b-hrs)<Math.abs(a-hrs)?b:a);
       const key=(near===3.5)?'3_5':String(near);
