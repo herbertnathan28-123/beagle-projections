@@ -645,7 +645,7 @@ function monthOptimize(startRes, tank, minR, price, burn, manual){
       const k=nextCheaper[i];
       const need=pre[k]-pre[i];                         // net demand from i until the next cheaper slot
       const want=Math.max(0,(minR+need)-reserve);       // enough to reach k above the floor
-      const cap=Math.max(0,tank-reserve);               // tank headroom
+      const cap=Math.max(0,tank-(reserve-burn[i]));     // tank headroom AFTER this slot's burn (matches the table's maxBuy)
       const b=Math.min(want,cap);
       if(b>0){ sug[i]=b; reserve+=b; }
     }
@@ -666,7 +666,7 @@ function monthPathway(startR, tank, minR, dayBurn, priceIdx, manualToday){
       const pastToday=(day===today && s<nowSlot);       // already-passed → not buyable, no burn
       price.push(pastToday?Infinity:((dd&&dd[TIMES[s]])?dd[TIMES[s]][priceIdx]:Infinity));
       burn.push(pastToday?0:(dayBurn[s]||0));
-      manual.push(day===today?(manualToday[s]||0):0);
+      manual.push((day===today && !pastToday)?(manualToday[s]||0):0);   // past-slot buys already in current reserve — don't credit twice
       dayOf.push(day); slotOf.push(s);
     }
   }
