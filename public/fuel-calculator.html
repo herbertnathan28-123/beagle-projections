@@ -1126,7 +1126,7 @@ function downloadPDF(period){
     const daySet=new Set(days);
     let totBuy=0,totCost=0;
     const rows=mp.rows.filter(r=>daySet.has(r.day)).map(r=>{ totBuy+=r.buy; totCost+=r.cost;
-      return [String(r.day),TIMES[r.slot],'$'+r.price,fmt(r.buy),'$'+fmt(Math.round(r.cost)),fmt(Math.round(r.resAfter))]; });
+      return [String(r.day),TIMES[r.slot],PERTH[r.slot],'$'+r.price,fmt(r.buy),'$'+fmt(Math.round(r.cost)),fmt(Math.round(r.resAfter))]; });
     const endRes=mp.resByGlobal[(lastDay-mp.today)*48+47];   // reserve at end of the period
     return {rows,totBuy,totCost,endRes:(endRes==null?mp.endRes:endRes),firstNeg:mp.firstNeg};
   };
@@ -1140,20 +1140,20 @@ function downloadPDF(period){
   doc.text('Beagle Global — Fuel & CO2 Buy Plan ('+label+')',40,36);
   doc.setFontSize(8);doc.setTextColor(90,90,90);
   doc.text('Fuel tank '+fmt(fuelTank)+' · start fuel '+fmt(startRes)+' lbs · CO2 tank '+fmt(co2Tank)+' · start CO2 '+fmt(startCO2)+' · fleet '+fmt(fleetCnt)+' A/C · generated '+new Date().toISOString().slice(0,16).replace('T',' ')+' UTC',40,50);
-  doc.text('Cheapest-path plan — buy at the lowest-priced slots that keep reserves above the 15,000,000 floor. Prices $/1,000 · game time (UTC).',40,61);
+  doc.text('Cheapest-path plan — buy at the lowest-priced slots that keep reserves above the 15,000,000 floor. Prices $/1,000 · Time = game time · '+LOCAL_LABEL+' = your local time.',40,61);
   doc.setFontSize(10);doc.setTextColor(20,20,20);
   doc.text('FUEL — buy '+fmt(fuel.totBuy)+' lbs · cost $'+fmt(Math.round(fuel.totCost))+' · end reserve '+fmt(Math.round(fuel.endRes))+(fuel.firstNeg?'  ⚠ SHORTFALL '+fuel.firstNeg:'')+'   |   Total SV drop -'+svDrop,40,80);
-  const priceColor=(d,cheap,mod)=>{if(d.section==='body'&&d.column.index===2){const v=parseInt(d.row.raw[2].replace('$',''));d.cell.styles.textColor=v<=cheap?[20,140,60]:v<=mod?[200,140,0]:[120,120,120];}};
+  const priceColor=(d,cheap,mod)=>{if(d.section==='body'&&d.column.index===3){const v=parseInt(d.row.raw[3].replace('$',''));d.cell.styles.textColor=v<=cheap?[20,140,60]:v<=mod?[200,140,0]:[120,120,120];}};
   const emptyNote='No purchases needed for this period — reserves cover it. (Enter fleet A/C + BURN/AC and tap DEP if the plan looks empty.)';
   if(fuel.rows.length){
-    doc.autoTable({head:[['Day','Time','Fuel $','Buy (lbs)','Cost','Reserve after']],body:fuel.rows,startY:88,styles:{fontSize:7,cellPadding:2},headStyles:{fillColor:[13,30,54]},didParseCell:d=>priceColor(d,499,699)});
+    doc.autoTable({head:[['Day','Time',LOCAL_LABEL,'Fuel $','Buy (lbs)','Cost','Reserve after']],body:fuel.rows,startY:88,styles:{fontSize:7,cellPadding:2},headStyles:{fillColor:[13,30,54]},didParseCell:d=>priceColor(d,499,699)});
   } else { doc.setFontSize(8);doc.setTextColor(150,80,20);doc.text(emptyNote,40,92);doc.autoTable({body:[['']],startY:96,styles:{fontSize:1}}); }
   let y2=doc.lastAutoTable.finalY+22;
   if(y2>500){doc.addPage();y2=40;}
   doc.setFontSize(10);doc.setTextColor(20,20,20);
   doc.text('CO2 — buy '+fmt(co2.totBuy)+' quotas · cost $'+fmt(Math.round(co2.totCost))+' · end reserve '+fmt(Math.round(co2.endRes))+(co2.firstNeg?'  ⚠ SHORTFALL '+co2.firstNeg:''),40,y2);
   if(co2.rows.length){
-    doc.autoTable({head:[['Day','Time','CO2 $','Buy (quotas)','Cost','Reserve after']],body:co2.rows,startY:y2+8,styles:{fontSize:7,cellPadding:2},headStyles:{fillColor:[20,58,20]},didParseCell:d=>priceColor(d,114,139)});
+    doc.autoTable({head:[['Day','Time',LOCAL_LABEL,'CO2 $','Buy (quotas)','Cost','Reserve after']],body:co2.rows,startY:y2+8,styles:{fontSize:7,cellPadding:2},headStyles:{fillColor:[20,58,20]},didParseCell:d=>priceColor(d,114,139)});
   } else { doc.setFontSize(8);doc.setTextColor(150,80,20);doc.text(emptyNote,40,y2+12); }
   doc.save('beagle-fuel-co2-buyplan-'+period+'-'+monTag+'.pdf');
 }
