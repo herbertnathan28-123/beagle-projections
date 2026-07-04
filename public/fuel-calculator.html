@@ -864,15 +864,23 @@ function downloadPDF(period){
   if(days.every(d=>!S[String(d)])){alert('No schedule data loaded yet — please try again in a moment.');return;}
   // Cheapest-path plan: cascade reserves across the period, buying at each day's
   // optimal slots (calcSuggested) so reserves stay above the floor at least cost.
+  const nowSlot=getGameSlotIndex();   // current game slot — reserves are "as of now"
   const plan=(startR,tank,minR,burns,idx)=>{
     let res=startR, totBuy=0, totCost=0, firstNeg='';
     const rows=[];
     days.forEach(d=>{
       const dd=S[String(d)]; if(!dd) return;
-      const dp=TIMES.map(t=>dd[t]?dd[t][idx]:0);
-      const sug=calcSuggested(res,tank,minR,burns,dp);
+      let dp=TIMES.map(t=>dd[t]?dd[t][idx]:0);
+      let bd=burns;
+      if(d===today){
+        // Reserves are as of NOW: mask already-passed slots (no burn, unbuyable price)
+        // so the plan never recommends a past slot or re-subtracts burn already spent.
+        dp=dp.map((v,i)=>i<nowSlot?Infinity:v);
+        bd=burns.map((v,i)=>i<nowSlot?0:v);
+      }
+      const sug=calcSuggested(res,tank,minR,bd,dp);
       for(let i=0;i<48;i++){
-        res=res-burns[i]+sug[i];
+        res=res-bd[i]+sug[i];
         if(!firstNeg && res<0) firstNeg='Day '+d+' '+TIMES[i];
         if(sug[i]>0){ const cost=sug[i]*dp[i]/1000; totBuy+=sug[i]; totCost+=cost;
           rows.push([String(d),TIMES[i],'$'+dp[i],fmt(sug[i]),'$'+fmt(Math.round(cost)),fmt(Math.round(res))]); }
