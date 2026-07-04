@@ -645,7 +645,7 @@ function monthOptimize(startRes, tank, minR, price, burn, manual){
       const k=nextCheaper[i];
       const need=pre[k]-pre[i];                         // net demand from i until the next cheaper slot
       const want=Math.max(0,(minR+need)-reserve);       // enough to reach k above the floor
-      const cap=Math.max(0,tank-(reserve-burn[i]));     // tank headroom AFTER this slot's burn (matches the table's maxBuy)
+      const cap=Math.max(0,tank-Math.max(0,reserve-burn[i]));   // headroom after burn, clamped — matches the table's maxBuy = tank - max(0, afterBurn); never exceeds one tank
       const b=Math.min(want,cap);
       if(b>0){ sug[i]=b; reserve+=b; }
     }
