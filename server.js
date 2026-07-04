@@ -110,6 +110,11 @@ app.use(express.json());
 // Static files MUST be served BEFORE all route handlers.
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
+// Root: no index.html lives in /public, so bare "/" would otherwise 404 (and
+// reads as a 502 to uptime monitors hitting during a deploy cutover). Send it to
+// the calculator so the domain root and health pings always resolve cleanly.
+app.get('/', (req, res) => res.redirect(302, '/fuel-calculator'));
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ROUTES — specific routes MUST come before the wildcard app.get('*')
 // ═══════════════════════════════════════════════════════════════════════════
