@@ -279,7 +279,7 @@ app.post('/api/update', (req, res) => {
   const newSV = beagleSV ?? liveData.beagleSV;
   const newTs = timestamp || liveData.timestamp;
   const serverPace = calcPaceFromBaseline(newSV, newTs);
-  const finalPace = serverPace ?? ((beaglePace != null && !isNaN(beaglePace) && beaglePace >= 1.0) ? beaglePace : liveData.beaglePace);
+  const finalPace = (beaglePace != null && !isNaN(beaglePace) && beaglePace >= 1.0) ? beaglePace : serverPace;
   console.log('[PACE] n8n=' + beaglePace + ' server=' + serverPace + ' final=' + finalPace);
   liveData = {
     timestamp, uploader,
