@@ -407,7 +407,8 @@ const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300',
 let DEP_AC=new Array(48).fill(0);   // aircraft departing per slot — derived
 let FUELACC=new Array(48).fill(0);  // fuel burn per slot before buffer — derived
 let CO2ACC =new Array(48).fill(0);  // CO2 burn per slot — derived
-let BURNS =new Array(48).fill(0);   // fuel burn per slot (incl. buffer) — derived
+let BURNS =new Array(48).fill(0);   // fuel burn per slot (incl. buffer) — ALL boxes; used by optimizer/forecast
+let BURNS_DEP=new Array(48).fill(0); // fuel burn for DEPARTED boxes only — shown in DEP BURN column
 let CO2B  =new Array(48).fill(0);   // CO2 burn per slot — derived
 function parseEtaHours(v){ if(!v)return null; v=String(v).trim(); if(v.includes(':')){const[h,m]=v.split(':').map(Number); if(isNaN(h))return null; return h+(isNaN(m)?0:m/60);} const n=parseFloat(v); return isNaN(n)?null:n; }
 function gv(id){ const e=document.getElementById(id); return e?e.value:''; }
@@ -428,6 +429,7 @@ function speedMult(){
 function computeDepartures(){
   DEP_AC=new Array(48).fill(0);
   FUELACC=new Array(48).fill(0);
+  FUELACC_DEP=new Array(48).fill(0);
   CO2ACC =new Array(48).fill(0);
   const mult=speedMult();
   const gFuel=parseFloat(gv('avgFuelBurn'))||0;   // global fallback fuel/AC
@@ -460,7 +462,7 @@ function computeDepartures(){
     let anchor=anchor0-Math.floor(anchor0/cycle)*cycle;   // earliest departure of this phase in [0,cycle)
     for(let d=anchor; d<24; d+=cycle){
       const slot=Math.floor(Math.round(d*60)/30);  // round to the minute first — avoids FP drift
-      if(slot>=0&&slot<48){ DEP_AC[slot]+=act; FUELACC[slot]+=fuelPerDep; CO2ACC[slot]+=co2PerDep; }
+      if(slot>=0&&slot<48){ DEP_AC[slot]+=act; FUELACC[slot]+=fuelPerDep; if(b.departed!==false)FUELACC_DEP[slot]+=fuelPerDep; CO2ACC[slot]+=co2PerDep; }
     }
   }
 }
@@ -471,6 +473,7 @@ function rebuildBurns(){
   const bufMin=bufferMins(totalActive);
   const bufFactor=1+bufMin/60;
   BURNS=FUELACC.map(f=> f? f*bufFactor : 0);
+  BURNS_DEP=FUELACC_DEP.map(f=> f? f*bufFactor : 0);
   CO2B =CO2ACC.slice();
   updateDepStatus(totalActive,bufMin);
 }
@@ -925,6 +928,7 @@ function recalc(){
     // had to re-pin their current reserve on the NOW row by hand.
     const past=i<nowSlot;
     const burn=past?0:BURNS[i],resBefore=res,afterBurn=res-burn;
+    const depBurn=past?0:BURNS_DEP[i];   // departed-only burn for DEP BURN display
     const maxBuy=Math.max(0,fuelTank-Math.max(0,afterBurn));
     const bought=Math.min(fPur[i]||0,maxBuy);
     const overLimit=(fPur[i]||0)>maxBuy&&(fPur[i]||0)>0;
