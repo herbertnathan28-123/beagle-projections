@@ -273,6 +273,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
           <option value="1">1 hr</option><option value="4" selected>4 hrs</option><option value="24">24 hrs</option>
         </select>
         <button id="fourxBtn" class="spd4x-btn on" onclick="toggleFourx()" title="Control 2 — 4× speed boost. When ON, all flight durations ÷ 4. Independent of game time mode.">4× SPEED: ON</button>
+        <button id="schedLockBtn" class="spd4x-btn" onclick="toggleScheduleLock()" title="UNLOCKED: full day pre-plotted from 00:00 (planning mode). LOCKED: schedule anchors to real time — use once fleet is running.">SCHEDULE: UNLOCKED</button>
         <span class="dep-label" style="margin-left:8px">⛽ BURN/AC</span>
         <input class="dep-eta-input" id="avgFuelBurn" type="number" placeholder="lbs" style="width:72px;color:#f5a030;border-color:#6a3a0a" oninput="saveTank('avgFuelBurn');recalc()" title="Average fuel burn per aircraft per departure">
         <span class="dep-label" style="margin-left:6px">🌿 CO2/AC</span>
@@ -404,6 +405,7 @@ function removeBoxKey(k){ pushUndo(); syncBoxesFromDOM(); BOXES=BOXES.filter(b=>
 // Aircraft types — mirrors config.AIRCRAFT_BURN_HOUR keys (static page can't require()
 // server config, so kept in sync manually).
 const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300','A330-200','B747-8','B747-8F','B747SP','B787-10','B787-9','B787-8','A350-900ULR','DC-10','MC-21-400','Concorde','A320neo','B737 MAX 8','Spacejet M100','A320-VIP','Cessna Citation X-VIP','Bombardier Challenger 605-VIP'];
+let SCHEDULE_LOCKED=false;          // false = planning (anchor 00:00), true = live (anchor nowH)
 let DEP_AC=new Array(48).fill(0);   // aircraft departing per slot — derived
 let DEP_BOXES=new Array(48).fill(''); // box number labels per slot ("1", "2+3" etc)
 let FUELACC=new Array(48).fill(0);  // fuel burn per slot before buffer — derived
@@ -461,7 +463,7 @@ function computeDepartures(){
     // ETA/DEP still produces a full forward burn + buy plan (the player refines with ETA/DEP).
     let anchor0;
     if(b.departed!==false && b.departed!=null) anchor0=b.departed;
-    else { const eta=parseEtaHours(b.eta); anchor0=(eta!==null)?(nowH+eta):0; }
+    else { const eta=parseEtaHours(b.eta); anchor0=(eta!==null)?(nowH+eta):(SCHEDULE_LOCKED?nowH:0); }
     let anchor=anchor0-Math.floor(anchor0/cycle)*cycle;   // earliest departure of this phase in [0,cycle)
     for(let d=anchor; d<24; d+=cycle){
       const slot=Math.floor(Math.round(d*60)/30);  // round to the minute first — avoids FP drift
@@ -570,6 +572,19 @@ function toggleFourx(){
   pushUndo();
   setFourx(!b.classList.contains('on'));
   saveCards(); recalc();
+}
+function setScheduleLock(on){
+  SCHEDULE_LOCKED=on;
+  const b=document.getElementById('schedLockBtn'); if(!b)return;
+  b.classList.toggle('on',on);
+  b.textContent=on?'SCHEDULE: LOCKED':'SCHEDULE: UNLOCKED';
+  b.title=on?'LOCKED: schedule anchors to real time (fleet is running). Click to unlock for planning view.':'UNLOCKED: full day pre-plotted from 00:00 (planning mode). Click to lock once fleet departs.';
+  try{localStorage.setItem(LSK('schedLock'),on?'1':'0');}catch(e){}
+}
+function toggleScheduleLock(){
+  pushUndo();
+  setScheduleLock(!SCHEDULE_LOCKED);
+  recalc();
 }
 // Player fleet inputs persist per-browser (manual entry, holds until amended). Local
 // to each visitor — nothing baked into the served page, so a fresh visitor sees blanks.
@@ -1116,7 +1131,9 @@ function saveTank(id){try{const v=document.getElementById(id).value;if(v==='')lo
 // Player-entered numbers persist per-browser so they hold across reloads and can be
 // updated manually. Tank capacity, current reserves and burn rates all stick until
 // changed. Local to each browser — a fresh public visitor still sees blank fields.
-function restoreTanks(){try{['fuelTank','co2Tank','startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>{const v=localStorage.getItem(LSK(id));if(v!==null&&v!==''){const e=document.getElementById(id);if(e)e.value=v;}});}catch(e){}}
+function restoreTanks(){try{['fuelTank','co2Tank','startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>{const v=localStorage.getItem(LSK(id));if(v!==null&&v!==''){const e=document.getElementById(id);if(e)e.value=v;}});
+  const sl=localStorage.getItem(LSK('schedLock')); if(sl==='1') setScheduleLock(true);
+}catch(e){}}
 function resetAll(){
   fPurchased=new Array(48).fill(0);resOv=new Array(48).fill(null);
   co2Purchased=new Array(48).fill(0);co2ResOv=new Array(48).fill(null);co2ResAfterOv=new Array(48).fill(null);
