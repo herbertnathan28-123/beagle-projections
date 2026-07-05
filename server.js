@@ -31,7 +31,7 @@ const {
 } = cfg;
 
 const app  = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 // ── Engine / view aliases (keep route bodies unchanged) ────────────────────
 const { analyseAllPlayers, calcMostImproved, _nk } = engine;
