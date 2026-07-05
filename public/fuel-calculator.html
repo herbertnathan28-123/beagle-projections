@@ -408,6 +408,7 @@ let DEP_AC=new Array(48).fill(0);   // aircraft departing per slot — derived
 let FUELACC=new Array(48).fill(0);  // fuel burn per slot before buffer — derived
 let CO2ACC =new Array(48).fill(0);  // CO2 burn per slot — derived
 let FUELACC_DEP=new Array(48).fill(0);// fuel acc for departed boxes only — intermediate
+let FUELACC_DEP=new Array(48).fill(0);// fuel acc for departed boxes only — intermediate
 let BURNS =new Array(48).fill(0);   // fuel burn per slot (incl. buffer) — ALL boxes; used by optimizer/forecast
 let BURNS_DEP=new Array(48).fill(0); // fuel burn for DEPARTED boxes only — shown in DEP BURN column
 let CO2B  =new Array(48).fill(0);   // CO2 burn per slot — derived
@@ -977,7 +978,7 @@ function recalc(){
     tr.innerHTML=`
       <td class="ind" style="text-align:center;padding:3px">${hasSug?`<span style="color:${hasBought?'#23a55a':'#2a6040'}">◆</span>`:''}</td>
       <td class="c" style="color:${hasSug?'#70b080':'#5a8aaa'};font-weight:${hasSug?600:400}">${TIMES[i]}</td>
-      <td class="c" style="color:#3a6070;font-size:10px">${PERTH[i]}</td>
+      <td class="c" style="color:#3a6070;font-size:13px">${PERTH[i]}</td>
       <td class="c"><span style="color:${priceCol(dPRICES[i])};font-weight:700;font-size:13px">$${dPRICES[i]}</span></td>
       <td class="c" style="color:${DEP_AC[i]?'#8aa0b8':'#2a4060'}">${DEP_AC[i]||'—'}</td>
       <td style="color:${depBurn?'#906020':'#2a4060'}">${depBurn?fmt(depBurn):'—'}</td>
@@ -991,7 +992,7 @@ function recalc(){
       <td style="color:${hasSug?'#6a9a80':'#2a4060'};font-style:${hasSug?'italic':'normal'};font-weight:${hasSug?600:400}">${fmt(fSug[i])}</td>
       <td style="color:${lc}">${lastsStr}</td>
       <td style="padding:3px 5px;background:#141a0a;border-left:1px solid #2a3a10;border-right:1px solid #2a3a10">
-        <input type="number" class="cell-input buy-input ${hasBought?'has-val':''} ${overLimit?'over-limit':''}" data-slot-id="buy-${i}" value="${hasBought?(fPur[i]||''):''}" placeholder="${isToday?fmt(maxBuy):fmt(fSug[i])}" min="0" max="${maxBuy}" step="1000000" ${isToday?`oninput="setBought(${i},this.value,${maxBuy})"`:'readonly'}>
+        <input type="number" class="cell-input buy-input ${hasBought?'has-val':''} ${overLimit?'over-limit':''}" data-slot-id="buy-${i}" value="${hasBought?(fPur[i]||''):''}" placeholder="${isToday?fmt(maxBuy):fmt(fSug[i])}" min="0" max="${maxBuy}" step="1000000" ${isToday?`onchange="setBought(${i},this.value,${maxBuy})"`:'readonly'}>
         ${overLimit?`<div class="warn-msg">⚠ Exceeds max ${fmt(maxBuy)} lbs</div>`:''}
       </td>
       <td class="c" style="border-left:3px solid #2a5a2a">
@@ -1001,7 +1002,7 @@ function recalc(){
         ${cSug[i]>0?fmt(cSug[i]):'—'}
       </td>
       <td style="padding:3px 4px;border-left:1px solid #1a3a1a">
-        <input type="number" class="cell-input co2-buy-input ${co2Bought>0?'has-val':''} ${co2OverLimit?'over-limit':''}" data-slot-id="co2-buy-${i}" value="${co2Bought>0?(cPur[i]||''):''}" placeholder="${sugValC}" min="0" max="${co2MaxBuy}" step="1000000" ${isToday?`oninput="setCO2Bought(${i},this.value,${co2MaxBuy})"`:'readonly'} style="color:${co2Bought>0?'#90d060':'#4a7a40'};width:95px">
+        <input type="number" class="cell-input co2-buy-input ${co2Bought>0?'has-val':''} ${co2OverLimit?'over-limit':''}" data-slot-id="co2-buy-${i}" value="${co2Bought>0?(cPur[i]||''):''}" placeholder="${sugValC}" min="0" max="${co2MaxBuy}" step="1000000" ${isToday?`onchange="setCO2Bought(${i},this.value,${co2MaxBuy})"`:'readonly'} style="color:${co2Bought>0?'#90d060':'#4a7a40'};width:95px">
         ${co2OverLimit?`<div class="warn-msg">⚠ Over limit</div>`:''}
       </td>
       <td style="padding:2px 4px">
@@ -1068,10 +1069,10 @@ let _rcTimer=null;
 function deferRecalc(ms){if(_rcTimer)clearTimeout(_rcTimer);_rcTimer=setTimeout(recalc,ms||400);}
 function setBought(i,v,max){
   const val=parseFloat(v)||0;
-  fPurchased[i]=val;deferRecalc();
+  fPurchased[i]=val;deferRecalc(3000);
 }
 function setCO2Bought(i,v,max){
-  co2Purchased[i]=parseFloat(v)||0;deferRecalc();
+  co2Purchased[i]=parseFloat(v)||0;deferRecalc(3000);
 }
 function setResOv(i,v){const n=parseFloat(String(v).replace(/,/g,''));resOv[i]=isNaN(n)?null:Math.max(0,n);recalc();}
 function clearResOv(i){resOv[i]=null;recalc();}
