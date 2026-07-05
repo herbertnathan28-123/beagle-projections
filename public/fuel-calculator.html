@@ -435,7 +435,6 @@ function computeDepartures(){
   const now=getGameNow();
   const nowH=now.getUTCHours()+now.getUTCMinutes()/60;   // current game time (UTC), in hours
   for(const b of BOXES){
-    if(b.departed===false)continue;
     const act=activeCount(b); if(act<=0)continue;
     const dur=parseFloat(b.dur)||DEFAULT_DUR;
     const cycle=dur/mult;                    // real-time hours between departures
