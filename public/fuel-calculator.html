@@ -407,6 +407,7 @@ const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300',
 let DEP_AC=new Array(48).fill(0);   // aircraft departing per slot — derived
 let FUELACC=new Array(48).fill(0);  // fuel burn per slot before buffer — derived
 let CO2ACC =new Array(48).fill(0);  // CO2 burn per slot — derived
+let FUELACC_DEP=new Array(48).fill(0);// fuel acc for departed boxes only — intermediate
 let BURNS =new Array(48).fill(0);   // fuel burn per slot (incl. buffer) — ALL boxes; used by optimizer/forecast
 let BURNS_DEP=new Array(48).fill(0); // fuel burn for DEPARTED boxes only — shown in DEP BURN column
 let CO2B  =new Array(48).fill(0);   // CO2 burn per slot — derived
@@ -973,7 +974,7 @@ function recalc(){
       <td class="c" style="color:#3a6070;font-size:10px">${PERTH[i]}</td>
       <td class="c"><span style="color:${priceCol(dPRICES[i])};font-weight:700;font-size:13px">$${dPRICES[i]}</span></td>
       <td class="c" style="color:${DEP_AC[i]?'#8aa0b8':'#2a4060'}">${DEP_AC[i]||'—'}</td>
-      <td style="color:${burn?'#906020':'#2a4060'}">${burn?fmt(burn):'—'}</td>
+      <td style="color:${depBurn?'#906020':'#2a4060'}">${depBurn?fmt(depBurn):'—'}</td>
       <td style="padding:2px 4px">
         <span style="display:inline-flex;align-items:center;gap:2px">
           <input type="number" class="cell-input ${isOv?'ov-active':''}" value="${fmt(resBefore).replace(/,/g,'')}" step="1000000" style="color:${isOv?'#6ab0e0':resCol(resBefore)};width:118px" ${isToday?`onchange="setResOv(${i},this.value)"`:'readonly'}>
@@ -1344,11 +1345,12 @@ async function init(){
     }catch(e){ console.error('[FUEL] seed load error:',e); restoreTanks(); restoreCards(); }
   } else if(window.__FUEL_PROFILE__){
     populateFromProfile(window.__FUEL_PROFILE__);
-    // Restore fields left blank by profile (e.g. null reserves) from localStorage FIRST,
-    // before saveTank() — otherwise saveTank() calls localStorage.removeItem() on blank
-    // fields and destroys the user's manually-entered reserves.
-    ['fuelTank','co2Tank','startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>{
-      if(!document.getElementById(id).value){const sv=localStorage.getItem(LSK(id));if(sv)document.getElementById(id).value=sv;}
+    // Reserves (startRes/startCO2) are player-volatile — always restore from localStorage
+    // if present, overriding the profile value (profile reserves may be stale or null).
+    // Tank/burn fields from profile take precedence only when localStorage has nothing.
+    ['startRes','startCO2'].forEach(id=>{const sv=localStorage.getItem(LSK(id));if(sv){const e=document.getElementById(id);if(e)e.value=sv;}});
+    ['fuelTank','co2Tank','avgFuelBurn','co2BurnDep'].forEach(id=>{
+      if(!document.getElementById(id).value){const sv=localStorage.getItem(LSK(id));if(sv){const e=document.getElementById(id);if(e)e.value=sv;}}
     });
     ['fuelTank','co2Tank','startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>saveTank(id));
     saveCards();
