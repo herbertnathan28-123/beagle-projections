@@ -461,7 +461,7 @@ function computeDepartures(){
     // ETA/DEP still produces a full forward burn + buy plan (the player refines with ETA/DEP).
     let anchor0;
     if(b.departed!==false && b.departed!=null) anchor0=b.departed;
-    else { const eta=parseEtaHours(b.eta); anchor0=(eta!==null)?(nowH+eta):nowH; }
+    else { const eta=parseEtaHours(b.eta); anchor0=(eta!==null)?(nowH+eta):0; }
     let anchor=anchor0-Math.floor(anchor0/cycle)*cycle;   // earliest departure of this phase in [0,cycle)
     for(let d=anchor; d<24; d+=cycle){
       const slot=Math.floor(Math.round(d*60)/30);  // round to the minute first — avoids FP drift
