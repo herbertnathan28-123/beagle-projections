@@ -62,20 +62,20 @@ body{background:#060f1e;color:#e0e6f0;font-family:Arial,sans-serif;min-height:10
 .scenario-saving{font-size:10px;font-family:monospace;margin-top:2px}
 .scenario-desc{font-size:8px;color:#2a4060;margin-top:2px}
 .table-wrap{overflow-x:auto;background:#0b1728}
-table{width:100%;border-collapse:collapse;font-size:11px}
+table{width:100%;border-collapse:collapse;font-size:14px}
 thead{position:sticky;top:0;background:#0d1e36;z-index:5}
-th{padding:5px 7px;font-weight:500;font-size:11px;letter-spacing:.5px;white-space:nowrap;color:#3a5a7a;border-bottom:1px solid #1e3050;text-align:right}
+th{padding:6px 8px;font-weight:500;font-size:13px;letter-spacing:.5px;white-space:nowrap;color:#3a5a7a;border-bottom:1px solid #1e3050;text-align:right}
 th.c{text-align:center}
 th.co2h{color:#5a9a5a;border-left:2px solid #2a5a2a}
 th.sug{color:#8ab0c0}
 th.buy{color:#d4b030;background:#141a0a}
-td{padding:3px 5px;font-family:monospace;white-space:nowrap;text-align:right;border-bottom:1px solid #0d1c2e;font-size:13px}
+td{padding:4px 6px;font-family:monospace;white-space:nowrap;text-align:right;border-bottom:1px solid #0d1c2e;font-size:15px}
 td.c{text-align:center}
 tr.bg-crit{background:#2a0808}
 tr.bg-warn{background:#1a1200}
 tr.bg-bought{background:#071810}
 tr.bg-sug{background:#05100a}
-.cell-input{background:transparent;border:1px solid transparent;color:inherit;padding:2px 3px;border-radius:3px;font-size:13px;font-family:monospace;text-align:right;width:100px;outline:none}
+.cell-input{background:transparent;border:1px solid transparent;color:inherit;padding:3px 4px;border-radius:3px;font-size:15px;font-family:monospace;text-align:right;width:110px;outline:none}
 .cell-input:focus{border-color:#2a5080;background:#091828}
 .cell-input.ov-active{background:#0a1830;border-color:#3a70b0;color:#6ab0e0;font-weight:600}
 .buy-input{background:#0f180a;border:1px solid #2a3a10;color:#6a7a40;width:90px}
@@ -89,7 +89,7 @@ tr.bg-sug{background:#05100a}
 .dep-window-best{border-left:3px solid #23a55a!important;background:rgba(35,165,90,0.08)!important}
 .dep-window-best .price-cell{text-shadow:0 0 8px #23a55a}
 tr.now-row{background:rgba(35,165,90,0.18)!important;border-left:3px solid #23a55a!important}
-.co2-res-input{background:transparent;border:1px solid transparent;color:inherit;padding:2px 3px;border-radius:3px;font-size:10px;font-family:monospace;text-align:right;width:110px;outline:none}
+.co2-res-input{background:transparent;border:1px solid transparent;color:inherit;padding:3px 4px;border-radius:3px;font-size:14px;font-family:monospace;text-align:right;width:120px;outline:none}
 .co2-res-input:focus{border-color:#2a5a2a;background:#050e05}
 .co2-res-input.ov-active{background:#051a05;border-color:#3a7a3a;color:#70d070;font-weight:600}
 .now-badge{display:inline-block;background:#23a55a;color:#0a0a0a;font-size:8px;font-weight:800;padding:1px 4px;border-radius:3px;margin-left:4px;letter-spacing:.5px;vertical-align:middle}
@@ -420,7 +420,7 @@ function activeCount(b){ return Math.max(0, boxCount(b)-(b.maint||0)); }
 // Effective speed multiplier: Control 1 (game time mode 1/4/24) × Control 2 (4× boost).
 // Independent controls; both apply. cycle = flight duration ÷ this multiplier.
 function speedMult(){
-  const mode=parseFloat(gv('gameMode'))||1;
+  const mode=parseFloat(gv('gameMode'))||4;
   const b=document.getElementById('fourxBtn');
   const fourx=b?b.classList.contains('on'):true;   // default ON
   return mode*(fourx?4:1);
@@ -883,6 +883,12 @@ function monthPathway(startR, tank, minR, dayBurn, priceIdx, manualToday){
 
 // ── MAIN RECALC ──
 function recalc(){
+  // Preserve focus across full-table rebuild so the user isn't kicked out of
+  // the Purchased input after every keystroke (the deferred recalc rebuilds
+  // innerHTML, destroying the focused input element).
+  const _ae = document.activeElement;
+  const _focusId = _ae && _ae.closest && _ae.closest('#tbody')
+    ? _ae.getAttribute('data-slot-id') || null : null;
   rebuildBurns();   // derive DEP_AC + per-slot fuel/CO2 burn from player fleet/speed/ETA/burn inputs
   const startRes=parseFloat(document.getElementById('startRes').value)||0;
   const fuelTank=parseFloat(document.getElementById('fuelTank').value)||0;
@@ -985,7 +991,7 @@ function recalc(){
       <td style="color:${hasSug?'#6a9a80':'#2a4060'};font-style:${hasSug?'italic':'normal'};font-weight:${hasSug?600:400}">${fmt(fSug[i])}</td>
       <td style="color:${lc}">${lastsStr}</td>
       <td style="padding:3px 5px;background:#141a0a;border-left:1px solid #2a3a10;border-right:1px solid #2a3a10">
-        <input type="number" class="cell-input buy-input ${hasBought?'has-val':''} ${overLimit?'over-limit':''}" value="${hasBought?(fPur[i]||''):''}" placeholder="${isToday?fmt(maxBuy):fmt(fSug[i])}" min="0" max="${maxBuy}" step="1000000" ${isToday?`oninput="setBought(${i},this.value,${maxBuy})"`:'readonly'}>
+        <input type="number" class="cell-input buy-input ${hasBought?'has-val':''} ${overLimit?'over-limit':''}" data-slot-id="buy-${i}" value="${hasBought?(fPur[i]||''):''}" placeholder="${isToday?fmt(maxBuy):fmt(fSug[i])}" min="0" max="${maxBuy}" step="1000000" ${isToday?`oninput="setBought(${i},this.value,${maxBuy})"`:'readonly'}>
         ${overLimit?`<div class="warn-msg">⚠ Exceeds max ${fmt(maxBuy)} lbs</div>`:''}
       </td>
       <td class="c" style="border-left:3px solid #2a5a2a">
@@ -995,7 +1001,7 @@ function recalc(){
         ${cSug[i]>0?fmt(cSug[i]):'—'}
       </td>
       <td style="padding:3px 4px;border-left:1px solid #1a3a1a">
-        <input type="number" class="cell-input co2-buy-input ${co2Bought>0?'has-val':''} ${co2OverLimit?'over-limit':''}" value="${co2Bought>0?(cPur[i]||''):''}" placeholder="${sugValC}" min="0" max="${co2MaxBuy}" step="1000000" ${isToday?`oninput="setCO2Bought(${i},this.value,${co2MaxBuy})"`:'readonly'} style="color:${co2Bought>0?'#90d060':'#4a7a40'};width:95px">
+        <input type="number" class="cell-input co2-buy-input ${co2Bought>0?'has-val':''} ${co2OverLimit?'over-limit':''}" data-slot-id="co2-buy-${i}" value="${co2Bought>0?(cPur[i]||''):''}" placeholder="${sugValC}" min="0" max="${co2MaxBuy}" step="1000000" ${isToday?`oninput="setCO2Bought(${i},this.value,${co2MaxBuy})"`:'readonly'} style="color:${co2Bought>0?'#90d060':'#4a7a40'};width:95px">
         ${co2OverLimit?`<div class="warn-msg">⚠ Over limit</div>`:''}
       </td>
       <td style="padding:2px 4px">
@@ -1050,6 +1056,11 @@ function recalc(){
   setSum('sumCO2Cost',fmtM(totCO2Cost),'#90c060');
   setSum('sumSVDrop','-'+((totCost+totCO2Cost)/SV).toFixed(2)+' SV','#f5a623');
   if(isToday && typeof highlightNowRow==='function') highlightNowRow();   // NOW badge only on today's view
+  // Restore focus to the input the user was typing in before the rebuild.
+  if(_focusId){
+    const _el=document.querySelector(`[data-slot-id="${_focusId}"]`);
+    if(_el){_el.focus();}
+  }
 }
 
 // ── ACTIONS ──
