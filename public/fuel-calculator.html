@@ -1338,17 +1338,21 @@ async function init(){
       ['fuelTank','co2Tank','startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>saveTank(id));
       saveCards();
     }catch(e){ console.error('[FUEL] seed load error:',e); restoreTanks(); restoreCards(); }
-  } else if(window.__FUEL_PROFILE__){ populateFromProfile(window.__FUEL_PROFILE__); ['fuelTank','co2Tank','startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>saveTank(id)); saveCards(); ['startRes','startCO2'].forEach(id=>{if(!document.getElementById(id).value){const sv=localStorage.getItem(LSK(id));if(sv)document.getElementById(id).value=sv;}}); }
+  } else if(window.__FUEL_PROFILE__){
+    populateFromProfile(window.__FUEL_PROFILE__);
+    // Restore fields left blank by profile (e.g. null reserves) from localStorage FIRST,
+    // before saveTank() — otherwise saveTank() calls localStorage.removeItem() on blank
+    // fields and destroys the user's manually-entered reserves.
+    ['fuelTank','co2Tank','startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>{
+      if(!document.getElementById(id).value){const sv=localStorage.getItem(LSK(id));if(sv)document.getElementById(id).value=sv;}
+    });
+    ['fuelTank','co2Tank','startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>saveTank(id));
+    saveCards();
+  }
   else {
-    // NO profile injected this load and NO ?seed. Historically this branch restored the
-    // browser's saved fleet/tanks — but on a shared/operator device that saved data is the
-    // OPERATOR's strategy, and it was surfacing on the bare /fuel-calculator page and on any
-    // player link whose profile wasn't injected. That is the "every page showed my flight
-    // times" leak. Hard rule now: a page ONLY ever shows data the server injected for that
-    // exact Discord ID (?did) or a ?seed link. Anything else renders BLANK — never restore
-    // this browser's storage on load. (Edits still save per-id and are re-injected by the
-    // server on that player's own link.)
-    /* intentionally blank — no restoreTanks()/restoreCards() */
+    // No profile and no ?seed — fleet cards stay blank (only load from server profile or seed).
+    // Tank/reserve fields restore from browser storage so user-entered values survive refresh.
+    restoreTanks();
   }
   // Reserves come from the server profile (screenshot → n8n → /api/fuel-profile → this link),
   // which is the authoritative live figure. The profile value populated above stands — we no
