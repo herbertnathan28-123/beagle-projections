@@ -137,10 +137,13 @@ app.get('/fuel-calculator', (req, res, next) => {
 });
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
-// Root: no index.html lives in /public, so bare "/" would otherwise 404 (and
-// reads as a 502 to uptime monitors hitting during a deploy cutover). Send it to
-// the calculator so the domain root and health pings always resolve cleanly.
-app.get('/', (req, res) => res.redirect(302, '/fuel-calculator'));
+// Root: this service IS the Alliance Projections service, so the bare domain must serve
+// the Alliance Projections page (same content the wildcard serves), NOT the fuel
+// calculator. A previous version redirected "/" to /fuel-calculator, which leaked the
+// player fuel calculator into the alliance/pace channels whose links point at the bare
+// domain. The fuel calculator is reachable ONLY via its explicit routes (/fuel-calculator,
+// /qac, /fuel/:did, /fuel-setup) — never from the domain root.
+app.get('/', (req, res) => { logVisit(req); res.type('html').send(HTML_COMPILED); });
 
 // QAC standalone: serve the calculator with the Quick Access panel auto-opened,
 // so there is one engine/page to maintain rather than a duplicate optimizer.

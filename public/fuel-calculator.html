@@ -151,6 +151,9 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .bhead .mnt .mlbl{color:#c99a3a}
 .xbox{width:20px;height:20px;border:1.5px solid #6a3a3a;background:transparent;border-radius:5px;color:#e07070;font-size:12px;font-weight:700;cursor:pointer;line-height:1;padding:0;flex:0 0 auto}
 .xbox:hover{background:#2a1010}
+.beta{display:flex;align-items:center;gap:6px;padding:4px 8px 2px;margin:0 5px}
+.beta .etalbl{font-size:9px;font-weight:800;letter-spacing:.8px;color:#6a7a8a;flex:0 0 auto}
+.finput.feta{flex:1 1 auto;font-size:12px;padding:6px 6px;color:#8aa0b8}
 .trows .frow{gap:5px;padding:6px 8px}
 .finput.ftype{flex:1 1 auto;font-size:13px;font-weight:700;padding:8px 6px}
 .finput.fac{flex:0 0 62px;width:62px;color:#8aa0b8;font-size:13px;padding:8px 4px}
@@ -375,7 +378,7 @@ const MAX_TYPES=4;      // aircraft types per box
 const DEFAULT_DUR=24;   // a fresh box shows 24h until the player changes it
 let BOX_SEQ=0;
 function mkType(){ return {type:'',count:'',fuel:null,co2:null}; }   // fuel/co2 = per-AC burn (from profile) or null → global fallback
-function mkBox(dur){ return {key:'b'+(++BOX_SEQ), dur:(dur!=null?dur:DEFAULT_DUR), maint:0, departed:false, types:[mkType()]}; }
+function mkBox(dur){ return {key:'b'+(++BOX_SEQ), dur:(dur!=null?dur:DEFAULT_DUR), eta:'', maint:0, departed:false, types:[mkType()]}; }
 let BOXES=[mkBox()];
 function boxByKey(k){ return BOXES.find(b=>b.key===k); }
 function optsFor(v){ return '<option value="">— Select —</option>'+AIRCRAFT_TYPES.map(t=>`<option${t===v?' selected':''}>${t}</option>`).join(''); }
@@ -384,6 +387,7 @@ function optsFor(v){ return '<option value="">— Select —</option>'+AIRCRAFT_
 function syncBoxesFromDOM(){
   for(const b of BOXES){
     const d=document.getElementById('dur_'+b.key); if(d){ const v=parseFloat(d.value); if(!isNaN(v))b.dur=v; }
+    const et=document.getElementById('eta_'+b.key); if(et) b.eta=et.value;
     for(let i=0;i<MAX_TYPES;i++){
       if(!b.types[i]) b.types[i]=mkType();
       const ts=document.getElementById('type_'+b.key+'_'+i); if(ts) b.types[i].type=ts.value;
@@ -445,11 +449,14 @@ function computeDepartures(){
       co2PerDep  += cnt*((t.co2 !=null)?t.co2 :gCO2);
     }
     if(tot>0 && act<tot){ const f=act/tot; fuelPerDep*=f; co2PerDep*=f; }
-    // Anchor: a DEParted box uses the ACTUAL press time (game-hour it was launched) so the
-    // schedule stays in sync with the real in-game departure. Otherwise GENERIC default —
-    // schedule it on its own cycle across the day (anchored at now), so a box with A/C but
-    // no DEP tap still produces a full forward burn + buy plan (the player refines with DEP).
-    const anchor0=(b.departed!==false && b.departed!=null)?b.departed:nowH;
+    // Anchor priority: (1) a DEParted box uses the ACTUAL press time (game-hour it was
+    // launched) so the schedule stays in sync with the real in-game departure; (2) else the
+    // manual ETA (game-hours from now until it next lands); (3) else GENERIC default —
+    // schedule on its own cycle across the day (anchored at now), so a box with A/C but no
+    // ETA/DEP still produces a full forward burn + buy plan (the player refines with ETA/DEP).
+    let anchor0;
+    if(b.departed!==false && b.departed!=null) anchor0=b.departed;
+    else { const eta=parseEtaHours(b.eta); anchor0=(eta!==null)?(nowH+eta):nowH; }
     let anchor=anchor0-Math.floor(anchor0/cycle)*cycle;   // earliest departure of this phase in [0,cycle)
     for(let d=anchor; d<24; d+=cycle){
       const slot=Math.floor(Math.round(d*60)/30);  // round to the minute first — avoids FP drift
@@ -498,7 +505,7 @@ function buildFleetCards(){
     }
     html+=`<div class="fcard" id="fcard_${b.key}">
       <div class="bhead">
-        <span class="ftime"><input class="finput fdur" id="dur_${b.key}" type="number" min="0" step="0.5" value="${b.dur}" oninput="onBoxInput()" title="Flight time (hours) for this box">h</span>
+        <span class="ftime"><input class="finput fdur" id="dur_${b.key}" type="number" min="0" step="0.1" value="${b.dur}" oninput="onBoxInput()" title="Flight time in hours — decimals of 0.1 = 6-minute steps (e.g. 3.5 = 3h30, 3.1 = 3h06)">h</span>
         <span class="mnt"><span class="mlbl">MAINT</span>
           <button class="stp" type="button" onclick="stepMaint('${b.key}',1)" title="Add aircraft to maintenance">+</button>
           <span class="mcount" id="maint_${b.key}">${b.maint||0}</span>
@@ -506,6 +513,7 @@ function buildFleetCards(){
         <button class="xbox" type="button" onclick="removeBoxKey('${b.key}')" title="Remove this box">✕</button>
       </div>
       <div class="dur depbtn" onclick="toggleDepart('${b.key}')" title="Toggle departed (green) / not departed (orange)"><div class="big">DEP</div></div>
+      <div class="beta"><span class="etalbl">ETA</span><input class="finput feta" id="eta_${b.key}" type="text" placeholder="HH:MM until it lands" value="${b.eta!=null?b.eta:''}" oninput="onBoxInput()" title="Time until this box next lands/departs (HH:MM or decimal hours). Anchors the schedule; a DEP tap overrides it."></div>
       <div class="trows">${rows}</div>
     </div>`;
   }
@@ -580,7 +588,7 @@ function saveCards(){
     syncBoxesFromDOM();
     const b=document.getElementById('fourxBtn');
     localStorage.setItem(LSK('fleet'),JSON.stringify({
-      boxes:BOXES.map(x=>({dur:x.dur,maint:x.maint,departed:x.departed,types:x.types.map(t=>({type:t.type,count:t.count,fuel:t.fuel,co2:t.co2}))})),
+      boxes:BOXES.map(x=>({dur:x.dur,eta:x.eta,maint:x.maint,departed:x.departed,types:x.types.map(t=>({type:t.type,count:t.count,fuel:t.fuel,co2:t.co2}))})),
       mode:gv('gameMode'), fourx:b?b.classList.contains('on'):true
     }));
   }catch(e){}
@@ -596,6 +604,7 @@ function restoreCards(){
       BOXES=d.boxes.map(x=>({
         key:'b'+(++BOX_SEQ),
         dur:(x.dur!=null?x.dur:DEFAULT_DUR),
+        eta:(x.eta!=null?x.eta:''),
         maint:parseInt(x.maint)||0,
         departed:(typeof x.departed==='number')?x.departed:false,
         types:(Array.isArray(x.types)&&x.types.length?x.types:[mkType()]).slice(0,MAX_TYPES)
@@ -608,7 +617,7 @@ function restoreCards(){
       BOX_SEQ=0; BOXES=[];
       for(const k in d.cards){ const c=d.cards[k]; if(!c)continue;
         const cnt=parseInt(c.cnt)||0; if(cnt<=0 && !c.type)continue;
-        BOXES.push({key:'b'+(++BOX_SEQ),dur:(durMap[k]||DEFAULT_DUR),
+        BOXES.push({key:'b'+(++BOX_SEQ),dur:(durMap[k]||DEFAULT_DUR),eta:(c.eta||''),
           maint:(d.maint&&parseInt(d.maint[k]))||0,
           departed:(d.departed&&typeof d.departed[k]==='number')?d.departed[k]:false,
           types:[{type:c.type||'',count:(c.cnt||''),fuel:null,co2:null}]});
@@ -632,7 +641,7 @@ function snapshotState(){
 }
 function updateUndoBtn(){ const b=document.getElementById('undoBtn'); if(!b)return; b.disabled=UNDO_STACK.length===0; b.title=UNDO_STACK.length?('Undo last change — '+UNDO_STACK.length+' step'+(UNDO_STACK.length>1?'s':'')+' back'):'Nothing to undo'; }
 function pushUndo(snap){ UNDO_STACK.push(snap||snapshotState()); if(UNDO_STACK.length>UNDO_MAX)UNDO_STACK.shift(); updateUndoBtn(); }
-function isUndoField(el){ return el&&(el.tagName==='INPUT'||el.tagName==='SELECT')&&el.id&&(UNDO_TANK_IDS.includes(el.id)||/^(cnt_|type_|dur_)/.test(el.id)||el.id==='gameMode'); }
+function isUndoField(el){ return el&&(el.tagName==='INPUT'||el.tagName==='SELECT')&&el.id&&(UNDO_TANK_IDS.includes(el.id)||/^(cnt_|type_|dur_|eta_)/.test(el.id)||el.id==='gameMode'); }
 function undoFocusIn(e){ if(isUndoField(e.target)) _undoFocusSnap={id:e.target.id, before:e.target.value, state:snapshotState()}; }
 function undoCommit(e){
   if(_undoFocusSnap && isUndoField(e.target) && e.target.id===_undoFocusSnap.id && e.target.value!==_undoFocusSnap.before){
@@ -694,7 +703,7 @@ function populateFromProfile(p){
         const extra=g.types.slice(MAX_TYPES).reduce((s,t)=>s+t.count,0);
         types[MAX_TYPES-1]={...types[MAX_TYPES-1], count:types[MAX_TYPES-1].count+extra};
       }
-      BOXES.push({key:'b'+(++BOX_SEQ),dur:g.dur,maint:0,departed:false,
+      BOXES.push({key:'b'+(++BOX_SEQ),dur:g.dur,eta:'',maint:0,departed:false,
         types:types.map(t=>({type:t.type,count:t.count,fuel:t.fuel,co2:t.co2}))});
     }
     if(!BOXES.length) BOXES=[mkBox()];
