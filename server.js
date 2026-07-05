@@ -268,6 +268,14 @@ app.post('/api/update', (req, res) => {
     const incomingPace = (a.pace != null && !isNaN(a.pace)) ? a.pace : null;
     return { rank: a.rank, name: a.name, sv: a.sv, pace: incomingPace ?? existing?.pace ?? null };
   });
+  // Deduplicate alliances by name — prevents double rows from repeat uploads
+  const _seenAlliances = new Set();
+  const dedupedMerged = merged.filter(a => {
+    const k = (a.name || '').toLowerCase().trim();
+    if (_seenAlliances.has(k)) return false;
+    _seenAlliances.add(k);
+    return true;
+  });
   const newSV = beagleSV ?? liveData.beagleSV;
   const newTs = timestamp || liveData.timestamp;
   const serverPace = calcPaceFromBaseline(newSV, newTs);
@@ -278,7 +286,7 @@ app.post('/api/update', (req, res) => {
     beagleSV:   newSV,
     beaglePace: finalPace,
     beagleRank: beagleRank ?? liveData.beagleRank,
-    alliances:  merged.length ? merged : liveData.alliances,
+    alliances:  dedupedMerged.length ? dedupedMerged : liveData.alliances,
   };
   console.log(`[${new Date().toISOString()}] Updated by ${uploader}`);
   saveState(liveData);
