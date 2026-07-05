@@ -315,7 +315,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
   <thead><tr>
     <th class="c" style="width:16px"></th>
     <th class="c">DEN</th><th class="c" id="localColHead">PERTH</th><th class="c">PRICE</th>
-    <th class="c">A/C</th><th>DEP BURN</th>
+    <th class="c">A/C</th><th style="white-space:normal;max-width:60px">FLEET #<br>DEPARTURE</th>
     <th class="sug" style="color:#5a8aba;white-space:normal;max-width:70px">FORECAST<br>RESERVES ✎</th>
     <th>RES AFTER DEP</th>
     <th class="sug">SUGGESTED BUY</th>
@@ -405,6 +405,7 @@ function removeBoxKey(k){ pushUndo(); syncBoxesFromDOM(); BOXES=BOXES.filter(b=>
 // server config, so kept in sync manually).
 const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300','A330-200','B747-8','B747-8F','B747SP','B787-10','B787-9','B787-8','A350-900ULR','DC-10','MC-21-400','Concorde','A320neo','B737 MAX 8','Spacejet M100','A320-VIP','Cessna Citation X-VIP','Bombardier Challenger 605-VIP'];
 let DEP_AC=new Array(48).fill(0);   // aircraft departing per slot — derived
+let DEP_BOXES=new Array(48).fill(''); // box number labels per slot ("1", "2+3" etc)
 let FUELACC=new Array(48).fill(0);  // fuel burn per slot before buffer — derived
 let CO2ACC =new Array(48).fill(0);  // CO2 burn per slot — derived
 let FUELACC_DEP=new Array(48).fill(0);// fuel acc for departed boxes only — intermediate
@@ -429,6 +430,7 @@ function speedMult(){
 // hours; each departure adds the box's active A/C to that slot and its per-type burn.
 function computeDepartures(){
   DEP_AC=new Array(48).fill(0);
+  DEP_BOXES=new Array(48).fill('');
   FUELACC=new Array(48).fill(0);
   FUELACC_DEP=new Array(48).fill(0);
   CO2ACC =new Array(48).fill(0);
@@ -463,7 +465,7 @@ function computeDepartures(){
     let anchor=anchor0-Math.floor(anchor0/cycle)*cycle;   // earliest departure of this phase in [0,cycle)
     for(let d=anchor; d<24; d+=cycle){
       const slot=Math.floor(Math.round(d*60)/30);  // round to the minute first — avoids FP drift
-      if(slot>=0&&slot<48){ DEP_AC[slot]+=act; FUELACC[slot]+=fuelPerDep; if(b.departed!==false)FUELACC_DEP[slot]+=fuelPerDep; CO2ACC[slot]+=co2PerDep; }
+      if(slot>=0&&slot<48){ DEP_AC[slot]+=act; FUELACC[slot]+=fuelPerDep; if(b.departed!==false)FUELACC_DEP[slot]+=fuelPerDep; CO2ACC[slot]+=co2PerDep; const bNum=String(BOXES.indexOf(b)+1); DEP_BOXES[slot]=DEP_BOXES[slot]?(DEP_BOXES[slot].includes(bNum)?DEP_BOXES[slot]:DEP_BOXES[slot]+'+'+bNum):bNum; }
     }
   }
 }
@@ -980,7 +982,7 @@ function recalc(){
       <td class="c" style="color:#3a6070;font-size:13px">${PERTH[i]}</td>
       <td class="c"><span style="color:${priceCol(dPRICES[i])};font-weight:700;font-size:13px">$${dPRICES[i]}</span></td>
       <td class="c" style="color:${DEP_AC[i]?'#8aa0b8':'#2a4060'}">${DEP_AC[i]||'—'}</td>
-      <td style="color:${depBurn?'#906020':'#2a4060'}">${depBurn?fmt(depBurn):'—'}</td>
+      <td style="color:${DEP_BOXES[i]?'#f5a623':'#2a4060'};font-weight:${DEP_BOXES[i]?700:400};font-size:15px;text-align:center">${DEP_BOXES[i]||'—'}</td>
       <td style="padding:2px 4px">
         <span style="display:inline-flex;align-items:center;gap:2px">
           <input type="number" class="cell-input ${isOv?'ov-active':''}" value="${fmt(resBefore).replace(/,/g,'')}" step="1000000" style="color:${isOv?'#6ab0e0':resCol(resBefore)};width:118px" ${isToday?`onchange="setResOv(${i},this.value)"`:'readonly'}>
