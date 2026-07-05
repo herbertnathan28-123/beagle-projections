@@ -298,22 +298,32 @@ function renderTankStatus(profile,reserveBuffer){
 }
 
 function findNextCheapWindow(fp,todayUTC,curHour,curMin,type){
+  // FIX: scan ALL slots in FUEL_SCHEDULE_CLIENT within the 16h window (not just one per day).
+  // Old version only checked fp.days[day].slot (cheapest per day) — if that slot passed, it jumped
+  // to the next day ignoring all remaining cheap slots today. WO-FUEL-CALC-BUG-FIXES.
   const now=new Date();
   const nowMs=now.getTime();
   const windowMs=16*3600*1000;
-  for(let offset=0;offset<=32;offset++){
-    const checkDay=((todayUTC-1+Math.floor(offset/48))%fp.days.length)+1;
-    const dayData=fp.days.find(d=>d.day===checkDay);
-    if(!dayData||!dayData[type])continue;
-    const slotParts=dayData[type].slot.split(':');
-    const slotH=parseInt(slotParts[0]),slotM=parseInt(slotParts[1]);
-    const slotDate=new Date(Date.UTC(fp.year,fp.month-1,checkDay,slotH,slotM));
-    const slotMs=slotDate.getTime();
-    if(slotMs>nowMs&&slotMs-nowMs<=windowMs){
-      return{day:checkDay,slot:dayData[type].slot,price:dayData[type].price,rating:dayData[type].rating,timeMs:slotMs};
+  let best=null;
+  // Scan today and tomorrow to cover any 16h window crossing midnight
+  for(let dayOffset=0;dayOffset<=1;dayOffset++){
+    const checkDay=todayUTC+dayOffset;
+    if(checkDay>31)continue;
+    const daySchedule=FUEL_SCHEDULE_CLIENT[String(checkDay)];
+    if(!daySchedule)continue;
+    for(const [slotStr,prices] of Object.entries(daySchedule)){
+      const price=type==='fuel'?prices[0]:prices[1];
+      const [slotH,slotM]=slotStr.split(':').map(Number);
+      const slotMs=Date.UTC(fp.year,fp.month-1,checkDay,slotH,slotM);
+      if(slotMs<=nowMs)continue;          // past slot
+      if(slotMs-nowMs>windowMs)continue;  // beyond 16h window
+      const rating=type==='fuel'?(price<500?'green':price<=900?'amber':'red'):(price<120?'green':price<=160?'amber':'red');
+      if(!best||price<best.price){
+        best={day:checkDay,slot:slotStr,price,rating,timeMs:slotMs};
+      }
     }
   }
-  return null;
+  return best;
 }
 
 function renderTodayPanel(today,todayUTC,curHour,curMin,fp,tzOffset){
