@@ -978,20 +978,20 @@ function recalc(){
 
     tr.innerHTML=`
       <td class="ind" style="text-align:center;padding:3px">${hasSug?`<span style="color:${hasBought?'#23a55a':'#2a6040'}">◆</span>`:''}</td>
-      <td class="c" style="color:${hasSug?'#70b080':'#5a8aaa'};font-weight:${hasSug?600:400}">${TIMES[i]}</td>
+      <td class="c" style="color:${hasSug?'#70e0a0':crit?'#ff6060':warn?'#f5a623':'#5a8aaa'};font-weight:${hasSug||crit||warn?700:400}">${TIMES[i]}</td>
       <td class="c" style="color:#3a6070;font-size:13px">${PERTH[i]}</td>
       <td class="c"><span style="color:${priceCol(dPRICES[i])};font-weight:700;font-size:13px">$${dPRICES[i]}</span></td>
       <td class="c" style="color:${DEP_AC[i]?'#8aa0b8':'#2a4060'}">${DEP_AC[i]||'—'}</td>
       <td style="color:${DEP_BOXES[i]?'#f5a623':'#2a4060'};font-weight:${DEP_BOXES[i]?700:400};font-size:15px;text-align:center">${DEP_BOXES[i]||'—'}</td>
       <td style="padding:2px 4px">
         <span style="display:inline-flex;align-items:center;gap:2px">
-          <input type="number" class="cell-input ${isOv?'ov-active':''}" value="${fmt(resBefore).replace(/,/g,'')}" step="1000000" style="color:${isOv?'#6ab0e0':resCol(resBefore)};width:118px" ${isToday?`onchange="setResOv(${i},this.value)"`:'readonly'}>
+          <input type="number" class="cell-input ${isOv?'ov-active':''}" value="${fmt(resBefore).replace(/,/g,'')}" step="1000000" style="color:${isOv?'#6ab0e0':resCol(resBefore)};width:118px;font-weight:${resBefore<=MIN_FUEL?800:resBefore<=MIN_FUEL*2?700:400}" ${isToday?`onchange="setResOv(${i},this.value)"`:'readonly'}>
           ${isToday&&isOv?`<button class="clear-btn" onclick="clearResOv(${i})">✕</button>`:''}
         </span>
       </td>
-      <td style="color:${resCol(afterBurn)}">${fmt(afterBurn)}</td>
-      <td style="color:${hasSug?'#6a9a80':'#2a4060'};font-style:${hasSug?'italic':'normal'};font-weight:${hasSug?600:400}">${fmt(fSug[i])}</td>
-      <td style="color:${lc}">${lastsStr}</td>
+      <td style="color:${resCol(afterBurn)};font-weight:${afterBurn<=MIN_FUEL?800:afterBurn<=MIN_FUEL*2?700:400}">${fmt(afterBurn)}</td>
+      <td style="color:${hasSug?'#23a55a':'#2a4a60'};font-style:${hasSug?'italic':'normal'};font-weight:${hasSug?700:400};background:${hasSug?'rgba(35,165,90,0.08)':'transparent'}">${fmt(fSug[i])}</td>
+      <td style="color:${lc};font-weight:${parseFloat(lastsStr)<4&&lastsStr!=='>24h'?700:400}">${lastsStr}</td>
       <td style="padding:3px 5px;background:#141a0a;border-left:1px solid #2a3a10;border-right:1px solid #2a3a10">
         <input type="number" class="cell-input buy-input ${hasBought?'has-val':''} ${overLimit?'over-limit':''}" data-slot-id="buy-${i}" value="${hasBought?(fPur[i]||''):''}" placeholder="${isToday?fmt(maxBuy):fmt(fSug[i])}" min="0" max="${maxBuy}" step="1000000" ${isToday?`onchange="setBought(${i},this.value,${maxBuy})"`:'readonly'}>
         ${overLimit?`<div class="warn-msg">⚠ Exceeds max ${fmt(maxBuy)} lbs</div>`:''}
