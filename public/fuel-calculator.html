@@ -145,6 +145,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .box-ctrl .mcount{min-width:16px;text-align:center;color:#e0b24a;font-weight:800;font-size:12px}
 .fcard{flex:1 1 220px;max-width:300px;display:flex;flex-direction:column}
 .bhead{display:flex;align-items:center;gap:6px;background:#181206;padding:6px 8px;border-bottom:1px solid #241a08;min-height:40px}
+.fleet-lbl{font-size:9px;font-weight:800;letter-spacing:1.5px;color:#c99a3a;background:#1a1200;border:1px solid #3a2a00;border-radius:4px;padding:2px 6px;white-space:nowrap;flex-shrink:0}
 .ftime{display:flex;align-items:center;gap:3px;color:#f5a030;font-size:17px;font-weight:800}
 .finput.fdur{flex:0 0 76px;width:76px;color:#f5a030;font-weight:800;font-size:22px;padding:7px 6px;font-family:inherit;text-align:center}
 .bhead .mnt{background:transparent;border:0;border-bottom:0;padding:0;min-height:0;margin-left:auto;gap:4px;justify-content:flex-end}
@@ -502,7 +503,7 @@ function buildFleetCards(){
     <button class="depall-btn" type="button" onclick="departAll()" title="Depart / recall ALL boxes at once">DEP ALL</button>
     <span class="bc-hint">each box = one flight time · up to 4 aircraft types</span>
   </div>`;
-  for(const b of BOXES){
+  for(let _bi=0;_bi<BOXES.length;_bi++){const b=BOXES[_bi];
     let rows='';
     for(let i=0;i<MAX_TYPES;i++){
       const t=b.types[i]||mkType();
@@ -513,6 +514,7 @@ function buildFleetCards(){
     }
     html+=`<div class="fcard" id="fcard_${b.key}">
       <div class="bhead">
+        <span class="fleet-lbl">FLEET ${_bi+1}</span>
         <span class="ftime"><input class="finput fdur" id="dur_${b.key}" type="number" min="0" step="0.1" value="${b.dur}" oninput="onBoxInput()" title="Flight time in hours — decimals of 0.1 = 6-minute steps (e.g. 3.5 = 3h30, 3.1 = 3h06)">h</span>
         <span class="mnt"><span class="mlbl">MAINT</span>
           <button class="stp" type="button" onclick="stepMaint('${b.key}',1)" title="Add aircraft to maintenance">+</button>
