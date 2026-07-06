@@ -155,6 +155,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .beta{display:flex;align-items:center;gap:6px;padding:4px 8px 2px;margin:0 5px}
 .beta .etalbl{font-size:9px;font-weight:800;letter-spacing:.8px;color:#6a7a8a;flex:0 0 auto}
 .finput.feta{flex:1 1 auto;font-size:12px;padding:6px 6px;color:#8aa0b8}
+.finput.feta.has-val{color:#e8f4ff;font-weight:700;border-color:#4a7ab8!important}
 .trows .frow{gap:5px;padding:6px 8px}
 .finput.ftype{flex:1 1 auto;font-size:13px;font-weight:700;padding:8px 6px}
 .finput.fac{flex:0 0 62px;width:62px;color:#8aa0b8;font-size:13px;padding:8px 4px}
@@ -454,6 +455,7 @@ function computeDepartures(){
   const gCO2 =parseFloat(gv('co2BurnDep'))||0;    // global fallback CO2/AC
   const now=getGameNow();
   const nowH=now.getUTCHours()+now.getUTCMinutes()/60;   // current game time (UTC), in hours
+  const _anyDep=BOXES.some(b=>b.departed!==false);  // any fleet live → non-departed skip past/NOW slots
   for(const b of BOXES){
     const act=activeCount(b); if(act<=0)continue;
     const dur=parseFloat(b.dur)||DEFAULT_DUR;
@@ -480,7 +482,10 @@ function computeDepartures(){
     let anchor=anchor0-Math.floor(anchor0/cycle)*cycle;   // earliest departure of this phase in [0,cycle)
     for(let d=anchor; d<24; d+=cycle){
       const slot=Math.floor(Math.round(d*60)/30);  // round to the minute first — avoids FP drift
-      if(slot>=0&&slot<48){ DEP_AC[slot]+=act; FUELACC[slot]+=fuelPerDep; if(b.departed!==false)FUELACC_DEP[slot]+=fuelPerDep; CO2ACC[slot]+=co2PerDep; const bNum=String(BOXES.indexOf(b)+1); DEP_BOXES[slot]=DEP_BOXES[slot]?(DEP_BOXES[slot].includes(bNum)?DEP_BOXES[slot]:DEP_BOXES[slot]+','+bNum):bNum; }
+      if(slot>=0&&slot<48){
+        if(b.departed===false && _anyDep && slot<=nowSlot) continue;  // not departed + live session → skip past/NOW
+        DEP_AC[slot]+=act; FUELACC[slot]+=fuelPerDep; if(b.departed!==false)FUELACC_DEP[slot]+=fuelPerDep; CO2ACC[slot]+=co2PerDep; const bNum=String(BOXES.indexOf(b)+1); DEP_BOXES[slot]=DEP_BOXES[slot]?(DEP_BOXES[slot].includes(bNum)?DEP_BOXES[slot]:DEP_BOXES[slot]+','+bNum):bNum;
+      }
     }
   }
 }
@@ -536,7 +541,7 @@ function buildFleetCards(){
         <button class="xbox" type="button" onclick="removeBoxKey('${b.key}')" title="Remove this box">✕</button>
       </div>
       <div class="dur depbtn" onclick="toggleDepart('${b.key}')" title="Toggle departed (green) / not departed (orange)"><div class="big">DEP</div></div>
-      <div class="beta"><span class="etalbl">ETA</span><input class="finput feta" id="eta_${b.key}" type="text" placeholder="HH:MM until it lands" value="${b.eta!=null?b.eta:''}" oninput="onBoxInput()" title="Time until this box next lands/departs (HH:MM or decimal hours). Anchors the schedule; a DEP tap overrides it."></div>
+      <div class="beta"><span class="etalbl">ETA</span><input class="finput feta${b.eta?' has-val':''}" id="eta_${b.key}" type="text" placeholder="HH:MM until it lands" value="${b.eta!=null?b.eta:''}" oninput="onBoxInput();this.classList.toggle('has-val',this.value.trim().length>0)" title="Time until this box next lands/departs (HH:MM or decimal hours). Anchors the schedule; a DEP tap overrides it."></div>
       <div class="eta-countdown" id="etacd_${b.key}"></div>
       <div class="trows">${rows}</div>
       <div class="frow frow-total">
