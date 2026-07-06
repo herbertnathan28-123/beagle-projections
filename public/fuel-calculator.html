@@ -182,6 +182,9 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .grand-total-bar .gt-lbl{color:#c99a3a;font-weight:800;letter-spacing:.8px;font-size:10px}
 .grand-total-bar .gt-val{color:#f5a030;font-family:monospace;font-size:14px;font-weight:800}
 .depall-btn{margin-left:10px;background:linear-gradient(180deg,#2a1c08,#180f03);border:1.5px solid #ff9900;color:#ff9900;font-size:11px;font-weight:800;letter-spacing:.5px;padding:5px 12px;border-radius:6px;cursor:pointer;font-family:inherit}
+.dep-toggle-btn{background:#2a1608;color:#ff9900;border:2px solid #ff9900;border-radius:6px;font-size:12px;font-weight:800;padding:5px 14px;cursor:pointer;letter-spacing:.5px;flex-shrink:0;transition:background .12s,color .12s,border-color .12s;font-family:inherit}
+.dep-toggle-btn.on{background:#0d2212;color:#33ff00;border-color:#33ff00}
+.dep-toggle-btn:hover{filter:brightness(1.2)}
 .depall-btn:hover{filter:brightness(1.2)}
 /* ── DAY NAVIGATOR (visual plan preview) ── */
 .day-nav{display:flex;align-items:center;gap:10px;margin:10px 0 4px;padding:6px 10px;background:#0c1119;border:1px solid #1c2430;border-radius:8px}
@@ -439,6 +442,7 @@ const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300',
 let SCHEDULE_LOCKED=false;          // false = planning (anchor 00:00), true = live (anchor nowH)
 let DEP_AC=new Array(48).fill(0);   // aircraft departing per slot — derived
 let DEP_BOXES=new Array(48).fill(''); // box number labels per slot ("1", "2+3" etc)
+let DEP_BOXES_DEP=new Array(48).fill(''); // departed box numbers per slot
 let FUELACC=new Array(48).fill(0);  // fuel burn per slot before buffer — derived
 let CO2ACC =new Array(48).fill(0);  // CO2 burn per slot — derived
 let FUELACC_DEP=new Array(48).fill(0);// fuel acc for departed boxes only — intermediate
@@ -464,6 +468,7 @@ function speedMult(){
 function computeDepartures(){
   DEP_AC=new Array(48).fill(0);
   DEP_BOXES=new Array(48).fill('');
+  DEP_BOXES_DEP=new Array(48).fill('');
   FUELACC=new Array(48).fill(0);
   FUELACC_DEP=new Array(48).fill(0);
   CO2ACC =new Array(48).fill(0);
@@ -501,7 +506,7 @@ function computeDepartures(){
       const slot=Math.floor(Math.round(d*60)/30);  // round to the minute first — avoids FP drift
       if(slot>=0&&slot<48){
         if(b.departed===false && _anyDep && slot<=nowSlot) continue;  // not departed + live session → skip past/NOW
-        DEP_AC[slot]+=act; FUELACC[slot]+=fuelPerDep; if(b.departed!==false)FUELACC_DEP[slot]+=fuelPerDep; CO2ACC[slot]+=co2PerDep; const bNum=String(BOXES.indexOf(b)+1); DEP_BOXES[slot]=DEP_BOXES[slot]?(DEP_BOXES[slot].includes(bNum)?DEP_BOXES[slot]:DEP_BOXES[slot]+','+bNum):bNum;
+        DEP_AC[slot]+=act; FUELACC[slot]+=fuelPerDep; if(b.departed!==false)FUELACC_DEP[slot]+=fuelPerDep; CO2ACC[slot]+=co2PerDep; const bNum=String(BOXES.indexOf(b)+1); DEP_BOXES[slot]=DEP_BOXES[slot]?(DEP_BOXES[slot].includes(bNum)?DEP_BOXES[slot]:DEP_BOXES[slot]+','+bNum):bNum; if(b.departed!==false){DEP_BOXES_DEP[slot]=DEP_BOXES_DEP[slot]?(DEP_BOXES_DEP[slot].includes(bNum)?DEP_BOXES_DEP[slot]:DEP_BOXES_DEP[slot]+','+bNum):bNum;}
       }
     }
   }
@@ -557,6 +562,7 @@ function buildFleetCards(){
           <input class="finput fdur" id="dur_${b.key}" type="number" min="0" step="0.1" value="${b.dur}" oninput="onBoxInput()" onclick="event.stopPropagation()" title="Flight time in hours · 0.1 = 6 min · e.g. 3.5 = 3h30 · 21.2 = 21h12">
           <span class="dur-h">h</span>
         </div>
+        <button class="dep-toggle-btn${b.departed!==false?' on':''}" id="depbtn_${b.key}" type="button" onclick="toggleDepart('${b.key}')" title="Tap to confirm departure · orange = not departed · green = departed">${b.departed!==false?'DEP ✓':'DEP'}</button>
         <button class="xbox" type="button" onclick="removeBoxKey('${b.key}')" title="Remove this fleet">✕</button>
       </div>
       <div class="brow2">
@@ -587,10 +593,17 @@ function buildFleetCards(){
 // game-time hour at which DEP was pressed (departed → green). That press-time anchors
 // the box's schedule to the real in-game departure, keeping the fuel plan in sync.
 function gameNowHour(){ const n=getGameNow(); return n.getUTCHours()+n.getUTCMinutes()/60; }
+function fboxDisplay(i){
+  if(!DEP_BOXES[i]) return '—';
+  const depSet=new Set(DEP_BOXES_DEP[i]?DEP_BOXES_DEP[i].split(','):[]);
+  return DEP_BOXES[i].split(',').map(n=>'<span style="color:'+(depSet.has(n)?'#33ff00':'#f5a623')+'">' + n + '</span>').join(',');
+}
 function applyDepartClasses(){
   for(const b of BOXES){
     const card=document.getElementById('fcard_'+b.key);
     if(card) card.classList.toggle('departed',b.departed!==false);
+    const depBtn=document.getElementById('depbtn_'+b.key);
+    if(depBtn){const dep=b.departed!==false;depBtn.classList.toggle('on',dep);depBtn.textContent=dep?'DEP ✓':'DEP';}
   }
 }
 function updateETACountdowns(){
@@ -1177,7 +1190,7 @@ function recalc(){
       <td class="c" style="color:#3a6070;font-size:13px">${PERTH[i]}</td>
       <td class="c"><span style="color:${priceCol(dPRICES[i])};font-weight:700;font-size:13px">$${dPRICES[i]}</span></td>
       <td class="c" style="color:${DEP_AC[i]?'#8aa0b8':'#2a4060'}">${DEP_AC[i]||'—'}</td>
-      <td style="color:${DEP_BOXES[i]?'#f5a623':'#2a4060'};font-weight:${DEP_BOXES[i]?700:400};font-size:15px;text-align:center">${DEP_BOXES[i]||'—'}</td>
+      <td style="font-size:15px;text-align:center;font-weight:${DEP_BOXES[i]?700:400}">${fboxDisplay(i)}</td>
       <td style="padding:2px 4px">
         <span style="display:inline-flex;align-items:center;gap:2px">
           <input type="number" class="cell-input ${isOv?'ov-active':''}" value="${fmt(resBefore).replace(/,/g,'')}" step="1000000" style="color:${isOv?'#6ab0e0':resCol(resBefore)};width:118px;font-weight:${resBefore<=MIN_FUEL?800:resBefore<=MIN_FUEL*2?700:400}" ${isToday?`onchange="setResOv(${i},this.value)"`:'readonly'}>
