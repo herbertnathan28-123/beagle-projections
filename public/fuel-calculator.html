@@ -501,12 +501,22 @@ function computeDepartures(){
     let anchor0;
     if(b.departed!==false && b.departed!=null) anchor0=b.departed;
     else { const eta=parseEtaHours(b.eta); anchor0=(eta!==null)?(nowH+eta):(SCHEDULE_LOCKED?nowH:0); }
-    let anchor=anchor0-Math.floor(anchor0/cycle)*cycle;   // earliest departure of this phase in [0,cycle)
+    let anchor=anchor0-Math.floor(anchor0/cycle)*cycle;
+    const bNum=String(BOXES.indexOf(b)+1);
+    // Burn loop — uses actual anchor (departure time for departed, planning for others)
     for(let d=anchor; d<24; d+=cycle){
-      const slot=Math.floor(Math.round(d*60)/30);  // round to the minute first — avoids FP drift
+      const slot=Math.floor(Math.round(d*60)/30);
       if(slot>=0&&slot<48){
-        if(b.departed===false && _anyDep && slot<=nowSlot) continue;  // not departed + live session → skip past/NOW
-        DEP_AC[slot]+=act; FUELACC[slot]+=fuelPerDep; if(b.departed!==false)FUELACC_DEP[slot]+=fuelPerDep; CO2ACC[slot]+=co2PerDep; const bNum=String(BOXES.indexOf(b)+1); DEP_BOXES[slot]=DEP_BOXES[slot]?(DEP_BOXES[slot].includes(bNum)?DEP_BOXES[slot]:DEP_BOXES[slot]+','+bNum):bNum; if(b.departed!==false){DEP_BOXES_DEP[slot]=DEP_BOXES_DEP[slot]?(DEP_BOXES_DEP[slot].includes(bNum)?DEP_BOXES_DEP[slot]:DEP_BOXES_DEP[slot]+','+bNum):bNum;}
+        DEP_AC[slot]+=act; FUELACC[slot]+=fuelPerDep; if(b.departed!==false)FUELACC_DEP[slot]+=fuelPerDep; CO2ACC[slot]+=co2PerDep;
+      }
+    }
+    // Display loop — always uses planning anchor so fleet numbers are stable at consistent slots
+    const dispAnchor=SCHEDULE_LOCKED?(nowH-Math.floor(nowH/cycle)*cycle):0;
+    for(let d=dispAnchor; d<24; d+=cycle){
+      const slot=Math.floor(Math.round(d*60)/30);
+      if(slot>=0&&slot<48){
+        DEP_BOXES[slot]=DEP_BOXES[slot]?(DEP_BOXES[slot].includes(bNum)?DEP_BOXES[slot]:DEP_BOXES[slot]+','+bNum):bNum;
+        if(b.departed!==false){DEP_BOXES_DEP[slot]=DEP_BOXES_DEP[slot]?(DEP_BOXES_DEP[slot].includes(bNum)?DEP_BOXES_DEP[slot]:DEP_BOXES_DEP[slot]+','+bNum):bNum;}
       }
     }
   }
