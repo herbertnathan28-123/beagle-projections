@@ -402,7 +402,7 @@ function optsFor(v){ return '<option value="">— Select —</option>'+AIRCRAFT_
 function syncBoxesFromDOM(){
   for(const b of BOXES){
     const d=document.getElementById('dur_'+b.key); if(d){ const v=parseFloat(d.value); if(!isNaN(v))b.dur=v; }
-    const et=document.getElementById('eta_'+b.key); if(et) b.eta=et.value;
+    const et=document.getElementById('eta_'+b.key); if(et){ const newEta=et.value; if(b.departed!==false && newEta!==b.eta) b.departed=gameNowHour(); b.eta=newEta; }
     for(let i=0;i<MAX_TYPES;i++){
       if(!b.types[i]) b.types[i]=mkType();
       const ts=document.getElementById('type_'+b.key+'_'+i); if(ts) b.types[i].type=ts.value;
@@ -574,7 +574,8 @@ function updateETACountdowns(){
       let elapsed=nowH-b.departed; if(elapsed<0)elapsed+=24;
       const dur=parseFloat(b.dur)||DEFAULT_DUR;
       const cycle=dur/mult;
-      const remaining=cycle-elapsed;
+      const etaVal=parseEtaHours(b.eta);
+      const remaining=(etaVal!==null&&etaVal>0)?(etaVal-elapsed):(cycle-elapsed);  // ETA drives countdown if set, else cycle math
       if(remaining<=0){
         el.textContent='LANDED — tap DEP to log';
         el.className='eta-countdown overdue';
@@ -598,16 +599,7 @@ function toggleDepart(key){
   const b=boxByKey(key); if(!b)return;
   pushUndo(); syncBoxesFromDOM();
   if(b.departed===false){
-    // Pressing DEP: if ETA is set, back-calculate anchor so countdown = ETA immediately
-    const mult=speedMult();
-    const cycle=(parseFloat(b.dur)||DEFAULT_DUR)/mult;
-    const eta=parseEtaHours(b.eta);
-    const nowH=gameNowHour();
-    if(eta!==null && eta>=0 && eta<cycle){
-      b.departed=nowH-(cycle-eta);  // anchor back so remaining = eta
-    } else {
-      b.departed=nowH;              // no ETA or ETA >= cycle → full cycle from now
-    }
+    b.departed=gameNowHour();  // anchor to now; ETA field drives countdown directly
   } else {
     b.departed=false;  // recall
   }
