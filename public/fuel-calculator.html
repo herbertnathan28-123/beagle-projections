@@ -143,15 +143,26 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .box-ctrl .bc-lbl{font-size:10px;font-weight:800;letter-spacing:.8px;color:#c99a3a}
 .box-ctrl .bc-hint{font-size:9px;color:#5a6a7a;margin-left:6px}
 .box-ctrl .mcount{min-width:16px;text-align:center;color:#e0b24a;font-weight:800;font-size:12px}
-.fcard{flex:1 1 220px;max-width:300px;display:flex;flex-direction:column}
+.fcard{flex:1 1 320px;display:flex;flex-direction:column}
 .bhead{display:flex;align-items:center;gap:6px;background:#181206;padding:6px 8px;border-bottom:1px solid #241a08;min-height:40px}
 .fleet-lbl{font-size:9px;font-weight:800;letter-spacing:1.5px;color:#c99a3a;background:#1a1200;border:1px solid #3a2a00;border-radius:4px;padding:2px 6px;white-space:nowrap;flex-shrink:0}
 .ftime{display:flex;align-items:center;gap:3px;color:#f5a030;font-size:17px;font-weight:800}
-.finput.fdur{flex:0 0 76px;width:76px;color:#f5a030;font-weight:800;font-size:22px;padding:7px 6px;font-family:inherit;text-align:center}
+.finput.fdur{flex:1;min-width:0;background:transparent;border:none;color:#ff9900;font-weight:800;font-size:22px;font-family:inherit;text-align:right;outline:none;padding:0}
 .bhead .mnt{background:transparent;border:0;border-bottom:0;padding:0;min-height:0;margin-left:auto;gap:4px;justify-content:flex-end}
 .bhead .mnt .mlbl{color:#c99a3a}
 .xbox{width:20px;height:20px;border:1.5px solid #6a3a3a;background:transparent;border-radius:5px;color:#e07070;font-size:12px;font-weight:700;cursor:pointer;line-height:1;padding:0;flex:0 0 auto}
 .xbox:hover{background:#2a1010}
+.brow1{display:flex;align-items:center;gap:8px;background:#181206;padding:8px 10px;border-bottom:1px solid #241a08}
+.fleet-lbl-big{font-size:15px;font-weight:800;letter-spacing:2px;color:#c99a3a;background:#1a1200;border:1px solid #3a2a00;border-radius:5px;padding:5px 10px;white-space:nowrap;flex-shrink:0;cursor:default}
+.dur-field{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border:2.5px solid #ff9900;border-radius:8px;background:linear-gradient(180deg,#2a1c08,#180f03);padding:6px 12px;cursor:pointer;transition:border-color .12s,background .12s;user-select:none}
+.dur-field:hover{filter:brightness(1.15)}
+.fcard.departed .dur-field{border-color:#33ff00;background:linear-gradient(180deg,#0d2a12,#061507)}
+.fcard.departed .finput.fdur{color:#33ff00}
+.dur-h{color:#ff9900;font-size:18px;font-weight:800;flex-shrink:0;pointer-events:none}
+.fcard.departed .dur-h{color:#33ff00}
+.brow2{display:flex;align-items:center;gap:5px;background:#0e1808;padding:6px 10px;border-bottom:1px solid #1a2a0a}
+.brow2 .mlbl{font-size:9px;font-weight:800;letter-spacing:.8px;color:#c99a3a;flex-shrink:0}
+.maint-info{flex:1;font-size:10px;color:#5a6a7a;font-style:italic;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:6px}
 .beta{display:flex;align-items:center;gap:6px;padding:4px 8px 2px;margin:0 5px}
 .beta .etalbl{font-size:9px;font-weight:800;letter-spacing:.8px;color:#6a7a8a;flex:0 0 auto}
 .finput.feta{flex:1 1 auto;font-size:12px;padding:6px 6px;color:#8aa0b8}
@@ -540,16 +551,21 @@ function buildFleetCards(){
       </div>`;
     }
     html+=`<div class="fcard" id="fcard_${b.key}">
-      <div class="bhead">
-        <span class="fleet-lbl">FLEET ${_bi+1}</span>
-        <span class="ftime"><input class="finput fdur" id="dur_${b.key}" type="number" min="0" step="0.1" value="${b.dur}" oninput="onBoxInput()" title="Flight time in hours — decimals of 0.1 = 6-minute steps (e.g. 3.5 = 3h30, 3.1 = 3h06)">h</span>
-        <span class="mnt"><span class="mlbl">MAINT</span>
-          <button class="stp" type="button" onclick="stepMaint('${b.key}',1)" title="Add aircraft to maintenance">+</button>
-          <span class="mcount" id="maint_${b.key}">${b.maint||0}</span>
-          <button class="stp" type="button" onclick="stepMaint('${b.key}',-1)" title="Remove from maintenance">–</button></span>
-        <button class="xbox" type="button" onclick="removeBoxKey('${b.key}')" title="Remove this box">✕</button>
+      <div class="brow1">
+        <span class="fleet-lbl-big">FLEET ${_bi+1}</span>
+        <div class="dur-field" onclick="toggleDepart('${b.key}')" title="Tap to depart / recall · orange = not departed · green = departed">
+          <input class="finput fdur" id="dur_${b.key}" type="number" min="0" step="0.1" value="${b.dur}" oninput="onBoxInput()" onclick="event.stopPropagation()" title="Flight time in hours · 0.1 = 6 min · e.g. 3.5 = 3h30 · 21.2 = 21h12">
+          <span class="dur-h">h</span>
+        </div>
+        <button class="xbox" type="button" onclick="removeBoxKey('${b.key}')" title="Remove this fleet">✕</button>
       </div>
-      <div class="dur depbtn" onclick="toggleDepart('${b.key}')" title="Toggle departed (green) / not departed (orange)"><div class="big">DEP</div></div>
+      <div class="brow2">
+        <span class="mlbl">MAINT</span>
+        <button class="stp" type="button" onclick="stepMaint('${b.key}',1)" title="Add to maintenance">+</button>
+        <span class="mcount" id="maint_${b.key}">${b.maint||0}</span>
+        <button class="stp" type="button" onclick="stepMaint('${b.key}',-1)" title="Remove from maintenance">−</button>
+        <span class="maint-info" id="mainttype_${b.key}"></span>
+      </div>
       <div class="beta"><span class="etalbl">ETA</span><input class="finput feta${b.eta?' has-val':''}" id="eta_${b.key}" type="text" placeholder="HH:MM until it lands" value="${b.eta!=null?b.eta:''}" oninput="onBoxInput();this.classList.toggle('has-val',this.value.trim().length>0)" title="Time until this box next lands/departs (HH:MM or decimal hours). Anchors the schedule; a DEP tap overrides it."></div>
       <div class="eta-countdown" id="etacd_${b.key}"></div>
       <div class="trows">${rows}</div>
@@ -1036,6 +1052,13 @@ function updateFleetBurnDisplays(){
     const ftElCO2 = document.getElementById('ftcburn_' + b.key);
     if(ftElCO2){
       ftElCO2.textContent = fleetBurnCO2 > 0 ? '🌿 ' + fmt(Math.round(fleetBurnCO2)) + ' quotas' : '🌿 —';
+    }
+    const mtEl = document.getElementById('mainttype_' + b.key);
+    if(mtEl){
+      const mtypes = b.types.filter(t => t.type && (parseInt(t.count)||0) > 0);
+      if(!mtypes.length) mtEl.textContent = '';
+      else if(mtypes.length === 1) mtEl.textContent = mtypes[0].type + ' ×' + mtypes[0].count;
+      else mtEl.textContent = mtypes[0].type + ' ×' + mtypes[0].count + ' +' + (mtypes.length-1) + ' type' + (mtypes.length>2?'s':'');
     }
   }
 
