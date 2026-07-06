@@ -28,11 +28,11 @@ body{background:#060f1e;color:#e0e6f0;font-family:Arial,sans-serif;min-height:10
 .btn-dep{background:#3a1a0a;color:#f5a030;border:1px solid #6a3a0a;font-size:11px}
 .btn-dep:hover{background:#4a2a0a}
 .dep-section{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.dep-label{color:#4a6a3a;font-size:9px;letter-spacing:1px;font-weight:700}
-.dep-status{color:#f5a623;font-size:10px;font-family:monospace;background:#0a1808;border:1px solid #2a4010;padding:4px 10px;border-radius:4px;min-width:120px;text-align:center}
+.dep-label{color:#4a6a3a;font-size:12px;letter-spacing:1px;font-weight:700}
+.dep-status{color:#f5a623;font-size:13px;font-family:monospace;background:#0a1808;border:1px solid #2a4010;padding:7px 14px;border-radius:5px;min-width:160px;text-align:center}
 .dep-col{display:flex;flex-direction:column;align-items:center;gap:3px}
-.dep-eta-input{width:46px;background:#0a1808;border:1px solid #2a4a1a;border-radius:3px;color:#70d070;font-size:9px;font-family:monospace;padding:2px 4px;text-align:center}
-.dep-eta-input::placeholder{color:#3a5a3a;font-size:8px}
+.dep-eta-input{width:60px;background:#0a1808;border:1px solid #2a4a1a;border-radius:4px;color:#70d070;font-size:12px;font-family:monospace;padding:5px 7px;text-align:center}
+.dep-eta-input::placeholder{color:#3a5a3a;font-size:11px}
 .btn-clear-co2{background:#1a0a0a;border:1px solid #5a2a2a;color:#e06060;font-size:11px;font-weight:700;padding:3px 7px;border-radius:3px;cursor:pointer;line-height:1}
 .btn-clear-co2:hover{background:#2a1010;color:#ff7070}
 .btn-fill-full{background:#0a1828;border:1px solid #2a5080;color:#6ab0e0;font-size:11px;font-weight:700;padding:6px 10px;border-radius:4px;cursor:pointer;line-height:1;letter-spacing:.4px;white-space:nowrap;transition:background .15s,color .15s}
@@ -135,7 +135,7 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
 select.finput{appearance:none;font-weight:700;text-align:center;text-align-last:center;cursor:pointer}
 input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .finput:disabled{opacity:.55;cursor:default}
-.spd4x-btn{background:#1a2030;border:1px solid #2a3a50;color:#5a7a9a;font-size:10px;font-weight:800;letter-spacing:.4px;padding:4px 10px;border-radius:4px;cursor:pointer;font-family:inherit}
+.spd4x-btn{background:#1a2030;border:1px solid #2a3a50;color:#5a7a9a;font-size:13px;font-weight:800;letter-spacing:.4px;padding:7px 14px;border-radius:5px;cursor:pointer;font-family:inherit}
 .spd4x-btn.on{background:#0d2818;border-color:#23a55a;color:#33ff00}
 /* ── STRATEGY BOXES ── */
 .fleet-cards{flex-wrap:wrap}
@@ -293,15 +293,15 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
       <div class="dep-label" style="margin-bottom:4px">⏱ FLEET &amp; DEPARTURES</div>
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
         <span class="dep-label">4× DURATION</span>
-        <select id="gameMode" class="dep-eta-input" style="width:62px;color:#f5a030;border-color:#6a3a0a" onchange="saveCards();recalc()" title="Game hours per real hour">
+        <select id="gameMode" class="dep-eta-input" style="width:80px;color:#f5a030;border-color:#6a3a0a;font-size:12px;padding:5px 7px" onchange="saveCards();recalc()" title="Game hours per real hour">
           <option value="1">1 hr</option><option value="4" selected>4 hrs</option><option value="24">24 hrs</option>
         </select>
         <button id="fourxBtn" class="spd4x-btn on" onclick="toggleFourx()" title="Control 2 — 4× speed boost. When ON, all flight durations ÷ 4. Independent of game time mode.">4× SPEED: ON</button>
         <button id="schedLockBtn" class="spd4x-btn" onclick="toggleScheduleLock()" title="UNLOCKED: full day pre-plotted from 00:00 (planning mode). LOCKED: schedule anchors to real time — use once fleet is running.">SCHEDULE: UNLOCKED</button>
         <span class="dep-label" style="margin-left:8px">⛽ BURN/AC</span>
-        <input class="dep-eta-input" id="avgFuelBurn" type="number" placeholder="lbs" style="width:72px;color:#f5a030;border-color:#6a3a0a" oninput="saveTank('avgFuelBurn');recalc()" title="Average fuel burn per aircraft per departure">
+        <input class="dep-eta-input" id="avgFuelBurn" type="number" placeholder="lbs" style="width:90px;color:#f5a030;border-color:#6a3a0a" oninput="saveTank('avgFuelBurn');recalc()" title="Average fuel burn per aircraft per departure">
         <span class="dep-label" style="margin-left:6px">🌿 CO2/AC</span>
-        <input class="dep-eta-input" id="co2BurnDep" type="number" placeholder="quotas" style="width:66px" oninput="saveTank('co2BurnDep');recalc()" title="CO2 quotas burned per aircraft per departure event">
+        <input class="dep-eta-input" id="co2BurnDep" type="number" placeholder="quotas" style="width:84px" oninput="saveTank('co2BurnDep');recalc()" title="CO2 quotas burned per aircraft per departure event">
       </div>
       <div class="dep-status" id="depStatus" style="min-width:160px">Add a box · set its flight time + aircraft · tap DEP when you launch in-game</div>
     </div>
