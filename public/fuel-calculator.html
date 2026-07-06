@@ -597,7 +597,20 @@ function updateETACountdowns(){
 function toggleDepart(key){
   const b=boxByKey(key); if(!b)return;
   pushUndo(); syncBoxesFromDOM();
-  b.departed=(b.departed===false)?gameNowHour():false;   // press = depart NOW; press again = recall
+  if(b.departed===false){
+    // Pressing DEP: if ETA is set, back-calculate anchor so countdown = ETA immediately
+    const mult=speedMult();
+    const cycle=(parseFloat(b.dur)||DEFAULT_DUR)/mult;
+    const eta=parseEtaHours(b.eta);
+    const nowH=gameNowHour();
+    if(eta!==null && eta>=0 && eta<cycle){
+      b.departed=nowH-(cycle-eta);  // anchor back so remaining = eta
+    } else {
+      b.departed=nowH;              // no ETA or ETA >= cycle → full cycle from now
+    }
+  } else {
+    b.departed=false;  // recall
+  }
   applyDepartClasses();
   saveCards(); recalc(); updateETACountdowns();
 }
@@ -1524,6 +1537,7 @@ async function init(){
                                               // missed suggested buy disappears instead of counting as bought
     _lastSlot=slot;
     highlightNowRow();
+    if(typeof updateETACountdowns==="function") updateETACountdowns();  // keep countdowns ticking
   },30000);
 }
 init();
