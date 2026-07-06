@@ -170,7 +170,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .daynav-today:hover{background:#22344a}
 .daynav-ro{font-size:11px;color:#c99a3a;font-style:italic}
 @media(max-width:1100px){.fleet-cards{flex-wrap:wrap}.fcard{flex:1 1 30%}}
-@media print{body{background:#fff;color:#000}.btn-row,.legend{display:none}.header{background:#f5f5f5}.co2-row{display:none!important}}
+@media print{body{background:#fff;color:#000}.btn-row,.legend{display:none}.header{background:#f5f5f5}.co2-row{display:none!important}}.eta-countdown{font-size:9px;color:#4a9a6a;font-family:monospace;text-align:center;padding:2px 6px;min-height:13px;letter-spacing:.3px}.eta-countdown.urgent{color:#f0b429;font-weight:700}.eta-countdown.overdue{color:#33ff00;font-weight:800;animation:etapulse 1s ease-in-out infinite}@keyframes etapulse{0%,100%{opacity:1}50%{opacity:.35}}
 /* ── QAC — QUICK ACCESS CALCULATOR (WO-FUEL-QAC-001) ── */
 .qac-wrap{margin:10px 12px 0}
 .qac-tab{position:fixed;left:0;top:50%;transform:translateY(-50%) rotate(180deg);writing-mode:vertical-rl;background:#0d1e36;border:1px solid #1a5a3a;border-left:none;border-radius:6px 0 0 6px;color:#33ff00;font-size:11px;font-weight:800;letter-spacing:2px;padding:12px 6px;cursor:pointer;z-index:60;display:flex;align-items:center;gap:8px;user-select:none}
@@ -524,11 +524,13 @@ function buildFleetCards(){
       </div>
       <div class="dur depbtn" onclick="toggleDepart('${b.key}')" title="Toggle departed (green) / not departed (orange)"><div class="big">DEP</div></div>
       <div class="beta"><span class="etalbl">ETA</span><input class="finput feta" id="eta_${b.key}" type="text" placeholder="HH:MM until it lands" value="${b.eta!=null?b.eta:''}" oninput="onBoxInput()" title="Time until this box next lands/departs (HH:MM or decimal hours). Anchors the schedule; a DEP tap overrides it."></div>
+      <div class="eta-countdown" id="etacd_${b.key}"></div>
       <div class="trows">${rows}</div>
     </div>`;
   }
   wrap.innerHTML=html;
   applyDepartClasses();
+  if(typeof updateETACountdowns==="function") updateETACountdowns();
 }
 // Departure toggle. box.departed holds either false (not departed → orange) or the
 // game-time hour at which DEP was pressed (departed → green). That press-time anchors
@@ -540,12 +542,41 @@ function applyDepartClasses(){
     if(card) card.classList.toggle('departed',b.departed!==false);
   }
 }
+function updateETACountdowns(){
+  const mult=speedMult();
+  for(const b of BOXES){
+    const el=document.getElementById('etacd_'+b.key); if(!el) continue;
+    if(b.departed!==false){
+      const nowH=gameNowHour();
+      let elapsed=nowH-b.departed; if(elapsed<0)elapsed+=24;
+      const dur=parseFloat(b.dur)||DEFAULT_DUR;
+      const cycle=dur/mult;
+      const remaining=cycle-elapsed;
+      if(remaining<=0){
+        el.textContent='LANDED — tap DEP to log';
+        el.className='eta-countdown overdue';
+      } else {
+        const rh=Math.floor(remaining);
+        const rm=Math.round((remaining-rh)*60);
+        el.textContent=rh+'h '+(rm<10?'0':'')+rm+'m until lands';
+        el.className='eta-countdown'+(remaining<0.75?' urgent':'');
+      }
+    } else if(b.eta){
+      const eta=parseEtaHours(b.eta);
+      if(eta!==null&&eta>0){
+        const eh=Math.floor(eta),em=Math.round((eta-eh)*60);
+        el.textContent='~'+eh+'h '+(em<10?'0':'')+em+'m until lands';
+        el.className='eta-countdown';
+      } else { el.textContent=''; el.className='eta-countdown'; }
+    } else { el.textContent=''; el.className='eta-countdown'; }
+  }
+}
 function toggleDepart(key){
   const b=boxByKey(key); if(!b)return;
   pushUndo(); syncBoxesFromDOM();
   b.departed=(b.departed===false)?gameNowHour():false;   // press = depart NOW; press again = recall
   applyDepartClasses();
-  saveCards(); recalc();
+  saveCards(); recalc(); updateETACountdowns();
 }
 function stepMaint(key,d){
   const b=boxByKey(key); if(!b)return;
@@ -562,7 +593,7 @@ function departAll(){
   const anyOff=BOXES.some(b=>b.departed===false);
   const t=gameNowHour();
   for(const b of BOXES){ if(anyOff){ if(b.departed===false) b.departed=t; } else b.departed=false; }
-  applyDepartClasses(); saveCards(); recalc();
+  applyDepartClasses(); saveCards(); recalc(); updateETACountdowns();
 }
 function setFourx(on){
   const b=document.getElementById('fourxBtn'); if(!b)return;
