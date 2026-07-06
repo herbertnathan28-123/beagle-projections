@@ -158,6 +158,14 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .trows .frow{gap:5px;padding:6px 8px}
 .finput.ftype{flex:1 1 auto;font-size:13px;font-weight:700;padding:8px 6px}
 .finput.fac{flex:0 0 62px;width:62px;color:#8aa0b8;font-size:13px;padding:8px 4px}
+.type-burn{font-size:10px;color:#f5a030;font-family:monospace;text-align:right;min-width:96px;white-space:nowrap;flex-shrink:0}
+.type-burn.zero{color:#3a4a5a}
+.frow-total{border-top:2px solid #2a3a4a!important;background:rgba(245,160,48,0.06);padding:7px 8px!important}
+.frow-total .flbl{color:#c99a3a;font-size:10px}
+.fleet-total-burn{font-size:12px;color:#f5a030;font-family:monospace;font-weight:800;text-align:right}
+.grand-total-bar{display:none;align-items:center;justify-content:space-between;padding:9px 14px;margin-top:10px;background:rgba(245,160,48,0.08);border:1.5px solid rgba(245,160,48,0.35);border-radius:7px}
+.grand-total-bar .gt-lbl{color:#c99a3a;font-weight:800;letter-spacing:.8px;font-size:10px}
+.grand-total-bar .gt-val{color:#f5a030;font-family:monospace;font-size:14px;font-weight:800}
 .depall-btn{margin-left:10px;background:linear-gradient(180deg,#2a1c08,#180f03);border:1.5px solid #ff9900;color:#ff9900;font-size:11px;font-weight:800;letter-spacing:.5px;padding:5px 12px;border-radius:6px;cursor:pointer;font-family:inherit}
 .depall-btn:hover{filter:brightness(1.2)}
 /* ── DAY NAVIGATOR (visual plan preview) ── */
@@ -284,6 +292,10 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
     </div>
   </div>
   <div class="fleet-cards" id="fleetCards"></div>
+  <div class="grand-total-bar" id="grandTotalBar">
+    <span class="gt-lbl">&#9981; GRAND TOTAL BURN PER DEPARTURE</span>
+    <span class="gt-val" id="grandBurnTotal">&mdash;</span>
+  </div>
 </div>
 <!-- QAC — QUICK ACCESS CALCULATOR (WO-FUEL-QAC-001) -->
 <div class="qac-tab" id="qacTab" onclick="openQAC()" title="Open Quick Access Calculator"><span class="qac-dot"></span>◆ QAC — QUICK ACCESS CALCULATOR</div>
@@ -510,6 +522,7 @@ function buildFleetCards(){
       rows+=`<div class="frow">
         <select class="finput ftype" id="type_${b.key}_${i}" onchange="onTypeChange('${b.key}',${i})">${optsFor(t.type)}</select>
         <input class="finput fac" id="cnt_${b.key}_${i}" type="number" min="0" placeholder="A/C" value="${t.count!=null?t.count:''}" oninput="onBoxInput()">
+        <span class="type-burn zero" id="tburn_${b.key}_${i}">—</span>
       </div>`;
     }
     html+=`<div class="fcard" id="fcard_${b.key}">
@@ -526,11 +539,16 @@ function buildFleetCards(){
       <div class="beta"><span class="etalbl">ETA</span><input class="finput feta" id="eta_${b.key}" type="text" placeholder="HH:MM until it lands" value="${b.eta!=null?b.eta:''}" oninput="onBoxInput()" title="Time until this box next lands/departs (HH:MM or decimal hours). Anchors the schedule; a DEP tap overrides it."></div>
       <div class="eta-countdown" id="etacd_${b.key}"></div>
       <div class="trows">${rows}</div>
+      <div class="frow frow-total">
+        <span class="flbl">Totally burn</span>
+        <span class="fleet-total-burn" id="ftburn_${b.key}">—</span>
+      </div>
     </div>`;
   }
   wrap.innerHTML=html;
   applyDepartClasses();
   if(typeof updateETACountdowns==="function") updateETACountdowns();
+  if(typeof updateFleetBurnDisplays==="function") updateFleetBurnDisplays();
 }
 // Departure toggle. box.departed holds either false (not departed → orange) or the
 // game-time hour at which DEP was pressed (departed → green). That press-time anchors
@@ -932,6 +950,64 @@ function monthPathway(startR, tank, minR, dayBurn, priceIdx, manualToday){
 }
 
 // ── MAIN RECALC ──
+// ── PER-TYPE BURN DISPLAY — updates fleet card burn spans without rebuilding cards ──
+function updateFleetBurnDisplays(){
+  const gFuel = parseFloat(document.getElementById('avgFuelBurn')?.value) || 0;
+  let grandTotal = 0;
+  let hasAny = false;
+
+  for(const b of BOXES){
+    const maint = b.maint || 0;
+    let tot = 0;
+    for(let i=0; i<MAX_TYPES; i++){
+      tot += parseInt((b.types[i]||mkType()).count) || 0;
+    }
+    const act = Math.max(0, tot - maint);
+    const maintFactor = tot > 0 ? act / tot : 1;
+
+    let rawFleet = 0;
+    for(let i=0; i<MAX_TYPES; i++){
+      const t = b.types[i] || mkType();
+      const cnt = parseInt(t.count) || 0;
+      const rate = (t.fuel != null) ? t.fuel : gFuel;
+      const typeBurn = cnt * rate;
+      rawFleet += typeBurn;
+
+      const el = document.getElementById('tburn_' + b.key + '_' + i);
+      if(el){
+        if(cnt > 0 && rate > 0 && t.type){
+          el.textContent = fmt(Math.round(typeBurn)) + ' Lbs';
+          el.className = 'type-burn';
+          hasAny = true;
+        } else {
+          el.textContent = '—';
+          el.className = 'type-burn zero';
+        }
+      }
+    }
+
+    const fleetBurn = rawFleet * maintFactor;
+    grandTotal += fleetBurn;
+
+    const ftEl = document.getElementById('ftburn_' + b.key);
+    if(ftEl){
+      ftEl.textContent = fleetBurn > 0 ? fmt(Math.round(fleetBurn)) + ' Lbs' : '—';
+    }
+  }
+
+  const gtBar = document.getElementById('grandTotalBar');
+  const gtEl  = document.getElementById('grandBurnTotal');
+  if(gtBar && gtEl){
+    if(hasAny && grandTotal > 0){
+      gtBar.style.display = 'flex';
+      gtEl.textContent = fmt(Math.round(grandTotal)) + ' Lbs';
+    } else {
+      gtBar.style.display = 'none';
+      gtEl.textContent = '—';
+    }
+  }
+}
+
 function recalc(){
   // Preserve focus across full-table rebuild so the user isn't kicked out of
   // the Purchased input after every keystroke (the deferred recalc rebuilds
@@ -940,6 +1016,7 @@ function recalc(){
   const _focusId = _ae && _ae.closest && _ae.closest('#tbody')
     ? _ae.getAttribute('data-slot-id') || null : null;
   rebuildBurns();   // derive DEP_AC + per-slot fuel/CO2 burn from player fleet/speed/ETA/burn inputs
+  updateFleetBurnDisplays();  // refresh per-type + fleet total + grand total burn display
   const startRes=parseFloat(document.getElementById('startRes').value)||0;
   const fuelTank=parseFloat(document.getElementById('fuelTank').value)||0;
   const startCO2=parseFloat(document.getElementById('startCO2').value)||0;
