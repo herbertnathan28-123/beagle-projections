@@ -493,7 +493,6 @@ function computeDepartures(){
   const nowH=now.getUTCHours()+now.getUTCMinutes()/60;   // current game time (UTC), in hours
   const _anyDep=BOXES.some(b=>b.departed!==false);  // any fleet live → non-departed skip past/NOW slots
   for(const b of BOXES){
-    const state=getFleetState(b.key); if(state==='grey') continue;
     const act=activeCount(b); if(act<=0)continue;
     const dur=parseFloat(b.dur)||DEFAULT_DUR;
     const cycle=dur/mult;                    // real-time hours between departures
@@ -621,12 +620,10 @@ function gameNowHour(){ const n=getGameNow(); return n.getUTCHours()+n.getUTCMin
 function fboxDisplay(i){
   return BOXES.map(function(b,idx){
     var num=String(idx+1);
-    var state=getFleetState(b.key);
     var inPlan=DEP_BOXES[i]&&DEP_BOXES[i].split(',').includes(num);
-    var cls='grey';
-    if(state==='green'&&inPlan) cls='green';
-    else if(state==='amber'&&inPlan) cls='amber';
-    return '<span class="find '+cls+'" onclick="cycleFleetState(\''+ b.key +'\')">'+ num +'</span>';
+    var isDep=b.departed!==false;
+    var cls=inPlan?(isDep?'green':'amber'):'grey';
+    return '<span class="find '+cls+'">'+num+'</span>';
   }).join('');
 }
 function applyDepartClasses(){
