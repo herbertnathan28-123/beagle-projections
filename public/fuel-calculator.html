@@ -628,7 +628,7 @@ function fboxDisplay(i){
     else if(state==='amber'&&inPlan) cls='amber';
     return '<span class="find '+cls+'" onclick="cycleFleetState(\''+ b.key +'\')">'+ num +'</span>';
   }).join('');
-}}
+}
 function applyDepartClasses(){
   for(const b of BOXES){
     const card=document.getElementById('fcard_'+b.key);
