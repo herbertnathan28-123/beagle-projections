@@ -93,6 +93,11 @@ tr.now-row{background:rgba(35,165,90,0.18)!important;border-left:3px solid #23a5
 .co2-res-input:focus{border-color:#2a5a2a;background:#050e05}
 .co2-res-input.ov-active{background:#051a05;border-color:#3a7a3a;color:#70d070;font-weight:600}
 .now-badge{display:inline-block;background:#23a55a;color:#0a0a0a;font-size:8px;font-weight:800;padding:1px 4px;border-radius:3px;margin-left:4px;letter-spacing:.5px;vertical-align:middle}
+.fleet-ind{display:inline-flex;gap:3px;align-items:center}
+.find{font-size:10px;font-weight:800;padding:1px 4px;border-radius:3px;cursor:pointer;user-select:none;letter-spacing:.3px;transition:background .1s,color .1s}
+.find.grey{color:#2a3a4a;background:#0d1420}
+.find.amber{color:#f5a030;background:#1a1200;border:1px solid #3a2a00}
+.find.green{color:#0a0a0a;background:#23a55a;border:1px solid #33ff00}
 /* CO2 expand */
 .expand-btn{background:none;border:none;color:#3a7a3a;cursor:pointer;font-size:11px;padding:0 4px;transition:color .15s}
 .expand-btn:hover{color:#70d070}
@@ -311,8 +316,12 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
   </div>
   <div class="fleet-cards" id="fleetCards"></div>
   <div class="grand-total-bar" id="grandTotalBar">
-    <span class="gt-lbl">GRAND TOTAL BURN PER DEPARTURE</span>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <span class="gt-lbl">TOTAL AIRCRAFT</span>
+      <span class="gt-val" id="grandTotalAC" style="color:#e0e6f0;font-size:18px">—</span>
+    </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+      <span class="gt-lbl">GRAND TOTAL BURN PER DEPARTURE</span>
       <span class="gt-val" id="grandBurnTotal">⛽ —</span>
       <span class="gt-val" style="color:#70d070" id="grandCO2Total">🌿 —</span>
     </div>
@@ -439,7 +448,12 @@ function removeBoxKey(k){ pushUndo(); syncBoxesFromDOM(); BOXES=BOXES.filter(b=>
 // Aircraft types — mirrors config.AIRCRAFT_BURN_HOUR keys (static page can't require()
 // server config, so kept in sync manually).
 const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300','A330-200','B747-8','B747-8F','B747SP','B787-10','B787-9','B787-8','A350-900ULR','DC-10','MC-21-400','Concorde','A320neo','B737 MAX 8','Spacejet M100','A320-VIP','Cessna Citation X-VIP','Bombardier Challenger 605-VIP'];
-let SCHEDULE_LOCKED=false;          // false = planning (anchor 00:00), true = live (anchor nowH)
+let SCHEDULE_LOCKED=false;
+let FLEET_LOCK={};
+function getFleetState(key){ return FLEET_LOCK[key]||'grey'; }
+function cycleFleetState(key){ const cur=getFleetState(key); const next=cur==='grey'?'amber':cur==='amber'?'green':'grey'; FLEET_LOCK[key]=next; saveFleetLocks(); recalc(); }
+function saveFleetLocks(){ try{localStorage.setItem(LSK('fleetLocks'),JSON.stringify(FLEET_LOCK));}catch(e){} }
+function restoreFleetLocks(){ try{const r=localStorage.getItem(LSK('fleetLocks')); if(r)FLEET_LOCK=JSON.parse(r);}catch(e){} }          // false = planning (anchor 00:00), true = live (anchor nowH)
 let DEP_AC=new Array(48).fill(0);   // aircraft departing per slot — derived
 let DEP_BOXES=new Array(48).fill(''); // box number labels per slot ("1", "2+3" etc)
 let DEP_BOXES_DEP=new Array(48).fill(''); // departed box numbers per slot
@@ -479,6 +493,7 @@ function computeDepartures(){
   const nowH=now.getUTCHours()+now.getUTCMinutes()/60;   // current game time (UTC), in hours
   const _anyDep=BOXES.some(b=>b.departed!==false);  // any fleet live → non-departed skip past/NOW slots
   for(const b of BOXES){
+    const state=getFleetState(b.key); if(state==='grey') continue;
     const act=activeCount(b); if(act<=0)continue;
     const dur=parseFloat(b.dur)||DEFAULT_DUR;
     const cycle=dur/mult;                    // real-time hours between departures
@@ -558,7 +573,7 @@ function buildFleetCards(){
       const t=b.types[i]||mkType();
       rows+=`<div class="frow">
         <select class="finput ftype" id="type_${b.key}_${i}" onchange="onTypeChange('${b.key}',${i})">${optsFor(t.type)}</select>
-        <input class="finput fac" id="cnt_${b.key}_${i}" type="number" min="0" placeholder="A/C" value="${t.count!=null?t.count:''}" oninput="onBoxInput()">
+        <input class="finput fac" id="cnt_${b.key}_${i}" type="number" min="0" placeholder="A/C" value="${t.count!=null?t.count:''}" oninput="onBoxInput();saveCntLock(this)">
         <div class="type-burns">
           <span class="type-burn zero" id="tburn_${b.key}_${i}">⛽ —</span>
           <span class="type-burn co2b zero" id="tcburn_${b.key}_${i}">🌿 —</span>
@@ -716,6 +731,8 @@ const STORE_DID=(function(){
   return '';
 })();
 const LSK=k=>STORE_DID?('bgl_'+STORE_DID+'_'+k):('bgl_'+k);
+function saveCntLock(el){ try{ const k=LSK('cnt_'+el.id); if(el.value==='') localStorage.removeItem(k); else localStorage.setItem(k,el.value); }catch(e){} }
+function restoreCntLocks(){ document.querySelectorAll('.finput.fac').forEach(function(el){ try{ const v=localStorage.getItem(LSK('cnt_'+el.id)); if(v!=null&&v!=='') el.value=v; }catch(e){} }); }
 function saveCards(){
   try{
     syncBoxesFromDOM();
@@ -1092,6 +1109,7 @@ function updateFleetBurnDisplays(){
     if(hasAny && grandTotal > 0){
       gtBar.style.display = 'flex';
       gtEl.textContent = '⛽ ' + fmt(Math.round(grandTotal)) + ' Lbs';
+      const gtElAC=document.getElementById('grandTotalAC'); let tac=0; for(const b of BOXES) tac+=boxCount(b); if(gtElAC) gtElAC.textContent=fmt(tac)+' A/C';
       if(gtElCO2) gtElCO2.textContent = '🌿 ' + fmt(Math.round(grandCO2)) + ' quotas';
     } else {
       gtBar.style.display = 'none';
@@ -1561,6 +1579,8 @@ async function init(){
     else console.error('[FUEL] Schedule fetch failed:',r.status);
   }catch(e){console.error('[FUEL] Schedule fetch error:',e);}
   buildFleetCards();
+  restoreFleetLocks();
+  setTimeout(restoreCntLocks, 50);
   // Undo tracking: snapshot on focus, record on commit (delegated so it survives card rebuilds).
   document.addEventListener('focusin',undoFocusIn,true);
   document.addEventListener('change',undoCommit,true);
