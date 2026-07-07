@@ -619,10 +619,16 @@ function buildFleetCards(){
 // the box's schedule to the real in-game departure, keeping the fuel plan in sync.
 function gameNowHour(){ const n=getGameNow(); return n.getUTCHours()+n.getUTCMinutes()/60; }
 function fboxDisplay(i){
-  if(!DEP_BOXES[i]) return '—';
-  const depSet=new Set(DEP_BOXES_DEP[i]?DEP_BOXES_DEP[i].split(','):[]);
-  return DEP_BOXES[i].split(',').map(n=>'<span style="color:'+(depSet.has(n)?'#33ff00':'#f5a623')+'">' + n + '</span>').join(',');
-}
+  return BOXES.map(function(b,idx){
+    var num=String(idx+1);
+    var state=getFleetState(b.key);
+    var inPlan=DEP_BOXES[i]&&DEP_BOXES[i].split(',').includes(num);
+    var cls='grey';
+    if(state==='green'&&inPlan) cls='green';
+    else if(state==='amber'&&inPlan) cls='amber';
+    return '<span class="find '+cls+'" onclick="cycleFleetState(\''+ b.key +'\')">'+ num +'</span>';
+  }).join('');
+}}
 function applyDepartClasses(){
   for(const b of BOXES){
     const card=document.getElementById('fcard_'+b.key);
