@@ -203,6 +203,22 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .qac-buy .q{color:#fff;text-align:right;font-size:12px;white-space:nowrap}
 .qac-empty{color:#3a4d5f;font-size:12px;font-style:italic;padding:8px 0}
 @media(max-width:760px){.qac-grid2,.qac-results{grid-template-columns:1fr}.qac-tab{display:none}}
+/* ── BUY ALERT BANNER (WO-FUEL-ALERTS-001) ── */
+#fuelAlertBanner{position:fixed;top:16px;right:16px;z-index:9999;display:flex;align-items:center;gap:12px;
+  font-family:monospace;font-weight:800;font-size:15px;padding:14px 20px;border-radius:8px;border:2px solid;
+  pointer-events:auto;transition:opacity .3s;box-shadow:0 6px 24px rgba(0,0,0,.45);max-width:90vw}
+#fuelAlertBanner.fa-fuel{background:#1a1200;border-color:#6a4a00;color:#f0b429}
+#fuelAlertBanner.fa-co2 {background:#061507;border-color:#23a55a;color:#33ff00}
+#fuelAlertBanner .fa-icon{font-size:22px;line-height:1}
+#fuelAlertBanner .fa-body{display:flex;flex-direction:column;gap:2px}
+#fuelAlertBanner .fa-title{letter-spacing:1px}
+#fuelAlertBanner .fa-meta{font-weight:600;font-size:12px;opacity:.85}
+#fuelAlertBanner .fa-close{margin-left:6px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;
+  background:transparent;border:none;color:inherit;font-size:18px;font-weight:800;cursor:pointer;line-height:1;padding:0}
+/* iPad/phone: sit above the thumb zone, don't cover the schedule table header; readable + touch-friendly */
+@media(max-width:768px){
+  #fuelAlertBanner{top:auto;bottom:16px;right:auto;left:50%;transform:translateX(-50%);font-size:13px;max-width:90vw}
+}
 </style>
 </head>
 <body>
@@ -457,6 +473,9 @@ let FUELACC_DEP=new Array(48).fill(0);// fuel acc for departed boxes only — in
 let BURNS =new Array(48).fill(0);   // fuel burn per slot (incl. buffer) — ALL boxes; used by optimizer/forecast
 let BURNS_DEP=new Array(48).fill(0); // fuel burn for DEPARTED boxes only — shown in DEP BURN column
 let CO2B  =new Array(48).fill(0);   // CO2 burn per slot — derived
+let FSUG=new Array(48).fill(0);     // fuel suggested-buy per slot — set by recalc(), read by the buy-alert watcher
+let CSUG=new Array(48).fill(0);     // CO2 suggested-buy per slot — set by recalc(), read by the buy-alert watcher
+let _lastAlertSlot=-1;              // last game slot an alert fired for — prevents re-firing on the same slot
 function parseEtaHours(v){ if(!v)return null; v=String(v).trim(); if(v.includes(':')){const[h,m]=v.split(':').map(Number); if(isNaN(h))return null; return h+(isNaN(m)?0:m/60);} const n=parseFloat(v); return isNaN(n)?null:n; }
 function gv(id){ const e=document.getElementById(id); return e?e.value:''; }
 // Landing/takeoff buffer minutes by total ACTIVE fleet size (WO-002): <500=2, 501-1200=3, >1200=4.
@@ -971,8 +990,8 @@ function recalc(){
   const dd=S[String(vDay)]||{};
   const dPRICES=TIMES.map(t=>{const p=dd[t];return p?p[0]:0;});
   const dCO2P =TIMES.map(t=>{const p=dd[t];return p?p[1]:0;});
-  const fSug=isToday?fPlan.sug:TIMES.map((_,i)=>fPlan.sugAll[offset+i]||0);
-  const cSug=isToday?cPlan.sug:TIMES.map((_,i)=>cPlan.sugAll[offset+i]||0);
+  FSUG=isToday?fPlan.sug:TIMES.map((_,i)=>fPlan.sugAll[offset+i]||0);
+  CSUG=isToday?cPlan.sug:TIMES.map((_,i)=>cPlan.sugAll[offset+i]||0);
   const fPur=isToday?fPurchased:new Array(48).fill(0);
   const cPur=isToday?co2Purchased:new Array(48).fill(0);
   const fResOv=isToday?resOv:new Array(48).fill(null);
@@ -1006,7 +1025,7 @@ function recalc(){
     // where the player hasn't entered a manual purchase. Without this the reserve line
     // draws down as if nothing was bought and shows a false shortfall right next to a
     // suggested buy that would have prevented it.
-    const planBuy=past?0:((fPur[i]||0)>0?bought:fSug[i]);
+    const planBuy=past?0:((fPur[i]||0)>0?bought:FSUG[i]);
     const afterPurchase=afterBurn+planBuy;
     const cost=bought*dPRICES[i]/1000,sv=cost/SV;
     const surplus=afterPurchase-MIN_FUEL;
@@ -1016,7 +1035,7 @@ function recalc(){
     const co2MaxBuy=Math.max(0,co2Tank-Math.max(0,co2AfterBurn));
     const co2Bought=Math.min(cPur[i]||0,co2MaxBuy);
     const co2OverLimit=(cPur[i]||0)>co2MaxBuy&&(cPur[i]||0)>0;
-    const co2PlanBuy=past?0:((cPur[i]||0)>0?co2Bought:cSug[i]);   // CO2 forecast follows the plan too
+    const co2PlanBuy=past?0:((cPur[i]||0)>0?co2Bought:CSUG[i]);   // CO2 forecast follows the plan too
     const co2AfterPurchase=co2AfterBurn+co2PlanBuy;
     const co2Cost=co2Bought*dCO2P[i]/1000;
     const co2Final=cResAfterOvV[i]!==null?cResAfterOvV[i]:co2AfterPurchase;
@@ -1024,7 +1043,7 @@ function recalc(){
     totCO2Bought+=co2Bought;totCO2Cost+=co2Cost;lastCO2Res=co2Final;co2Res=co2Final;
     if(firstFuelNeg<0&&afterPurchase<0)firstFuelNeg=i;
     if(firstCO2Neg<0&&co2Final<0)firstCO2Neg=i;
-    const hasSug=fSug[i]>0,hasBought=bought>0,isOv=fResOv[i]!==null;
+    const hasSug=FSUG[i]>0,hasBought=bought>0,isOv=fResOv[i]!==null;
     const crit=afterPurchase<=MIN_FUEL,warn=afterPurchase<=MIN_FUEL*4;
     let rowBg='';
     if(crit)rowBg='bg-crit';else if(warn)rowBg='bg-warn';else if(hasBought)rowBg='bg-bought';else if(hasSug)rowBg='bg-sug';
@@ -1034,8 +1053,8 @@ function recalc(){
     // Build row
     const tr=document.createElement('tr');
     if(rowBg)tr.className=rowBg;
-    const sugValF=fmt(fSug[i]);
-    const sugValC=fmt(cSug[i]);
+    const sugValF=fmt(FSUG[i]);
+    const sugValC=fmt(CSUG[i]);
 
     tr.innerHTML=`
       <td class="ind" style="text-align:center;padding:3px">${hasSug?`<span style="color:${hasBought?'#23a55a':'#2a6040'}">◆</span>`:''}</td>
@@ -1051,17 +1070,17 @@ function recalc(){
         </span>
       </td>
       <td style="color:${resCol(afterBurn)};font-weight:${afterBurn<=MIN_FUEL?800:afterBurn<=MIN_FUEL*2?700:400}">${fmt(afterBurn)}</td>
-      <td style="color:${hasSug?'#23a55a':'#2a4a60'};font-style:${hasSug?'italic':'normal'};font-weight:${hasSug?700:400};background:${hasSug?'rgba(35,165,90,0.08)':'transparent'}">${fmt(fSug[i])}</td>
+      <td style="color:${hasSug?'#23a55a':'#2a4a60'};font-style:${hasSug?'italic':'normal'};font-weight:${hasSug?700:400};background:${hasSug?'rgba(35,165,90,0.08)':'transparent'}">${fmt(FSUG[i])}</td>
       <td style="color:${lc};font-weight:${parseFloat(lastsStr)<4&&lastsStr!=='>24h'?700:400}">${lastsStr}</td>
       <td style="padding:3px 5px;background:#141a0a;border-left:1px solid #2a3a10;border-right:1px solid #2a3a10">
-        <input type="number" class="cell-input buy-input ${hasBought?'has-val':''} ${overLimit?'over-limit':''}" data-slot-id="buy-${i}" value="${hasBought?(fPur[i]||''):''}" placeholder="${isToday?fmt(maxBuy):fmt(fSug[i])}" min="0" max="${maxBuy}" step="1000000" ${isToday?`onchange="setBought(${i},this.value,${maxBuy})"`:'readonly'}>
+        <input type="number" class="cell-input buy-input ${hasBought?'has-val':''} ${overLimit?'over-limit':''}" data-slot-id="buy-${i}" value="${hasBought?(fPur[i]||''):''}" placeholder="${isToday?fmt(maxBuy):fmt(FSUG[i])}" min="0" max="${maxBuy}" step="1000000" ${isToday?`onchange="setBought(${i},this.value,${maxBuy})"`:'readonly'}>
         ${overLimit?`<div class="warn-msg">⚠ Exceeds max ${fmt(maxBuy)} lbs</div>`:''}
       </td>
       <td class="c" style="border-left:3px solid #2a5a2a">
         <span style="color:${co2Col(dCO2P[i])};font-weight:700;font-size:12px">$${dCO2P[i]}</span>
       </td>
-      <td class="c" style="color:${cSug[i]>0?'#6a9a80':'#3a5a50'};font-style:${cSug[i]>0?'italic':'normal'}">
-        ${cSug[i]>0?fmt(cSug[i]):'—'}
+      <td class="c" style="color:${CSUG[i]>0?'#6a9a80':'#3a5a50'};font-style:${CSUG[i]>0?'italic':'normal'}">
+        ${CSUG[i]>0?fmt(CSUG[i]):'—'}
       </td>
       <td style="padding:3px 4px;border-left:1px solid #1a3a1a">
         <input type="number" class="cell-input co2-buy-input ${co2Bought>0?'has-val':''} ${co2OverLimit?'over-limit':''}" data-slot-id="co2-buy-${i}" value="${co2Bought>0?(cPur[i]||''):''}" placeholder="${sugValC}" min="0" max="${co2MaxBuy}" step="1000000" ${isToday?`onchange="setCO2Bought(${i},this.value,${co2MaxBuy})"`:'readonly'} style="color:${co2Bought>0?'#90d060':'#4a7a40'};width:95px">
@@ -1394,6 +1413,45 @@ function runQAC(){
   renderQACBuys('qacCO2Buys',qacRows(mpC),true,'quotas');
 }
 
+// ── BUY ALERTS (WO-FUEL-ALERTS-001) ──────────────────────────────────────────
+// Fire a visual banner + audible tone when the current game slot opens a suggested
+// buy window (FSUG[slot]>0 for fuel, CSUG[slot]>0 for CO2). Driven by the existing
+// 30-second slot watcher in init(). iOS autoplay policy: create a FRESH AudioContext
+// per call (never a persistent module-level one) so the tone plays after user gesture.
+function playAlertTone(type){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    const ctx=new AC();                       // fresh per call — iOS autoplay compliance
+    // fuel = two descending tones (660→520); CO2 = two ascending tones (520→660)
+    const seq=type==='fuel'?[660,520]:[520,660];
+    seq.forEach((freq,n)=>{
+      const t0=ctx.currentTime+n*0.22;
+      const osc=ctx.createOscillator(), g=ctx.createGain();
+      osc.type='sine'; osc.frequency.setValueAtTime(freq,t0);
+      g.gain.setValueAtTime(0.35,t0);
+      g.gain.exponentialRampToValueAtTime(0.001,t0+0.45);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0+0.45);
+    });
+    setTimeout(()=>{ try{ctx.close();}catch(_){}}, 1200);   // release the context after the sequence
+  }catch(e){ /* audio blocked / unsupported — banner still shows */ }
+}
+function showAlertBanner(type,slot,qty){
+  const prev=document.getElementById('fuelAlertBanner'); if(prev) prev.remove();
+  const isFuel=type==='fuel';
+  const b=document.createElement('div');
+  b.id='fuelAlertBanner';
+  b.className=isFuel?'fa-fuel':'fa-co2';
+  b.innerHTML=
+    '<span class="fa-icon">'+(isFuel?'⛽':'🌿')+'</span>'+
+    '<span class="fa-body"><span class="fa-title">'+(isFuel?'FUEL BUY NOW':'CO2 BUY NOW')+'</span>'+
+    '<span class="fa-meta">'+TIMES[slot]+' · '+fmt(qty)+'</span></span>'+
+    '<button type="button" class="fa-close" aria-label="Dismiss">✕</button>';
+  b.querySelector('.fa-close').onclick=()=>b.remove();   // onclick (not hover) for iPad
+  document.body.appendChild(b);
+  setTimeout(()=>{ if(b.isConnected) b.remove(); }, 90000);   // auto-dismiss after 90s
+}
+
 async function init(){
   const den=getDenmarkNow();
   const dayLabel=den.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).toUpperCase();
@@ -1453,6 +1511,14 @@ async function init(){
     if(PRICES.length===0||!S[String(newDay)]){loadDayPrices(newDay);recalc();}
     else if(slot!==_lastSlot){ recalc(); }   // a buy window (slot) just passed → re-anchor NOW so any
                                               // missed suggested buy disappears instead of counting as bought
+    // Buy-alert watcher: on a NEW game slot, if today's plan opens a buy window, alert once
+    // (banner + tone). recalc() above has refreshed FSUG/CSUG for the current day. Only when
+    // viewing today (VIEW_OFFSET===0); guarded by _lastAlertSlot so it never re-fires same slot.
+    if(slot!==_lastAlertSlot && VIEW_OFFSET===0){
+      if(FSUG[slot]>0){ playAlertTone('fuel'); showAlertBanner('fuel',slot,FSUG[slot]); }
+      if(CSUG[slot]>0){ playAlertTone('co2');  showAlertBanner('co2', slot,CSUG[slot]); }
+      _lastAlertSlot=slot;
+    }
     _lastSlot=slot;
     highlightNowRow();
   },30000);
