@@ -122,6 +122,14 @@ app.use(express.json());
 // Never let the browser (or an edge cache) hold onto this page — a stale copy could show a
 // different player's injected profile, or run pre-fix JS. Applies to BOTH the injected route
 // below and the static-served fallback.
+// Redirect /fuel-calculator.html?did=... to /fuel-calculator?did=... so the
+// profile injection route fires correctly regardless of which URL form is shared.
+app.get('/fuel-calculator.html', (req, res) => {
+  const qs = [];
+  if (req.query.did) qs.push('did=' + encodeURIComponent(req.query.did));
+  if (req.query.qac) qs.push('qac=1');
+  return res.redirect(301, '/fuel-calculator' + (qs.length ? '?' + qs.join('&') : ''));
+});
 app.use('/fuel-calculator', (req, res, next) => { res.set('Cache-Control', 'no-store, no-cache, must-revalidate'); next(); });
 app.get('/fuel-calculator', (req, res, next) => {
   const did = String(req.query.did || '').replace(/[^0-9]/g, '');

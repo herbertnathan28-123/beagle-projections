@@ -28,14 +28,14 @@ body{background:#060f1e;color:#e0e6f0;font-family:Arial,sans-serif;min-height:10
 .btn-dep{background:#3a1a0a;color:#f5a030;border:1px solid #6a3a0a;font-size:11px}
 .btn-dep:hover{background:#4a2a0a}
 .dep-section{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.dep-label{color:#4a6a3a;font-size:9px;letter-spacing:1px;font-weight:700}
-.dep-status{color:#f5a623;font-size:10px;font-family:monospace;background:#0a1808;border:1px solid #2a4010;padding:4px 10px;border-radius:4px;min-width:120px;text-align:center}
+.dep-label{color:#4a6a3a;font-size:12px;letter-spacing:1px;font-weight:700}
+.dep-status{color:#f5a623;font-size:13px;font-family:monospace;background:#0a1808;border:1px solid #2a4010;padding:7px 14px;border-radius:5px;min-width:160px;text-align:center}
 .dep-col{display:flex;flex-direction:column;align-items:center;gap:3px}
-.dep-eta-input{width:46px;background:#0a1808;border:1px solid #2a4a1a;border-radius:3px;color:#70d070;font-size:9px;font-family:monospace;padding:2px 4px;text-align:center}
-.dep-eta-input::placeholder{color:#3a5a3a;font-size:8px}
+.dep-eta-input{width:60px;background:#0a1808;border:1px solid #2a4a1a;border-radius:4px;color:#70d070;font-size:12px;font-family:monospace;padding:5px 7px;text-align:center}
+.dep-eta-input::placeholder{color:#3a5a3a;font-size:11px}
 .btn-clear-co2{background:#1a0a0a;border:1px solid #5a2a2a;color:#e06060;font-size:11px;font-weight:700;padding:3px 7px;border-radius:3px;cursor:pointer;line-height:1}
 .btn-clear-co2:hover{background:#2a1010;color:#ff7070}
-.btn-fill-full{background:#0a1828;border:1px solid #2a5080;color:#6ab0e0;font-size:9px;font-weight:700;padding:4px 7px;border-radius:3px;cursor:pointer;line-height:1;letter-spacing:.4px;white-space:nowrap;transition:background .15s,color .15s}
+.btn-fill-full{background:#0a1828;border:1px solid #2a5080;color:#6ab0e0;font-size:11px;font-weight:700;padding:6px 10px;border-radius:4px;cursor:pointer;line-height:1;letter-spacing:.4px;white-space:nowrap;transition:background .15s,color .15s}
 .btn-fill-full:hover{background:#12233a;color:#8ac0f0}
 .btn-fill-full.co2{background:#081a05;border-color:#2a5a2a;color:#70d070}
 .btn-fill-full.co2:hover{background:#0f2a0a;color:#8ae08a}
@@ -44,16 +44,16 @@ body{background:#060f1e;color:#e0e6f0;font-family:Arial,sans-serif;min-height:10
 .dropdown-menu.open{display:block}
 .dropdown-item{display:block;padding:8px 14px;font-size:11px;font-weight:700;color:#70d070;cursor:pointer;white-space:nowrap;letter-spacing:.4px}
 .dropdown-item:hover{background:#1a3a1a}
-.stats-wrap{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;width:100%}
-.stats-left{display:grid;grid-template-columns:repeat(7,auto);gap:6px;align-items:end}
+.stats-wrap{display:flex;gap:14px;align-items:stretch;flex-wrap:wrap;width:100%}
+.stats-left{display:grid;grid-template-columns:repeat(7,auto);gap:10px;align-items:end;flex:1}
 .stats-right{display:flex;flex-direction:column;gap:6px;justify-content:space-around}
-.stat-sub{color:#4a8a6a;font-size:10px;margin-top:3px;letter-spacing:.3px;line-height:1.4}
+.stat-sub{color:#4a8a6a;font-size:11px;margin-top:3px;letter-spacing:.3px;line-height:1.4}
 .stat-input-wrap{display:flex;flex-direction:column;gap:3px}
-.stat-input-label{color:#3a5a7a;font-size:11px;letter-spacing:.5px}
-.stat-input{background:#091828;border:1px solid #2a5080;color:#f5a623;padding:5px 8px;border-radius:4px;font-size:12px;width:155px;font-weight:700;text-align:right;font-family:monospace}
-.stat-box{background:#091828;padding:5px 10px;border-radius:5px;border:1px solid #1a3050;min-width:110px}
-.stat-label{color:#3a5a7a;font-size:11px;letter-spacing:.4px}
-.stat-value{font-size:14px;font-weight:700;margin-top:1px;font-family:monospace}
+.stat-input-label{color:#4a7aaa;font-size:13px;letter-spacing:.5px;font-weight:600}
+.stat-input{background:#091828;border:1px solid #2a5080;color:#f5a623;padding:8px 12px;border-radius:5px;font-size:15px;width:190px;font-weight:700;text-align:right;font-family:monospace}
+.stat-box{background:#091828;padding:8px 14px;border-radius:6px;border:1px solid #1a3050;min-width:135px}
+.stat-label{color:#4a7aaa;font-size:12px;letter-spacing:.4px;font-weight:600}
+.stat-value{font-size:18px;font-weight:700;margin-top:3px;font-family:monospace}
 .co2-stat-box{border-color:#1a3a1a}
 .scenarios{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .scenario-card{background:#080e1c;border:1px solid #1e3050;border-radius:6px;padding:8px 12px;min-width:180px;flex:1}
@@ -93,6 +93,11 @@ tr.now-row{background:rgba(35,165,90,0.18)!important;border-left:3px solid #23a5
 .co2-res-input:focus{border-color:#2a5a2a;background:#050e05}
 .co2-res-input.ov-active{background:#051a05;border-color:#3a7a3a;color:#70d070;font-weight:600}
 .now-badge{display:inline-block;background:#23a55a;color:#0a0a0a;font-size:8px;font-weight:800;padding:1px 4px;border-radius:3px;margin-left:4px;letter-spacing:.5px;vertical-align:middle}
+.fleet-ind{display:inline-flex;gap:3px;align-items:center}
+.find{font-size:10px;font-weight:800;padding:1px 4px;border-radius:3px;cursor:pointer;user-select:none;letter-spacing:.3px;transition:background .1s,color .1s}
+.find.grey{color:#2a3a4a;background:#0d1420}
+.find.amber{color:#f5a030;background:#1a1200;border:1px solid #3a2a00}
+.find.green{color:#0a0a0a;background:#23a55a;border:1px solid #33ff00}
 /* CO2 expand */
 .expand-btn{background:none;border:none;color:#3a7a3a;cursor:pointer;font-size:11px;padding:0 4px;transition:color .15s}
 .expand-btn:hover{color:#70d070}
@@ -135,7 +140,7 @@ tfoot td{background:#0d1e36;border-top:2px solid #1e3050;font-weight:700}
 select.finput{appearance:none;font-weight:700;text-align:center;text-align-last:center;cursor:pointer}
 input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .finput:disabled{opacity:.55;cursor:default}
-.spd4x-btn{background:#1a2030;border:1px solid #2a3a50;color:#5a7a9a;font-size:10px;font-weight:800;letter-spacing:.4px;padding:4px 10px;border-radius:4px;cursor:pointer;font-family:inherit}
+.spd4x-btn{background:#1a2030;border:1px solid #2a3a50;color:#5a7a9a;font-size:13px;font-weight:800;letter-spacing:.4px;padding:7px 14px;border-radius:5px;cursor:pointer;font-family:inherit}
 .spd4x-btn.on{background:#0d2818;border-color:#23a55a;color:#33ff00}
 /* ── STRATEGY BOXES ── */
 .fleet-cards{flex-wrap:wrap}
@@ -143,21 +148,48 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .box-ctrl .bc-lbl{font-size:10px;font-weight:800;letter-spacing:.8px;color:#c99a3a}
 .box-ctrl .bc-hint{font-size:9px;color:#5a6a7a;margin-left:6px}
 .box-ctrl .mcount{min-width:16px;text-align:center;color:#e0b24a;font-weight:800;font-size:12px}
-.fcard{flex:1 1 220px;max-width:300px;display:flex;flex-direction:column}
+.fcard{flex:1 1 320px;display:flex;flex-direction:column}
 .bhead{display:flex;align-items:center;gap:6px;background:#181206;padding:6px 8px;border-bottom:1px solid #241a08;min-height:40px}
+.fleet-lbl{font-size:9px;font-weight:800;letter-spacing:1.5px;color:#c99a3a;background:#1a1200;border:1px solid #3a2a00;border-radius:4px;padding:2px 6px;white-space:nowrap;flex-shrink:0}
 .ftime{display:flex;align-items:center;gap:3px;color:#f5a030;font-size:17px;font-weight:800}
-.finput.fdur{flex:0 0 76px;width:76px;color:#f5a030;font-weight:800;font-size:22px;padding:7px 6px;font-family:inherit;text-align:center}
+.finput.fdur{flex:1;min-width:0;background:transparent;border:none;color:#ff9900;font-weight:800;font-size:22px;font-family:inherit;text-align:right;outline:none;padding:0}
 .bhead .mnt{background:transparent;border:0;border-bottom:0;padding:0;min-height:0;margin-left:auto;gap:4px;justify-content:flex-end}
 .bhead .mnt .mlbl{color:#c99a3a}
 .xbox{width:20px;height:20px;border:1.5px solid #6a3a3a;background:transparent;border-radius:5px;color:#e07070;font-size:12px;font-weight:700;cursor:pointer;line-height:1;padding:0;flex:0 0 auto}
 .xbox:hover{background:#2a1010}
+.brow1{display:flex;align-items:center;gap:8px;background:#181206;padding:8px 10px;border-bottom:1px solid #241a08}
+.fleet-lbl-big{font-size:15px;font-weight:800;letter-spacing:2px;color:#c99a3a;background:#1a1200;border:1px solid #3a2a00;border-radius:5px;padding:5px 10px;white-space:nowrap;flex-shrink:0;cursor:default}
+.dur-field{flex:1;max-width:170px;display:flex;align-items:center;justify-content:center;gap:5px;border:2.5px solid #ff9900;border-radius:8px;background:linear-gradient(180deg,#2a1c08,#180f03);padding:6px 12px;cursor:pointer;transition:border-color .12s,background .12s;user-select:none}
+.dur-field:hover{filter:brightness(1.15)}
+.fcard.departed .dur-field{border-color:#33ff00;background:linear-gradient(180deg,#0d2a12,#061507)}
+.fcard.departed .finput.fdur{color:#33ff00}
+.dur-h{color:#ff9900;font-size:18px;font-weight:800;flex-shrink:0;pointer-events:none}
+.fcard.departed .dur-h{color:#33ff00}
+.brow2{display:flex;align-items:center;gap:5px;background:#0e1808;padding:6px 10px;border-bottom:1px solid #1a2a0a}
+.brow2 .mlbl{font-size:9px;font-weight:800;letter-spacing:.8px;color:#c99a3a;flex-shrink:0}
+.maint-info{flex:1;font-size:10px;color:#5a6a7a;font-style:italic;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:6px}
 .beta{display:flex;align-items:center;gap:6px;padding:4px 8px 2px;margin:0 5px}
 .beta .etalbl{font-size:9px;font-weight:800;letter-spacing:.8px;color:#6a7a8a;flex:0 0 auto}
 .finput.feta{flex:1 1 auto;font-size:12px;padding:6px 6px;color:#8aa0b8}
+.finput.feta.has-val{color:#33ff00;font-weight:700;border-color:#23a55a!important;background:#061507}
 .trows .frow{gap:5px;padding:6px 8px}
 .finput.ftype{flex:1 1 auto;font-size:13px;font-weight:700;padding:8px 6px}
 .finput.fac{flex:0 0 62px;width:62px;color:#8aa0b8;font-size:13px;padding:8px 4px}
+.type-burn{font-size:10px;color:#f5a030;font-family:monospace;text-align:right;min-width:96px;white-space:nowrap}
+.type-burns{display:flex;flex-direction:column;align-items:flex-end;gap:1px;min-width:110px;flex-shrink:0}
+.type-burn.co2b{color:#70d070}
+.type-burn.zero{color:#3a4a5a}
+.frow-total{border-top:2px solid #2a3a4a!important;background:rgba(245,160,48,0.06);padding:7px 8px!important}
+.frow-total .flbl{color:#c99a3a;font-size:10px}
+.fleet-total-burn{font-size:12px;color:#f5a030;font-family:monospace;font-weight:800;text-align:right}
+.fleet-total-burn.co2b{color:#70d070}
+.grand-total-bar{display:none;align-items:center;justify-content:space-between;padding:9px 14px;margin-top:10px;background:rgba(245,160,48,0.08);border:1.5px solid rgba(245,160,48,0.35);border-radius:7px}
+.grand-total-bar .gt-lbl{color:#c99a3a;font-weight:800;letter-spacing:.8px;font-size:10px}
+.grand-total-bar .gt-val{color:#f5a030;font-family:monospace;font-size:14px;font-weight:800}
 .depall-btn{margin-left:10px;background:linear-gradient(180deg,#2a1c08,#180f03);border:1.5px solid #ff9900;color:#ff9900;font-size:11px;font-weight:800;letter-spacing:.5px;padding:5px 12px;border-radius:6px;cursor:pointer;font-family:inherit}
+.dep-toggle-btn{background:#2a1608;color:#ff9900;border:2px solid #ff9900;border-radius:6px;font-size:12px;font-weight:800;padding:5px 14px;cursor:pointer;letter-spacing:.5px;flex-shrink:0;transition:background .12s,color .12s,border-color .12s;font-family:inherit}
+.dep-toggle-btn.on{background:#0d2212;color:#33ff00;border-color:#33ff00}
+.dep-toggle-btn:hover{filter:brightness(1.2)}
 .depall-btn:hover{filter:brightness(1.2)}
 /* ── DAY NAVIGATOR (visual plan preview) ── */
 .day-nav{display:flex;align-items:center;gap:10px;margin:10px 0 4px;padding:6px 10px;background:#0c1119;border:1px solid #1c2430;border-radius:8px}
@@ -169,7 +201,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .daynav-today:hover{background:#22344a}
 .daynav-ro{font-size:11px;color:#c99a3a;font-style:italic}
 @media(max-width:1100px){.fleet-cards{flex-wrap:wrap}.fcard{flex:1 1 30%}}
-@media print{body{background:#fff;color:#000}.btn-row,.legend{display:none}.header{background:#f5f5f5}.co2-row{display:none!important}}
+@media print{body{background:#fff;color:#000}.btn-row,.legend{display:none}.header{background:#f5f5f5}.co2-row{display:none!important}}.eta-countdown{font-size:9px;color:#4a9a6a;font-family:monospace;text-align:center;padding:2px 6px;min-height:13px;letter-spacing:.3px}.eta-countdown.urgent{color:#33ff00;font-weight:800}.eta-countdown.green-active{color:#33ff00;font-weight:700}.eta-countdown.overdue{color:#33ff00;font-weight:800;animation:etapulse 1s ease-in-out infinite}@keyframes etapulse{0%,100%{opacity:1}50%{opacity:.35}}
 /* ── QAC — QUICK ACCESS CALCULATOR (WO-FUEL-QAC-001) ── */
 .qac-wrap{margin:10px 12px 0}
 .qac-tab{position:fixed;left:0;top:50%;transform:translateY(-50%) rotate(180deg);writing-mode:vertical-rl;background:#0d1e36;border:1px solid #1a5a3a;border-left:none;border-radius:6px 0 0 6px;color:#33ff00;font-size:11px;font-weight:800;letter-spacing:2px;padding:12px 6px;cursor:pointer;z-index:60;display:flex;align-items:center;gap:8px;user-select:none}
@@ -289,20 +321,31 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
       <div class="dep-label" style="margin-bottom:4px">⏱ FLEET &amp; DEPARTURES</div>
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
         <span class="dep-label">4× DURATION</span>
-        <select id="gameMode" class="dep-eta-input" style="width:62px;color:#f5a030;border-color:#6a3a0a" onchange="saveCards();recalc()" title="Game hours per real hour">
+        <select id="gameMode" class="dep-eta-input" style="width:80px;color:#f5a030;border-color:#6a3a0a;font-size:12px;padding:5px 7px" onchange="saveCards();recalc()" title="Game hours per real hour">
           <option value="1">1 hr</option><option value="4" selected>4 hrs</option><option value="24">24 hrs</option>
         </select>
         <button id="fourxBtn" class="spd4x-btn on" onclick="toggleFourx()" title="Control 2 — 4× speed boost. When ON, all flight durations ÷ 4. Independent of game time mode.">4× SPEED: ON</button>
         <button id="schedLockBtn" class="spd4x-btn" onclick="toggleScheduleLock()" title="UNLOCKED: full day pre-plotted from 00:00 (planning mode). LOCKED: schedule anchors to real time — use once fleet is running.">SCHEDULE: UNLOCKED</button>
         <span class="dep-label" style="margin-left:8px">⛽ BURN/AC</span>
-        <input class="dep-eta-input" id="avgFuelBurn" type="number" placeholder="lbs" style="width:72px;color:#f5a030;border-color:#6a3a0a" oninput="saveTank('avgFuelBurn');recalc()" title="Average fuel burn per aircraft per departure">
+        <input class="dep-eta-input" id="avgFuelBurn" type="number" placeholder="lbs" style="width:90px;color:#f5a030;border-color:#6a3a0a" oninput="saveTank('avgFuelBurn');recalc()" title="Average fuel burn per aircraft per departure">
         <span class="dep-label" style="margin-left:6px">🌿 CO2/AC</span>
-        <input class="dep-eta-input" id="co2BurnDep" type="number" placeholder="quotas" style="width:66px" oninput="saveTank('co2BurnDep');recalc()" title="CO2 quotas burned per aircraft per departure event">
+        <input class="dep-eta-input" id="co2BurnDep" type="number" placeholder="quotas" style="width:84px" oninput="saveTank('co2BurnDep');recalc()" title="CO2 quotas burned per aircraft per departure event">
       </div>
       <div class="dep-status" id="depStatus" style="min-width:160px">Add a box · set its flight time + aircraft · tap DEP when you launch in-game</div>
     </div>
   </div>
   <div class="fleet-cards" id="fleetCards"></div>
+  <div class="grand-total-bar" id="grandTotalBar">
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <span class="gt-lbl">TOTAL AIRCRAFT</span>
+      <span class="gt-val" id="grandTotalAC" style="color:#e0e6f0;font-size:18px">—</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+      <span class="gt-lbl">GRAND TOTAL BURN PER DEPARTURE</span>
+      <span class="gt-val" id="grandBurnTotal">⛽ —</span>
+      <span class="gt-val" style="color:#70d070" id="grandCO2Total">🌿 —</span>
+    </div>
+  </div>
 </div>
 <!-- QAC — QUICK ACCESS CALCULATOR (WO-FUEL-QAC-001) -->
 <div class="qac-tab" id="qacTab" onclick="openQAC()" title="Open Quick Access Calculator"><span class="qac-dot"></span>◆ QAC — QUICK ACCESS CALCULATOR</div>
@@ -399,7 +442,7 @@ const MAX_TYPES=4;      // aircraft types per box
 const DEFAULT_DUR=24;   // a fresh box shows 24h until the player changes it
 let BOX_SEQ=0;
 function mkType(){ return {type:'',count:'',fuel:null,co2:null}; }   // fuel/co2 = per-AC burn (from profile) or null → global fallback
-function mkBox(dur){ return {key:'b'+(++BOX_SEQ), dur:(dur!=null?dur:DEFAULT_DUR), eta:'', maint:0, departed:false, types:[mkType()]}; }
+function mkBox(dur){ return {key:'b'+(++BOX_SEQ), dur:(dur!=null?dur:DEFAULT_DUR), eta:'', etaSetTime:null, maint:0, departed:false, types:[mkType()]}; }
 let BOXES=[mkBox()];
 function boxByKey(k){ return BOXES.find(b=>b.key===k); }
 function optsFor(v){ return '<option value="">— Select —</option>'+AIRCRAFT_TYPES.map(t=>`<option${t===v?' selected':''}>${t}</option>`).join(''); }
@@ -408,7 +451,7 @@ function optsFor(v){ return '<option value="">— Select —</option>'+AIRCRAFT_
 function syncBoxesFromDOM(){
   for(const b of BOXES){
     const d=document.getElementById('dur_'+b.key); if(d){ const v=parseFloat(d.value); if(!isNaN(v))b.dur=v; }
-    const et=document.getElementById('eta_'+b.key); if(et) b.eta=et.value;
+    const et=document.getElementById('eta_'+b.key); if(et){ const newEta=et.value; if(b.departed!==false && newEta!==b.eta) b.departed=gameNowHour(); b.eta=newEta; }
     for(let i=0;i<MAX_TYPES;i++){
       if(!b.types[i]) b.types[i]=mkType();
       const ts=document.getElementById('type_'+b.key+'_'+i); if(ts) b.types[i].type=ts.value;
@@ -509,8 +552,14 @@ function burnBlockFor(did,type,hours){
   return P[type+'|'+(Math.round(h*100)/100)]||null;   // 14 / 14.0 / "14" → "14"; 3.5 stays "3.5"
 }
 let SCHEDULE_LOCKED=false;          // false = planning (anchor 00:00), true = live (anchor nowH)
+let FLEET_LOCK={};
+function getFleetState(key){ return FLEET_LOCK[key]||'grey'; }
+function cycleFleetState(key){ const cur=getFleetState(key); const next=cur==='grey'?'amber':cur==='amber'?'green':'grey'; FLEET_LOCK[key]=next; saveFleetLocks(); recalc(); }
+function saveFleetLocks(){ try{localStorage.setItem(LSK('fleetLocks'),JSON.stringify(FLEET_LOCK));}catch(e){} }
+function restoreFleetLocks(){ try{const r=localStorage.getItem(LSK('fleetLocks')); if(r)FLEET_LOCK=JSON.parse(r);}catch(e){} }
 let DEP_AC=new Array(48).fill(0);   // aircraft departing per slot — derived
 let DEP_BOXES=new Array(48).fill(''); // box number labels per slot ("1", "2+3" etc)
+let DEP_BOXES_DEP=new Array(48).fill(''); // departed box numbers per slot
 let FUELACC=new Array(48).fill(0);  // fuel burn per slot before buffer — derived
 let CO2ACC =new Array(48).fill(0);  // CO2 burn per slot — derived
 let FUELACC_DEP=new Array(48).fill(0);// fuel acc for departed boxes only — intermediate
@@ -539,6 +588,7 @@ function speedMult(){
 function computeDepartures(){
   DEP_AC=new Array(48).fill(0);
   DEP_BOXES=new Array(48).fill('');
+  DEP_BOXES_DEP=new Array(48).fill('');
   FUELACC=new Array(48).fill(0);
   FUELACC_DEP=new Array(48).fill(0);
   CO2ACC =new Array(48).fill(0);
@@ -547,6 +597,7 @@ function computeDepartures(){
   const gCO2 =parseFloat(gv('co2BurnDep'))||0;    // global fallback CO2/AC
   const now=getGameNow();
   const nowH=now.getUTCHours()+now.getUTCMinutes()/60;   // current game time (UTC), in hours
+  const _anyDep=BOXES.some(b=>b.departed!==false);  // any fleet live → non-departed skip past/NOW slots
   for(const b of BOXES){
     const act=activeCount(b); if(act<=0)continue;
     const dur=parseFloat(b.dur)||DEFAULT_DUR;
@@ -570,10 +621,23 @@ function computeDepartures(){
     let anchor0;
     if(b.departed!==false && b.departed!=null) anchor0=b.departed;
     else { const eta=parseEtaHours(b.eta); anchor0=(eta!==null)?(nowH+eta):(SCHEDULE_LOCKED?nowH:0); }
-    let anchor=anchor0-Math.floor(anchor0/cycle)*cycle;   // earliest departure of this phase in [0,cycle)
+    let anchor=anchor0-Math.floor(anchor0/cycle)*cycle;
+    const bNum=String(BOXES.indexOf(b)+1);
+    // Burn loop — uses actual anchor (departure time for departed, planning for others)
     for(let d=anchor; d<24; d+=cycle){
-      const slot=Math.floor(Math.round(d*60)/30);  // round to the minute first — avoids FP drift
-      if(slot>=0&&slot<48){ DEP_AC[slot]+=act; FUELACC[slot]+=fuelPerDep; if(b.departed!==false)FUELACC_DEP[slot]+=fuelPerDep; CO2ACC[slot]+=co2PerDep; const bNum=String(BOXES.indexOf(b)+1); DEP_BOXES[slot]=DEP_BOXES[slot]?(DEP_BOXES[slot].includes(bNum)?DEP_BOXES[slot]:DEP_BOXES[slot]+','+bNum):bNum; }
+      const slot=Math.floor(Math.round(d*60)/30);
+      if(slot>=0&&slot<48){
+        DEP_AC[slot]+=act; FUELACC[slot]+=fuelPerDep; if(b.departed!==false)FUELACC_DEP[slot]+=fuelPerDep; CO2ACC[slot]+=co2PerDep;
+      }
+    }
+    // Display loop — always uses planning anchor so fleet numbers are stable at consistent slots
+    const dispAnchor=SCHEDULE_LOCKED?(nowH-Math.floor(nowH/cycle)*cycle):0;
+    for(let d=dispAnchor; d<24; d+=cycle){
+      const slot=Math.floor(Math.round(d*60)/30);
+      if(slot>=0&&slot<48){
+        DEP_BOXES[slot]=DEP_BOXES[slot]?(DEP_BOXES[slot].includes(bNum)?DEP_BOXES[slot]:DEP_BOXES[slot]+','+bNum):bNum;
+        if(b.departed!==false){DEP_BOXES_DEP[slot]=DEP_BOXES_DEP[slot]?(DEP_BOXES_DEP[slot].includes(bNum)?DEP_BOXES_DEP[slot]:DEP_BOXES_DEP[slot]+','+bNum):bNum;}
+      }
     }
   }
 }
@@ -608,48 +672,120 @@ function buildFleetCards(){
     <button class="depall-btn" type="button" onclick="departAll()" title="Depart / recall ALL boxes at once">DEP ALL</button>
     <span class="bc-hint">each box = one flight time · up to 4 aircraft types</span>
   </div>`;
-  for(const b of BOXES){
+  for(let _bi=0;_bi<BOXES.length;_bi++){const b=BOXES[_bi];
     let rows='';
     for(let i=0;i<MAX_TYPES;i++){
       const t=b.types[i]||mkType();
       rows+=`<div class="frow">
         <select class="finput ftype" id="type_${b.key}_${i}" onchange="onTypeChange('${b.key}',${i})">${optsFor(t.type)}</select>
-        <input class="finput fac" id="cnt_${b.key}_${i}" type="number" min="0" placeholder="A/C" value="${t.count!=null?t.count:''}" oninput="onBoxInput()">
+        <input class="finput fac" id="cnt_${b.key}_${i}" type="number" min="0" placeholder="A/C" value="${t.count!=null?t.count:''}" oninput="onBoxInput();saveCntLock(this)">
+        <div class="type-burns">
+          <span class="type-burn zero" id="tburn_${b.key}_${i}">⛽ —</span>
+          <span class="type-burn co2b zero" id="tcburn_${b.key}_${i}">🌿 —</span>
+        </div>
       </div>`;
     }
     html+=`<div class="fcard" id="fcard_${b.key}">
-      <div class="bhead">
-        <span class="ftime"><input class="finput fdur" id="dur_${b.key}" type="number" min="0" step="0.1" value="${b.dur}" oninput="onBoxInput()" title="Flight time in hours — decimals of 0.1 = 6-minute steps (e.g. 3.5 = 3h30, 3.1 = 3h06)">h</span>
-        <span class="mnt"><span class="mlbl">MAINT</span>
-          <button class="stp" type="button" onclick="stepMaint('${b.key}',1)" title="Add aircraft to maintenance">+</button>
-          <span class="mcount" id="maint_${b.key}">${b.maint||0}</span>
-          <button class="stp" type="button" onclick="stepMaint('${b.key}',-1)" title="Remove from maintenance">–</button></span>
-        <button class="xbox" type="button" onclick="removeBoxKey('${b.key}')" title="Remove this box">✕</button>
+      <div class="brow1">
+        <span class="fleet-lbl-big">FLEET ${_bi+1}</span>
+        <div class="dur-field" onclick="toggleDepart('${b.key}')" title="Tap to depart / recall · orange = not departed · green = departed">
+          <input class="finput fdur" id="dur_${b.key}" type="number" min="0" step="0.1" value="${b.dur}" oninput="onBoxInput()" onclick="event.stopPropagation()" title="Flight time in hours · 0.1 = 6 min · e.g. 3.5 = 3h30 · 21.2 = 21h12">
+          <span class="dur-h">h</span>
+        </div>
+        <button class="dep-toggle-btn${b.departed!==false?' on':''}" id="depbtn_${b.key}" type="button" onclick="toggleDepart('${b.key}')" title="Tap to confirm departure · orange = not departed · green = departed">${b.departed!==false?'DEP ✓':'DEP'}</button>
+        <button class="xbox" type="button" onclick="removeBoxKey('${b.key}')" title="Remove this fleet">✕</button>
       </div>
-      <div class="dur depbtn" onclick="toggleDepart('${b.key}')" title="Toggle departed (green) / not departed (orange)"><div class="big">DEP</div></div>
-      <div class="beta"><span class="etalbl">ETA</span><input class="finput feta" id="eta_${b.key}" type="text" placeholder="HH:MM until it lands" value="${b.eta!=null?b.eta:''}" oninput="onBoxInput()" title="Time until this box next lands/departs (HH:MM or decimal hours). Anchors the schedule; a DEP tap overrides it."></div>
+      <div class="brow2">
+        <span class="mlbl">MAINT</span>
+        <button class="stp" type="button" onclick="stepMaint('${b.key}',1)" title="Add to maintenance">+</button>
+        <span class="mcount" id="maint_${b.key}">${b.maint||0}</span>
+        <button class="stp" type="button" onclick="stepMaint('${b.key}',-1)" title="Remove from maintenance">−</button>
+        <span class="maint-info" id="mainttype_${b.key}"></span>
+      </div>
+      <div class="beta"><span class="etalbl">ETA</span><input class="finput feta${b.eta?' has-val':''}" id="eta_${b.key}" type="text" placeholder="HH:MM until it lands" value="${b.eta!=null?b.eta:''}" oninput="onBoxInput();this.classList.toggle('has-val',this.value.trim().length>0)" onkeydown="if(event.key==='Enter'){confirmETA('${b.key}',this.value);this.blur()}" title="Time until this box next lands/departs (HH:MM or decimal hours). Anchors the schedule; a DEP tap overrides it."></div>
+      <div class="eta-countdown" id="etacd_${b.key}"></div>
       <div class="trows">${rows}</div>
+      <div class="frow frow-total">
+        <span class="flbl">Totally burn</span>
+        <div class="type-burns">
+          <span class="fleet-total-burn" id="ftburn_${b.key}">⛽ —</span>
+          <span class="fleet-total-burn co2b" id="ftcburn_${b.key}">🌿 —</span>
+        </div>
+      </div>
     </div>`;
   }
   wrap.innerHTML=html;
   applyDepartClasses();
+  if(typeof updateETACountdowns==="function") updateETACountdowns();
+  if(typeof updateFleetBurnDisplays==="function") updateFleetBurnDisplays();
 }
 // Departure toggle. box.departed holds either false (not departed → orange) or the
 // game-time hour at which DEP was pressed (departed → green). That press-time anchors
 // the box's schedule to the real in-game departure, keeping the fuel plan in sync.
 function gameNowHour(){ const n=getGameNow(); return n.getUTCHours()+n.getUTCMinutes()/60; }
+function fboxDisplay(i){
+  return BOXES.map(function(b,idx){
+    var num=String(idx+1);
+    var inPlan=DEP_BOXES[i]&&DEP_BOXES[i].split(',').includes(num);
+    var isDep=b.departed!==false;
+    var cls=inPlan?(isDep?'green':'amber'):'grey';
+    return '<span class="find '+cls+'">'+num+'</span>';
+  }).join('');
+}
 function applyDepartClasses(){
   for(const b of BOXES){
     const card=document.getElementById('fcard_'+b.key);
     if(card) card.classList.toggle('departed',b.departed!==false);
+    const depBtn=document.getElementById('depbtn_'+b.key);
+    if(depBtn){const dep=b.departed!==false;depBtn.classList.toggle('on',dep);depBtn.textContent=dep?'DEP ✓':'DEP';}
+  }
+}
+function confirmETA(key,val){ const b=boxByKey(key); if(!b)return; b.etaSetTime=val.trim()?Date.now():null; b.eta=val; saveCards(); recalc(); updateETACountdowns(); }
+function updateETACountdowns(){
+  function fmtHMS(ms){ const s=Math.max(0,Math.floor(ms/1000)); const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60; return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(sc).padStart(2,'0'); }
+  const mult=speedMult();
+  for(const b of BOXES){
+    const el=document.getElementById('etacd_'+b.key); if(!el) continue;
+    if(b.departed!==false){
+      const nowH=gameNowHour();
+      let elapsed=nowH-b.departed; if(elapsed<0)elapsed+=24;
+      const dur=parseFloat(b.dur)||DEFAULT_DUR;
+      const cycle=dur/mult;
+      const etaVal=parseEtaHours(b.eta);
+      const remaining=(etaVal!==null&&etaVal>0)?(etaVal-elapsed):(cycle-elapsed);
+      if(remaining<=0){
+        el.textContent='00:00:00 — LANDED';
+        el.className='eta-countdown overdue';
+      } else {
+        el.textContent=fmtHMS(remaining*3600000);
+        el.className='eta-countdown green-active';
+      }
+    } else if(b.etaSetTime&&b.eta){
+      const etaMs=(parseEtaHours(b.eta)||0)*3600000;
+      const remainingMs=etaMs-(Date.now()-b.etaSetTime);
+      if(remainingMs<=0){
+        el.textContent='00:00:00 — LANDED';
+        el.className='eta-countdown overdue';
+      } else {
+        el.textContent=fmtHMS(remainingMs);
+        el.className='eta-countdown green-active';
+      }
+    } else {
+      el.textContent='00:00';
+      el.className='eta-countdown';
+    }
   }
 }
 function toggleDepart(key){
   const b=boxByKey(key); if(!b)return;
   pushUndo(); syncBoxesFromDOM();
-  b.departed=(b.departed===false)?gameNowHour():false;   // press = depart NOW; press again = recall
+  if(b.departed===false){
+    b.departed=gameNowHour();  // anchor to now; ETA field drives countdown directly
+  } else {
+    b.departed=false;  // recall
+  }
   applyDepartClasses();
-  saveCards(); recalc();
+  saveCards(); recalc(); updateETACountdowns();
 }
 function stepMaint(key,d){
   const b=boxByKey(key); if(!b)return;
@@ -666,7 +802,7 @@ function departAll(){
   const anyOff=BOXES.some(b=>b.departed===false);
   const t=gameNowHour();
   for(const b of BOXES){ if(anyOff){ if(b.departed===false) b.departed=t; } else b.departed=false; }
-  applyDepartClasses(); saveCards(); recalc();
+  applyDepartClasses(); saveCards(); recalc(); updateETACountdowns();
 }
 function setFourx(on){
   const b=document.getElementById('fourxBtn'); if(!b)return;
@@ -710,12 +846,14 @@ const STORE_DID=(function(){
   return '';
 })();
 const LSK=k=>STORE_DID?('bgl_'+STORE_DID+'_'+k):('bgl_'+k);
+function saveCntLock(el){ try{ const k=LSK('cnt_'+el.id); if(el.value==='') localStorage.removeItem(k); else localStorage.setItem(k,el.value); }catch(e){} }
+function restoreCntLocks(){ document.querySelectorAll('.finput.fac').forEach(function(el){ try{ const v=localStorage.getItem(LSK('cnt_'+el.id)); if(v!=null&&v!=='') el.value=v; }catch(e){} }); }
 function saveCards(){
   try{
     syncBoxesFromDOM();
     const b=document.getElementById('fourxBtn');
     localStorage.setItem(LSK('fleet'),JSON.stringify({
-      boxes:BOXES.map(x=>({dur:x.dur,eta:x.eta,maint:x.maint,departed:x.departed,types:x.types.map(t=>({type:t.type,count:t.count,fuel:t.fuel,co2:t.co2}))})),
+      boxes:BOXES.map(x=>({dur:x.dur,eta:x.eta,etaSetTime:x.etaSetTime||null,maint:x.maint,departed:x.departed,types:x.types.map(t=>({type:t.type,count:t.count,fuel:t.fuel,co2:t.co2}))})),
       mode:gv('gameMode'), fourx:b?b.classList.contains('on'):true
     }));
   }catch(e){}
@@ -731,7 +869,7 @@ function restoreCards(){
       BOXES=d.boxes.map(x=>({
         key:'b'+(++BOX_SEQ),
         dur:(x.dur!=null?x.dur:DEFAULT_DUR),
-        eta:(x.eta!=null?x.eta:''),
+        eta:(x.eta!=null?x.eta:''), etaSetTime:(x.etaSetTime||null),
         maint:parseInt(x.maint)||0,
         departed:(typeof x.departed==='number')?x.departed:false,
         types:(Array.isArray(x.types)&&x.types.length?x.types:[mkType()]).slice(0,MAX_TYPES)
@@ -970,7 +1108,9 @@ function monthOptimize(startRes, tank, minR, price, burn, manual){
       const need=pre[k]-pre[i];                         // net demand from i until the next cheaper slot
       const want=Math.max(0,(minR+need)-reserve);       // enough to reach k above the floor
       const cap=Math.max(0,tank-Math.max(0,reserve-burn[i]));   // headroom after burn, clamped — matches the table's maxBuy = tank - max(0, afterBurn); never exceeds one tank
-      const b=Math.min(want,cap);
+      // Fill to full when extra headroom would be consumed before the next cheaper slot
+      const extraCap=Math.max(0,cap-want);
+      const b=Math.min(cap,extraCap>0&&need>=extraCap?cap:want);
       if(b>1){ sug[i]=b; reserve+=b; }   // >1 (not >0): drop sub-lb floating-point dust buys that pollute the plan/PDF/QAC
     }
     reserve-=d[i];                                       // net: consume burn, credit committed purchase
@@ -1008,6 +1148,97 @@ function monthPathway(startR, tank, minR, dayBurn, priceIdx, manualToday){
 }
 
 // ── MAIN RECALC ──
+// ── PER-TYPE BURN DISPLAY — updates fleet card burn spans without rebuilding cards ──
+function updateFleetBurnDisplays(){
+  const gFuel = parseFloat(document.getElementById('avgFuelBurn')?.value) || 0;
+  const gCO2  = parseFloat(document.getElementById('co2BurnDep')?.value)  || 0;
+  let grandTotal = 0;
+  let grandCO2   = 0;
+  let hasAny = false;
+
+  for(const b of BOXES){
+    const maint = b.maint || 0;
+    let tot = 0;
+    for(let i=0; i<MAX_TYPES; i++){
+      tot += parseInt((b.types[i]||mkType()).count) || 0;
+    }
+    const act = Math.max(0, tot - maint);
+    const maintFactor = tot > 0 ? act / tot : 1;
+
+    let rawFleet = 0;
+    let rawFleetCO2 = 0;
+    for(let i=0; i<MAX_TYPES; i++){
+      const t = b.types[i] || mkType();
+      const cnt = parseInt(t.count) || 0;
+      const rate    = (t.fuel != null) ? t.fuel : gFuel;
+      const rateCO2 = (t.co2  != null) ? t.co2  : gCO2;
+      const typeBurn    = cnt * rate;
+      const typeBurnCO2 = cnt * rateCO2;
+      rawFleet    += typeBurn;
+      rawFleetCO2 += typeBurnCO2;
+
+      const el = document.getElementById('tburn_' + b.key + '_' + i);
+      if(el){
+        if(cnt > 0 && rate > 0 && t.type){
+          el.textContent = '⛽ ' + fmt(Math.round(typeBurn)) + ' Lbs';
+          el.className = 'type-burn';
+          hasAny = true;
+        } else {
+          el.textContent = '⛽ —';
+          el.className = 'type-burn zero';
+        }
+      }
+      const elCO2 = document.getElementById('tcburn_' + b.key + '_' + i);
+      if(elCO2){
+        if(cnt > 0 && rateCO2 > 0 && t.type){
+          elCO2.textContent = '🌿 ' + fmt(Math.round(typeBurnCO2)) + ' quotas';
+          elCO2.className = 'type-burn co2b';
+        } else {
+          elCO2.textContent = '🌿 —';
+          elCO2.className = 'type-burn co2b zero';
+        }
+      }
+    }
+
+    const fleetBurn    = rawFleet    * maintFactor;
+    const fleetBurnCO2 = rawFleetCO2 * maintFactor;
+    grandTotal += fleetBurn;
+    grandCO2   += fleetBurnCO2;
+
+    const ftEl = document.getElementById('ftburn_' + b.key);
+    if(ftEl){
+      ftEl.textContent = fleetBurn > 0 ? '⛽ ' + fmt(Math.round(fleetBurn)) + ' Lbs' : '⛽ —';
+    }
+    const ftElCO2 = document.getElementById('ftcburn_' + b.key);
+    if(ftElCO2){
+      ftElCO2.textContent = fleetBurnCO2 > 0 ? '🌿 ' + fmt(Math.round(fleetBurnCO2)) + ' quotas' : '🌿 —';
+    }
+    const mtEl = document.getElementById('mainttype_' + b.key);
+    if(mtEl){
+      const mtypes = b.types.filter(t => t.type && (parseInt(t.count)||0) > 0);
+      if(!mtypes.length) mtEl.textContent = '';
+      else if(mtypes.length === 1) mtEl.textContent = mtypes[0].type + ' ×' + mtypes[0].count;
+      else mtEl.textContent = mtypes[0].type + ' ×' + mtypes[0].count + ' +' + (mtypes.length-1) + ' type' + (mtypes.length>2?'s':'');
+    }
+  }
+
+  const gtBar   = document.getElementById('grandTotalBar');
+  const gtEl    = document.getElementById('grandBurnTotal');
+  const gtElCO2 = document.getElementById('grandCO2Total');
+  if(gtBar && gtEl){
+    if(hasAny && grandTotal > 0){
+      gtBar.style.display = 'flex';
+      gtEl.textContent = '⛽ ' + fmt(Math.round(grandTotal)) + ' Lbs';
+      const gtElAC=document.getElementById('grandTotalAC'); let tac=0; for(const b of BOXES) tac+=boxCount(b); if(gtElAC) gtElAC.textContent=fmt(tac)+' A/C';
+      if(gtElCO2) gtElCO2.textContent = '🌿 ' + fmt(Math.round(grandCO2)) + ' quotas';
+    } else {
+      gtBar.style.display = 'none';
+      gtEl.textContent = '—';
+      if(gtElCO2) gtElCO2.textContent = '—';
+    }
+  }
+}
+
 function recalc(){
   // Preserve focus across full-table rebuild so the user isn't kicked out of
   // the Purchased input after every keystroke (the deferred recalc rebuilds
@@ -1016,6 +1247,7 @@ function recalc(){
   const _focusId = _ae && _ae.closest && _ae.closest('#tbody')
     ? _ae.getAttribute('data-slot-id') || null : null;
   rebuildBurns();   // derive DEP_AC + per-slot fuel/CO2 burn from player fleet/speed/ETA/burn inputs
+  updateFleetBurnDisplays();  // refresh per-type + fleet total + grand total burn display
   const startRes=parseFloat(document.getElementById('startRes').value)||0;
   const fuelTank=parseFloat(document.getElementById('fuelTank').value)||0;
   const startCO2=parseFloat(document.getElementById('startCO2').value)||0;
@@ -1107,7 +1339,7 @@ function recalc(){
       <td class="c" style="color:#3a6070;font-size:13px">${PERTH[i]}</td>
       <td class="c"><span style="color:${priceCol(dPRICES[i])};font-weight:700;font-size:13px">$${dPRICES[i]}</span></td>
       <td class="c" style="color:${DEP_AC[i]?'#8aa0b8':'#2a4060'}">${DEP_AC[i]||'—'}</td>
-      <td style="color:${DEP_BOXES[i]?'#f5a623':'#2a4060'};font-weight:${DEP_BOXES[i]?700:400};font-size:15px;text-align:center">${DEP_BOXES[i]||'—'}</td>
+      <td style="font-size:15px;text-align:center;font-weight:${DEP_BOXES[i]?700:400}">${fboxDisplay(i)}</td>
       <td style="padding:2px 4px">
         <span style="display:inline-flex;align-items:center;gap:2px">
           <input type="number" class="cell-input ${isOv?'ov-active':''}" value="${fmt(resBefore).replace(/,/g,'')}" step="1000000" style="color:${isOv?'#6ab0e0':resCol(resBefore)};width:118px;font-weight:${resBefore<=MIN_FUEL?800:resBefore<=MIN_FUEL*2?700:400}" ${isToday?`onchange="setResOv(${i},this.value)"`:'readonly'}>
@@ -1531,6 +1763,8 @@ async function init(){
     else console.error('[FUEL] Schedule fetch failed:',r.status);
   }catch(e){console.error('[FUEL] Schedule fetch error:',e);}
   buildFleetCards();
+  restoreFleetLocks();
+  setTimeout(restoreCntLocks, 50);
   // Undo tracking: snapshot on focus, record on commit (delegated so it survives card rebuilds).
   document.addEventListener('focusin',undoFocusIn,true);
   document.addEventListener('change',undoCommit,true);
@@ -1590,7 +1824,10 @@ async function init(){
     }
     _lastSlot=slot;
     highlightNowRow();
+    if(typeof updateETACountdowns==="function") updateETACountdowns();  // keep countdowns ticking
   },30000);
+  // Live ETA stopwatch — ticks every second so countdown reads like a real clock
+  setInterval(()=>{ if(typeof updateETACountdowns==="function") updateETACountdowns(); },1000);
 }
 init();
 
