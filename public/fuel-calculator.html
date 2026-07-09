@@ -416,12 +416,16 @@ const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300',
 // this per-AC value by the fleet count set (maintenance-adjusted) → per-departure total,
 // so it auto-scales as aircraft are added/removed. Overrides ONLY the matching player's
 // own injected profile, for the listed blocks.
-const BEAGLE_DID='690861328507731978';   // .ATLAS. / BEAGLE GLOBAL
 const BURN_PROFILE={
-  [BEAGLE_DID]:{
+  // ── .ATLAS. / BEAGLE GLOBAL — 690861328507731978 ──
+  '690861328507731978':{
     // A380-800 · 14h · 17 waves × 20 A/C = 340 sampled · ΣFuel 98,048,958 · ΣCO2 397,891,122
     'A380-800|14':{ fuel:98048958/340, co2:397891122/340 }
-  }
+  },
+  // ── wingfoot3 — 1373719656455602267 — awaiting this player's own screenshots (fuel + CO2 per block) ──
+  '1373719656455602267':{},
+  // ── whitedevil123456789 — 712277555214024705 — awaiting this player's own screenshots (fuel + CO2 per block) ──
+  '712277555214024705':{}
 };
 function burnBlockFor(did,type,hours){
   const P=BURN_PROFILE[String(did==null?'':did)]; if(!P) return null;   // player not measured → no override
