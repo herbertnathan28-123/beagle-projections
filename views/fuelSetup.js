@@ -299,7 +299,7 @@ function addFleetRow(){
     '<div class="field"><label>Aircraft Type</label><select class="ac-type" required>'+
     '<option value="">Select aircraft...</option>'+
     '<option>A380-800</option><option>A380F</option>'+
-    '<option>A330-900neo</option><option>A330-800neo</option><option>A330-300</option><option>A330-200</option>'+
+    '<option>A330-900neo</option><option>A330-800neo</option><option>A330-300</option><option>A330-200</option><option>A340-200</option>'+
     '<option>B747-8</option><option>B747-8F</option><option>B747SP</option>'+
     '<option>B787-10</option><option>B787-9</option><option>B787-8</option>'+
     '<option>A350-900ULR</option><option>DC-10</option><option>MC-21-400</option>'+

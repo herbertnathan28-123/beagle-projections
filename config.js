@@ -16,6 +16,10 @@ const ALLIANCE_UPLOAD_WEBHOOK        = process.env.ALLIANCE_UPLOADS || '';
 const PLAYER_STATS_WEBHOOK           = process.env.PLAYER_STATS || '';
 // FUEL_CO2_SCREENSHOOT_UPLOAD — personal fuel-dashboard link (auto-deletes)
 const FUEL_SCREENSHOT_UPLOAD_WEBHOOK = process.env.FUEL_CO2_SCREENSHOOT_UPLOAD || '';
+// FUEL_CALCULATOR_WEBHOOK — #fuel-alert channel; per-player 15-min calculator buy warnings
+// (server-scheduled). Named CALCULATOR deliberately: the generic on-the-hour price ticker
+// already uses the "fuel alert" name elsewhere, so the two must never be confused.
+const FUEL_ALERT_WEBHOOK             = process.env.FUEL_CALCULATOR_WEBHOOK || '';
 
 // ── PERSISTENT DISK STATE FILES ────────────────────────────────────────────
 const STATE_FILE             = '/data/state.json';
@@ -27,6 +31,7 @@ const FUEL_ACCESS_LOG_FILE   = '/data/fuel_access_log.json';
 const FUEL_APPROVED_USERS_FILE = '/data/fuel_approved_users.json';
 const HUNTER_DATA_FILE       = '/data/hunter_data.json';
 const FUEL_PATH_FILE         = '/data/fuel-path.json';
+const FUEL_PLANS_FILE        = '/data/fuel_plans.json';   // per-player pushed buy plans (drives 15-min alerts)
 
 // ── PROJECTION / SCORING ASSUMPTIONS ───────────────────────────────────────
 // Merit score = weighted blend of the six per-player component scores.
@@ -105,17 +110,23 @@ const AIRCRAFT_REVENUE = {
   'A330-300':92000,'A330-200':85000,'B747-8':150000,'B747-8F':170000,
   'B747SP':100000,'B787-10':105000,'B787-9':98000,'B787-8':90000,
   'A350-900ULR':110000,'DC-10':75000,'MC-21-400':45000,
-  'Concorde':203939,'A320neo':40000,'B737 MAX 8':38000,'Spacejet M100':20000
+  'Concorde':203939,'A320neo':40000,'B737 MAX 8':38000,'Spacejet M100':20000,
+  // A340-200 charter — measured (wingfoot3, Jul 4): $109,684,649 / 20 A/C over a
+  // 10-cycle × 9.5h departure (95h) → per A/C per day. Exact expression, never rounded.
+  'A340-200':109684649*24/1900
 };
 // Aircraft fuel burn per type per hour (lbs)
 
 // ── FUEL DASHBOARD — aircraft fuel burn per type per hour (lbs) ────────────
 const AIRCRAFT_BURN_HOUR = {
-  'A380-800':26000,'A380F':26000,'A330-900neo':12000,'A330-800neo':11500,
-  'A330-300':12500,'A330-200':11000,'B747-8':20000,'B747-8F':22000,
+  'A380-800':20786,'A380F':25696,'A330-900neo':12000,'A330-800neo':11500,
+  'A330-300':12500,'A330-200':11000,'B747-8':20000,'B747-8F':22346,
   'B747SP':16000,'B787-10':12000,'B787-9':11000,'B787-8':10500,
   'A350-900ULR':12500,'DC-10':15000,'MC-21-400':6000,
-  'Concorde':25000,'A320neo':5500,'B737 MAX 8':5200,'Spacejet M100':3000
+  'Concorde':37274,'A320neo':5500,'B737 MAX 8':5200,'Spacejet M100':3000,
+  // A340-200 charter — measured (wingfoot3): 40,789,334 Lbs / 20 A/C / 10 cycles ÷ 9.5h
+  // = per A/C per hour. Exact expression, never rounded.
+  'A340-200':40789334/1900
 };
 
 
@@ -136,9 +147,10 @@ for (let h = 1; h <= 24; h += 0.5) CALC_TIMES.push(h);
 module.exports = {
   SECRET, N8N_TOKEN, HQ_N8N_TOKEN,
   ALLIANCE_UPLOAD_WEBHOOK, PLAYER_STATS_WEBHOOK, FUEL_SCREENSHOT_UPLOAD_WEBHOOK,
+  FUEL_ALERT_WEBHOOK,
   STATE_FILE, HQ_STATE_FILE, SNAPSHOT_HISTORY_FILE, MANUAL_OVERRIDES_FILE,
   FUEL_PROFILES_FILE, FUEL_ACCESS_LOG_FILE, FUEL_APPROVED_USERS_FILE,
-  HUNTER_DATA_FILE, FUEL_PATH_FILE,
+  HUNTER_DATA_FILE, FUEL_PATH_FILE, FUEL_PLANS_FILE,
   MERIT_WEIGHTS, SNAPSHOT_LIMIT, IMPROVED_WINDOW_DAYS,
   DEFAULT_DATA, AIRCRAFT_DATA, AIRCRAFT_REVENUE, AIRCRAFT_BURN_HOUR, FUEL_SCHEDULE,
   ALL_DISTANCES, CALC_TIMES,

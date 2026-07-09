@@ -6,6 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 const express = require('express');
 const cors    = require('cors');
+const crypto  = require('crypto');
 const https   = require('https');
 const fs      = require('fs');
 const path    = require('path');
@@ -16,6 +17,7 @@ const engine     = require('./lib/engine');
 const parse      = require('./lib/parse');
 const calculator = require('./lib/calculator');
 const fuel       = require('./lib/fuel');
+const fuelAlerts = require('./lib/fuelAlerts');
 const hunter     = require('./lib/hunter');
 const { buildCalcPage }      = require('./views/calc');
 const { HQ_HTML }            = require('./views/hq');
@@ -68,6 +70,22 @@ if (hunterData) console.log('[HUNTER] Loaded persisted data from disk');
 
 const saveFuelProfiles     = () => storage.writeJSON(cfg.FUEL_PROFILES_FILE, fuelProfiles);
 const saveFuelApprovedUsers = () => storage.writeJSON(cfg.FUEL_APPROVED_USERS_FILE, fuelApprovedUsers);
+
+// Per-player buy plans pushed from the calculator (drive the 15-min alerts).
+let fuelPlans = storage.readJSON(cfg.FUEL_PLANS_FILE, {});
+if (Object.keys(fuelPlans).length) console.log('[STARTUP] Fuel plans loaded: ' + Object.keys(fuelPlans).length);
+const saveFuelPlans = () => storage.writeJSON(cfg.FUEL_PLANS_FILE, fuelPlans);
+
+// Per-player plan-push credential: HMAC(did) injected ONLY into that player's
+// personal calculator page. Discord IDs are semi-public, so without this any
+// client could overwrite another player's alert plan and trigger false
+// @mention buy warnings. Stateless — verified per request, nothing stored.
+const fuelPlanToken = did => crypto.createHmac('sha256', SECRET).update('fuel-plan:' + did).digest('hex');
+function fuelPlanTokenValid(did, tok) {
+  const want = fuelPlanToken(did);
+  const got = String(tok || '');
+  return got.length === want.length && crypto.timingSafeEqual(Buffer.from(got), Buffer.from(want));
+}
 
 function logFuelAccess(did, name, action) {
   const log = storage.readJSON(FUEL_ACCESS_LOG_FILE, []);
@@ -132,7 +150,8 @@ app.get('/fuel-calculator', (req, res, next) => {
     logVisit(req);
     let html = fs.readFileSync(path.join(__dirname, 'public', 'fuel-calculator.html'), 'utf8');
     const json = JSON.stringify(fuelProfiles[did]).replace(/</g, '\\u003c');   // prevent </script> breakout
-    html = html.replace('</head>', '<script>window.__FUEL_PROFILE__=' + json + ';</script>\n</head>');
+    // __FUEL_PLAN_TOKEN__ authorises this player's plan pushes (/api/fuel-plan) — hex HMAC, injection-safe.
+    html = html.replace('</head>', '<script>window.__FUEL_PROFILE__=' + json + ';window.__FUEL_PLAN_TOKEN__="' + fuelPlanToken(did) + '";</script>\n</head>');
     logFuelAccess(did, fuelProfiles[did].discord_name || '', 'calc_view');
     // Never cache the per-player injected page — a cached copy could serve the wrong
     // player's profile (or a stale one) to a shared browser.
@@ -620,6 +639,65 @@ app.get('/api/fuel-profile', (req, res) => {
   res.json({ found: true, profile });
 });
 
+// ── FUEL BUY-ALERT PLAN PUSH ───────────────────────────────────────────────
+// The registered player's calculator posts its own optimiser plan (per-slot
+// suggested buys for fuel + CO2, sugAll layout) here. The server caches it per
+// player and the 15-min scheduler fires #fuel-alert warnings from it — so
+// alerts work even when the player's page is closed. No secret in this request;
+// it only sets that player's own alert plan, and only for a registered id.
+app.post('/api/fuel-plan', (req, res) => {
+  const { discord_id, baseDay, fsug, csug, plan_token } = req.body || {};
+  const did = String(discord_id || '').replace(/[^0-9]/g, '');
+  if (!(/^\d{17,20}$/).test(did)) return res.status(400).json({ ok: false, error: 'Invalid Discord ID' });
+  if (!fuelProfiles[did]) return res.status(403).json({ ok: false, error: 'Not a registered fuel profile' });
+  // Only the player's own injected page holds this token — rejects spoofed pushes for someone else's id.
+  if (!fuelPlanTokenValid(did, plan_token)) return res.status(403).json({ ok: false, error: 'Invalid plan token' });
+  const day = parseInt(baseDay, 10);
+  if (!(day >= 1 && day <= 31)) return res.status(400).json({ ok: false, error: 'Invalid baseDay' });
+  if (!Array.isArray(fsug) || !Array.isArray(csug)) return res.status(400).json({ ok: false, error: 'fsug/csug must be arrays' });
+  const MAX = 32 * 48;   // guard: at most a full month of 30-min slots
+  if (fsug.length > MAX || csug.length > MAX) return res.status(400).json({ ok: false, error: 'plan too long' });
+  // Coerce to finite non-negative numbers — never store junk that could mis-fire an alert.
+  const clean = a => a.map(v => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; });
+  fuelPlans[did] = { baseDay: day, fsug: clean(fsug), csug: clean(csug), updated: new Date().toISOString() };
+  saveFuelPlans();
+  // Late-breaking cover: if the freshly pushed plan (e.g. DEP pressed at :29,
+  // month reshuffled) contains a buy inside the 15-min window the :15/:45
+  // scheduler can no longer warn about, alert immediately instead of never.
+  try { fireImminentAlerts(did, fuelPlans[did], new Date()); }
+  catch (e) { console.error('[FUEL-ALERT] imminent check error:', e.message); }
+  res.json({ ok: true });
+});
+
+// ── FUEL BUY-ALERT TEST FIRE ───────────────────────────────────────────────
+// Fire one dummy warning to the #fuel-alert webhook on demand, to prove the
+// webhook + @mention work without waiting for a real buy window. Token-gated
+// (same tokens as the other API routes). Optional did= mentions that player;
+// otherwise it posts without a mention. Browser-friendly:
+//   GET /api/fuel-alert-test?token=...&did=690861328507731978
+app.get('/api/fuel-alert-test', (req, res) => {
+  if (req.query.token !== N8N_TOKEN && req.query.token !== SECRET) {
+    return res.status(401).json({ ok: false, error: 'Unauthorized' });
+  }
+  if (!cfg.FUEL_ALERT_WEBHOOK) {
+    return res.status(503).json({ ok: false, error: 'FUEL_CALCULATOR_WEBHOOK not set on the server' });
+  }
+  const did = String(req.query.did || '').replace(/[^0-9]/g, '');
+  const now = new Date();
+  const target = fuelAlerts.upcomingBuyTarget(now);
+  const tag = did ? '<@' + did + '> ' : '';
+  const foot = '\n_(dummy test — real alerts fire per commodity, only when your schedule has an upcoming buy)_';
+  // Two SEPARATE posts, mirroring production: fuel and CO2 are never combined.
+  storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK,
+    tag + '🧪 **TEST — FUEL buy alert** · next slot ' + target.label + '\n⛽ Fuel: buy **12,345,678** Lbs' + foot,
+    'fuel-alert-test');
+  storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK,
+    tag + '🧪 **TEST — CO2 buy alert** · next slot ' + target.label + '\n🌿 CO2: buy **9,999** quotas' + foot,
+    'fuel-alert-test');
+  console.log('[FUEL-ALERT] Test fire (fuel + co2, separate posts)' + (did ? ' for ' + did : ''));
+  res.json({ ok: true, mentioned: did || null, slot: target.label, posts: ['fuel', 'co2'] });
+});
+
 // ── MAINTENANCE TRACKER ROUTES ────────────────────────────────────────────
 app.get('/api/maintenance/:discordId', (req, res) => {
   const did = String(req.params.discordId || '').replace(/[^0-9]/g, '');
@@ -878,6 +956,50 @@ app.get('*', (req, res) => {
   logVisit(req);
   res.type('html').send(HTML_COMPILED);
 });
+
+// ── FUEL BUY-ALERT SCHEDULER ───────────────────────────────────────────────
+// Every minute, on the :15 and :45 marks, fire a 15-min buy warning to
+// #fuel-alert for each registered player whose pushed plan has a buy in the
+// upcoming slot. Game time = UTC. Each (player, day, slot) fires at most once
+// (firedKey guard), and plans older than 3 days are skipped as stale.
+const FUEL_ALERT_MAX_AGE_DAYS = 3;
+const _firedAlertKeys = new Set();
+let _lastAlertMinuteKey = '';
+function runFuelAlertPass(now) {
+  const minuteKey = now.getUTCFullYear() + '-' + now.getUTCMonth() + '-' + now.getUTCDate() +
+                    'T' + now.getUTCHours() + ':' + now.getUTCMinutes();
+  if (minuteKey === _lastAlertMinuteKey) return;   // don't repeat within the same minute
+  if (!fuelAlerts.isWarningMinute(now)) return;
+  _lastAlertMinuteKey = minuteKey;
+  if (!cfg.FUEL_ALERT_WEBHOOK) { console.log('[FUEL-ALERT] Skipped — FUEL_CALCULATOR_WEBHOOK not set'); return; }
+  const due = fuelAlerts.dueAlerts(fuelPlans, now, FUEL_ALERT_MAX_AGE_DAYS);
+  for (const a of due) {
+    const key = fuelAlerts.firedKey(now, a);
+    if (_firedAlertKeys.has(key)) continue;   // already fired this (player, day, slot)
+    _firedAlertKeys.add(key);
+    storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK, a.message, 'fuel-alert');
+    console.log('[FUEL-ALERT] ' + a.discordId + ' @ ' + a.label + ' ' + a.type + '=' + a.qty);
+  }
+  if (_firedAlertKeys.size > 5000) _firedAlertKeys.clear();   // bound the dedup set (rolls over daily anyway)
+}
+setInterval(() => { try { runFuelAlertPass(new Date()); } catch (e) { console.error('[FUEL-ALERT] pass error:', e.message); } }, 60000);
+
+// Immediate alert for buys a fresh plan push placed inside the 15-min window
+// (the normal warning minute for that slot has already passed). Same
+// per-(player, day, slot) dedup as the scheduler, so a buy that was already
+// warned at :15/:45 never fires twice.
+function fireImminentAlerts(did, plan, now) {
+  if (!cfg.FUEL_ALERT_WEBHOOK) return;
+  for (const t of fuelAlerts.imminentBuys(plan, now)) {   // one entry per type — fuel and CO2 post separately
+    const a = { discordId: did, slot: t.slot, label: t.label, type: t.type, qty: t.qty };
+    const key = fuelAlerts.firedKey(now, a);
+    if (_firedAlertKeys.has(key)) continue;
+    _firedAlertKeys.add(key);
+    const lead = t.minsLeft <= 0 ? 'NOW — window open' : 'in ' + t.minsLeft + ' min';
+    storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK, fuelAlerts.buildAlertMessage(did, t.label, t.type, t.qty, lead), 'fuel-alert-imminent');
+    console.log('[FUEL-ALERT] Imminent ' + did + ' @ ' + t.label + ' (' + lead + ') ' + t.type + '=' + t.qty);
+  }
+}
 
 storage.checkPersistence();
 app.listen(PORT, () => console.log(`Beagle Projections live on port ${PORT}`));

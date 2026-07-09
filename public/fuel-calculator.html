@@ -235,6 +235,26 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .qac-buy .q{color:#fff;text-align:right;font-size:12px;white-space:nowrap}
 .qac-empty{color:#3a4d5f;font-size:12px;font-style:italic;padding:8px 0}
 @media(max-width:760px){.qac-grid2,.qac-results{grid-template-columns:1fr}.qac-tab{display:none}}
+/* ── BUY ALERT BANNERS (WO-FUEL-ALERTS-001) ──
+   Fuel and CO2 are SEPARATE alerts (separate price windows/timings) — they
+   stack in a fixed container instead of replacing one another. */
+#fuelAlertStack{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:10px;max-width:90vw;pointer-events:none}
+.fa-banner{display:flex;align-items:center;gap:12px;
+  font-family:monospace;font-weight:800;font-size:15px;padding:14px 20px;border-radius:8px;border:2px solid;
+  pointer-events:auto;transition:opacity .3s;box-shadow:0 6px 24px rgba(0,0,0,.45);max-width:90vw}
+.fa-banner.fa-fuel{background:#1a1200;border-color:#6a4a00;color:#f0b429}
+.fa-banner.fa-co2 {background:#061507;border-color:#23a55a;color:#33ff00}
+.fa-banner .fa-icon{font-size:22px;line-height:1}
+.fa-banner .fa-body{display:flex;flex-direction:column;gap:2px}
+.fa-banner .fa-title{letter-spacing:1px}
+.fa-banner .fa-meta{font-weight:600;font-size:12px;opacity:.85}
+.fa-banner .fa-close{margin-left:6px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;
+  background:transparent;border:none;color:inherit;font-size:18px;font-weight:800;cursor:pointer;line-height:1;padding:0}
+/* iPad/phone: sit above the thumb zone, don't cover the schedule table header; readable + touch-friendly */
+@media(max-width:768px){
+  #fuelAlertStack{top:auto;bottom:16px;right:auto;left:50%;transform:translateX(-50%)}
+  .fa-banner{font-size:13px}
+}
 </style>
 </head>
 <body>
@@ -429,7 +449,9 @@ function optsFor(v){ return '<option value="">— Select —</option>'+AIRCRAFT_
 // DOM → model sync: pull the editable fields (flight time, per-type type+count) back into
 // BOXES before any save/recalc. maint/departed live only in the model (button-driven).
 function syncBoxesFromDOM(){
+  const _did=(window.__FUEL_PROFILE__&&window.__FUEL_PROFILE__.discord_id)||'';
   for(const b of BOXES){
+    const oldDur=b.dur;
     const d=document.getElementById('dur_'+b.key); if(d){ const v=parseFloat(d.value); if(!isNaN(v))b.dur=v; }
     const et=document.getElementById('eta_'+b.key); if(et){ const newEta=et.value; if(b.departed!==false && newEta!==b.eta) b.departed=gameNowHour(); b.eta=newEta; }
     for(let i=0;i<MAX_TYPES;i++){
@@ -437,23 +459,119 @@ function syncBoxesFromDOM(){
       const ts=document.getElementById('type_'+b.key+'_'+i); if(ts) b.types[i].type=ts.value;
       const cs=document.getElementById('cnt_'+b.key+'_'+i);  if(cs) b.types[i].count=cs.value;
     }
+    // Flight-time changed → the old block's measured burn no longer applies (burn is per
+    // departure of a specific block, e.g. charter cycleHours × cycles). Re-look-up each
+    // type at the new duration; no measured block → null (global fallback), matching a
+    // manual type change. Runs only on an actual duration edit, so profile-loaded burns
+    // on untouched boxes are never clobbered.
+    if(parseFloat(b.dur)!==parseFloat(oldDur)){
+      for(const t of b.types){
+        if(!t.type) continue;
+        const bp=burnBlockFor(_did,t.type,b.dur);
+        t.fuel=(bp&&bp.fuel!=null)?bp.fuel:null;
+        t.co2 =(bp&&bp.co2 !=null)?bp.co2 :null;
+      }
+    }
   }
 }
 function boxCount(b){ let s=0; for(const t of b.types) s+=parseInt(t.count)||0; return s; }   // total A/C entered in a box
 function onBoxInput(){ syncBoxesFromDOM(); saveCards(); recalc(); }
-function onTypeChange(key,i){ const b=boxByKey(key); if(b&&b.types[i]){ b.types[i].fuel=null; b.types[i].co2=null; } onBoxInput(); }   // manual type change drops the profile burn → global fallback
+function onTypeChange(key,i){ const b=boxByKey(key); if(b&&b.types[i]){ const ts=document.getElementById('type_'+b.key+'_'+i); const d=document.getElementById('dur_'+b.key); const did=(window.__FUEL_PROFILE__&&window.__FUEL_PROFILE__.discord_id)||''; const bp=burnBlockFor(did, ts?ts.value:b.types[i].type, d?d.value:b.dur); b.types[i].fuel=(bp&&bp.fuel!=null)?bp.fuel:null; b.types[i].co2=(bp&&bp.co2!=null)?bp.co2:null; } onBoxInput(); }   // manual type change → this player's measured block burn if known, else global fallback
 function addBox(){ if(BOXES.length>=16)return; pushUndo(); syncBoxesFromDOM(); BOXES.push(mkBox()); buildFleetCards(); saveCards(); recalc(); }
 function removeBox(){ if(BOXES.length<=1)return; pushUndo(); syncBoxesFromDOM(); BOXES.pop(); buildFleetCards(); saveCards(); recalc(); }
 function removeBoxKey(k){ pushUndo(); syncBoxesFromDOM(); BOXES=BOXES.filter(b=>b.key!==k); if(!BOXES.length)BOXES=[mkBox()]; buildFleetCards(); saveCards(); recalc(); }
 // Aircraft types — mirrors config.AIRCRAFT_BURN_HOUR keys (static page can't require()
 // server config, so kept in sync manually).
-const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300','A330-200','B747-8','B747-8F','B747SP','B787-10','B787-9','B787-8','A350-900ULR','DC-10','MC-21-400','Concorde','A320neo','B737 MAX 8','Spacejet M100','A320-VIP','Cessna Citation X-VIP','Bombardier Challenger 605-VIP'];
-let SCHEDULE_LOCKED=false;
+const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300','A330-200','A340-200','B747-8','B747-8F','B747SP','B787-10','B787-9','B787-8','A350-900ULR','DC-10','MC-21-400','Concorde','A320neo','B737 MAX 8','Spacejet M100','A320-VIP','Cessna Citation X-VIP','Bombardier Challenger 605-VIP'];
+// ── MEASURED BURN PROFILE — PER PLAYER, per aircraft, per DEPARTURE block ──
+// AM4 charges fuel/CO2 per DEPARTURE of a flight-time block (NOT per hour), non-linear
+// across flight time. Burn is measured from each operator's OWN screenshots and depends
+// on THEIR flight schedule/routes, so a block measured for one player must NEVER be
+// applied to another — every operator supplies their own numbers. Keyed by Discord ID:
+//   discord_id → { 'type|hours': { fuel, co2 } }
+// Value = exact per aircraft = Σ(all sampled wave totals) ÷ (total aircraft sampled),
+// kept as Σ/n literals so provenance is auditable and NEVER rounded. The box multiplies
+// this per-AC value by the fleet count set (maintenance-adjusted) → per-departure total,
+// so it auto-scales as aircraft are added/removed. Overrides ONLY the matching player's
+// own injected profile, for the listed blocks.
+const BURN_PROFILE={
+  // ── .ATLAS. / BEAGLE GLOBAL — 690861328507731978 ──
+  '690861328507731978':{
+    // A380-800 · 14h · FUEL from reserve-delta ÷ flights-operated count (exact divisor):
+    //   reserve 1,036,074,808 − 763,782,862 = 272,291,946 Lbs; flights 5,912,101 − 5,911,101
+    //   = 1,000 A/C departed → 272,291.95/AC. CO2 from profile shots (co2:null).
+    'A380-800|14':{ fuel:272291946/1000, co2:null },
+    // A380-800 · 21h · FUEL from 9-wave sample (20×7 + 18 + 10 = 168 A/C): ΣFuel 56,561,021
+    //   → 336,672.74/AC (2 waves missing; upgrade to reserve-delta when before-reserve given).
+    //   CO2 from profile shots (co2:null).
+    'A380-800|21':{ fuel:56561021/168, co2:null },
+    // Concorde · 3.5h · FUEL from reserve-delta: 1,101,567,537 − 1,036,074,808 = 65,492,729 Lbs
+    //   over 462 A/C. CO2 not yet measured → co2:null keeps this player's own profile CO2.
+    'Concorde|3.5':{ fuel:65492729/462, co2:null },
+    // B747-8F · 14h · FUEL from reserve-delta: 763,782,862 − 750,330,309 = 13,452,553 Lbs over
+    //   43 A/C = 312,850.07/AC (matches in-game tool to 3 Lbs). CO2 not yet measured → co2:null.
+    'B747-8F|14':{ fuel:13452553/43, co2:null },
+    // A380F · 14h · FUEL from reserve-delta: 750,330,309 − 747,251,427 = 3,078,882 Lbs over
+    //   9 A/C (1 of 10 in maint) = 342,098.00/AC (matches in-game tool exactly). CO2 pending.
+    'A380F|14':{ fuel:3078882/9, co2:null }
+  },
+  // ── wingfoot3 — 1373719656455602267 — measured from their own wave popups (Jul 4),
+  //    fuel + CO2 per departure ÷ N departed. All 14h unless noted. ──
+  '1373719656455602267':{
+    'Bombardier Challenger 605-VIP|14':{ fuel:384955/10, co2:33999/10 },
+    'Cessna Citation X-VIP|14':{ fuel:615282/10, co2:58414/10 },
+    'A320-VIP|14':{ fuel:284314/5, co2:401671/5 },
+    'A380F|14':{ fuel:484529/2, co2:1158632/2 },
+    'B747-8F|14':{ fuel:4540674/20, co2:9750688/20 },
+    // Concorde runs 4h blocks (not 3.5): 20 departed
+    'Concorde|4':{ fuel:2240648/20, co2:2004177/20 }
+    // A340-200 charter → generated from CHARTER_PROFILE below (all 1–10 cycle blocks)
+    // A380-800 14h: caption supplied but wave popup missing — pending their screenshot
+  },
+  // ── whitedevil123456789 — 712277555214024705 — awaiting this player's own screenshots (fuel + CO2 per block) ──
+  '712277555214024705':{}
+};
+// ── CHARTERS — cycle-aware expansion ─────────────────────────────────────────
+// AM4 charters lock in 1–10 CYCLES per departure: the same route flown N times
+// back-to-back, so burn scales linearly with cycles and per-CYCLE burn is the
+// true base unit. Spec holds the measured per-cycle per-AC figures; expanded
+// into BURN_PROFILE blocks for every cycle count (cycleHours×1 … ×10), so the
+// player just sets their charter box's flight time to cycleHours × cycles and
+// the right per-departure burn is picked up. No separate cycles control needed.
+const CHARTER_CYCLES_MAX=10;
+const CHARTER_PROFILE={
+  // .ATLAS. · A330-900neo · 21h/cycle · 7 of 10 charters sampled (one popup each,
+  //   cycle 1/10, own routes ~10,200–12,000 km): ΣFuel 9,638,629 · ΣCO2 45,596,824 ÷ 7
+  '690861328507731978':{
+    'A330-900neo':{ cycleHours:21, fuel:9638629/7, co2:45596824/7 }
+  },
+  // wingfoot3 · A340-200 · 9.5h/cycle · measured at 10 cycles, 20 A/C:
+  //   ΣFuel 40,789,334 ÷ 20 ÷ 10 and ΣCO2 45,416,618 ÷ 20 ÷ 10 per cycle per A/C
+  '1373719656455602267':{
+    'A340-200':{ cycleHours:9.5, fuel:40789334/200, co2:45416618/200 }
+  }
+};
+for(const did in CHARTER_PROFILE){
+  const P=BURN_PROFILE[did]||(BURN_PROFILE[did]={});
+  for(const type in CHARTER_PROFILE[did]){
+    const c=CHARTER_PROFILE[did][type];
+    for(let n=1;n<=CHARTER_CYCLES_MAX;n++){
+      P[type+'|'+(Math.round(c.cycleHours*n*100)/100)]={ fuel:c.fuel*n, co2:(c.co2!=null)?c.co2*n:null };
+    }
+  }
+}
+function burnBlockFor(did,type,hours){
+  const P=BURN_PROFILE[String(did==null?'':did)]; if(!P) return null;   // player not measured → no override
+  if(type==null||hours==null||hours==='') return null;
+  const h=parseFloat(hours); if(isNaN(h)) return null;
+  return P[type+'|'+(Math.round(h*100)/100)]||null;   // 14 / 14.0 / "14" → "14"; 3.5 stays "3.5"
+}
+let SCHEDULE_LOCKED=false;          // false = planning (anchor 00:00), true = live (anchor nowH)
 let FLEET_LOCK={};
 function getFleetState(key){ return FLEET_LOCK[key]||'grey'; }
 function cycleFleetState(key){ const cur=getFleetState(key); const next=cur==='grey'?'amber':cur==='amber'?'green':'grey'; FLEET_LOCK[key]=next; saveFleetLocks(); recalc(); }
 function saveFleetLocks(){ try{localStorage.setItem(LSK('fleetLocks'),JSON.stringify(FLEET_LOCK));}catch(e){} }
-function restoreFleetLocks(){ try{const r=localStorage.getItem(LSK('fleetLocks')); if(r)FLEET_LOCK=JSON.parse(r);}catch(e){} }          // false = planning (anchor 00:00), true = live (anchor nowH)
+function restoreFleetLocks(){ try{const r=localStorage.getItem(LSK('fleetLocks')); if(r)FLEET_LOCK=JSON.parse(r);}catch(e){} }
 let DEP_AC=new Array(48).fill(0);   // aircraft departing per slot — derived
 let DEP_BOXES=new Array(48).fill(''); // box number labels per slot ("1", "2+3" etc)
 let DEP_BOXES_DEP=new Array(48).fill(''); // departed box numbers per slot
@@ -463,6 +581,9 @@ let FUELACC_DEP=new Array(48).fill(0);// fuel acc for departed boxes only — in
 let BURNS =new Array(48).fill(0);   // fuel burn per slot (incl. buffer) — ALL boxes; used by optimizer/forecast
 let BURNS_DEP=new Array(48).fill(0); // fuel burn for DEPARTED boxes only — shown in DEP BURN column
 let CO2B  =new Array(48).fill(0);   // CO2 burn per slot — derived
+let FSUG=new Array(48).fill(0);     // fuel suggested-buy per slot — set by recalc(), read by the buy-alert watcher
+let CSUG=new Array(48).fill(0);     // CO2 suggested-buy per slot — set by recalc(), read by the buy-alert watcher
+let _lastAlertSlot=-1;              // last game slot an alert fired for — prevents re-firing on the same slot
 function parseEtaHours(v){ if(!v)return null; v=String(v).trim(); if(v.includes(':')){const[h,m]=v.split(':').map(Number); if(isNaN(h))return null; return h+(isNaN(m)?0:m/60);} const n=parseFloat(v); return isNaN(n)?null:n; }
 function gv(id){ const e=document.getElementById(id); return e?e.value:''; }
 // Landing/takeoff buffer minutes by total ACTIVE fleet size (WO-002): <500=2, 501-1200=3, >1200=4.
@@ -863,7 +984,10 @@ function populateFromProfile(p){
         types[MAX_TYPES-1]={...types[MAX_TYPES-1], count:types[MAX_TYPES-1].count+extra};
       }
       BOXES.push({key:'b'+(++BOX_SEQ),dur:g.dur,eta:'',maint:0,departed:false,
-        types:types.map(t=>({type:t.type,count:t.count,fuel:t.fuel,co2:t.co2}))});
+        types:types.map(t=>{ const bp=burnBlockFor(p&&p.discord_id,t.type,g.dur);   // THIS player's measured block overrides their profile's per-AC figure (per-field; null keeps profile)
+          return {type:t.type,count:t.count,
+            fuel:(bp&&bp.fuel!=null)?bp.fuel:t.fuel,
+            co2 :(bp&&bp.co2 !=null)?bp.co2 :t.co2}; })});
     }
     if(!BOXES.length) BOXES=[mkBox()];
     buildFleetCards();
@@ -1149,6 +1273,7 @@ function recalc(){
   const fPlan=monthPathway(startRes,fuelTank,MIN_FUEL,BURNS,0,fPurchased);
   const cPlan=monthPathway(startCO2,co2Tank,MIN_CO2,CO2B,1,co2Purchased);
   const today=fPlan.today, daysInMonth=fPlan.daysInMonth;
+  pushFuelPlan(fPlan.today, fPlan.sugAll, cPlan.sugAll);   // keep the server's 15-min buy-alert plan in sync
   const vDay=Math.max(today,Math.min(today+(VIEW_OFFSET||0),daysInMonth));
   VIEW_OFFSET=vDay-today;                        // clamp offset into range
   const isToday=(vDay===today), offset=(vDay-today)*48;
@@ -1157,8 +1282,8 @@ function recalc(){
   const dd=S[String(vDay)]||{};
   const dPRICES=TIMES.map(t=>{const p=dd[t];return p?p[0]:0;});
   const dCO2P =TIMES.map(t=>{const p=dd[t];return p?p[1]:0;});
-  const fSug=isToday?fPlan.sug:TIMES.map((_,i)=>fPlan.sugAll[offset+i]||0);
-  const cSug=isToday?cPlan.sug:TIMES.map((_,i)=>cPlan.sugAll[offset+i]||0);
+  FSUG=isToday?fPlan.sug:TIMES.map((_,i)=>fPlan.sugAll[offset+i]||0);
+  CSUG=isToday?cPlan.sug:TIMES.map((_,i)=>cPlan.sugAll[offset+i]||0);
   const fPur=isToday?fPurchased:new Array(48).fill(0);
   const cPur=isToday?co2Purchased:new Array(48).fill(0);
   const fResOv=isToday?resOv:new Array(48).fill(null);
@@ -1192,7 +1317,7 @@ function recalc(){
     // where the player hasn't entered a manual purchase. Without this the reserve line
     // draws down as if nothing was bought and shows a false shortfall right next to a
     // suggested buy that would have prevented it.
-    const planBuy=past?0:((fPur[i]||0)>0?bought:fSug[i]);
+    const planBuy=past?0:((fPur[i]||0)>0?bought:FSUG[i]);
     const afterPurchase=afterBurn+planBuy;
     const cost=bought*dPRICES[i]/1000,sv=cost/SV;
     const surplus=afterPurchase-MIN_FUEL;
@@ -1202,7 +1327,7 @@ function recalc(){
     const co2MaxBuy=Math.max(0,co2Tank-Math.max(0,co2AfterBurn));
     const co2Bought=Math.min(cPur[i]||0,co2MaxBuy);
     const co2OverLimit=(cPur[i]||0)>co2MaxBuy&&(cPur[i]||0)>0;
-    const co2PlanBuy=past?0:((cPur[i]||0)>0?co2Bought:cSug[i]);   // CO2 forecast follows the plan too
+    const co2PlanBuy=past?0:((cPur[i]||0)>0?co2Bought:CSUG[i]);   // CO2 forecast follows the plan too
     const co2AfterPurchase=co2AfterBurn+co2PlanBuy;
     const co2Cost=co2Bought*dCO2P[i]/1000;
     const co2Final=cResAfterOvV[i]!==null?cResAfterOvV[i]:co2AfterPurchase;
@@ -1210,7 +1335,7 @@ function recalc(){
     totCO2Bought+=co2Bought;totCO2Cost+=co2Cost;lastCO2Res=co2Final;co2Res=co2Final;
     if(firstFuelNeg<0&&afterPurchase<0)firstFuelNeg=i;
     if(firstCO2Neg<0&&co2Final<0)firstCO2Neg=i;
-    const hasSug=fSug[i]>0,hasBought=bought>0,isOv=fResOv[i]!==null;
+    const hasSug=FSUG[i]>0,hasBought=bought>0,isOv=fResOv[i]!==null;
     const crit=afterPurchase<=MIN_FUEL,warn=afterPurchase<=MIN_FUEL*4;
     let rowBg='';
     if(crit)rowBg='bg-crit';else if(warn)rowBg='bg-warn';else if(hasBought)rowBg='bg-bought';else if(hasSug)rowBg='bg-sug';
@@ -1220,8 +1345,8 @@ function recalc(){
     // Build row
     const tr=document.createElement('tr');
     if(rowBg)tr.className=rowBg;
-    const sugValF=fmt(fSug[i]);
-    const sugValC=fmt(cSug[i]);
+    const sugValF=fmt(FSUG[i]);
+    const sugValC=fmt(CSUG[i]);
 
     tr.innerHTML=`
       <td class="ind" style="text-align:center;padding:3px">${hasSug?`<span style="color:${hasBought?'#23a55a':'#2a6040'}">◆</span>`:''}</td>
@@ -1237,17 +1362,17 @@ function recalc(){
         </span>
       </td>
       <td style="color:${resCol(afterBurn)};font-weight:${afterBurn<=MIN_FUEL?800:afterBurn<=MIN_FUEL*2?700:400}">${fmt(afterBurn)}</td>
-      <td style="color:${hasSug?'#23a55a':'#2a4a60'};font-style:${hasSug?'italic':'normal'};font-weight:${hasSug?700:400};background:${hasSug?'rgba(35,165,90,0.08)':'transparent'}">${fmt(fSug[i])}</td>
+      <td style="color:${hasSug?'#23a55a':'#2a4a60'};font-style:${hasSug?'italic':'normal'};font-weight:${hasSug?700:400};background:${hasSug?'rgba(35,165,90,0.08)':'transparent'}">${fmt(FSUG[i])}</td>
       <td style="color:${lc};font-weight:${parseFloat(lastsStr)<4&&lastsStr!=='>24h'?700:400}">${lastsStr}</td>
       <td style="padding:3px 5px;background:#141a0a;border-left:1px solid #2a3a10;border-right:1px solid #2a3a10">
-        <input type="number" class="cell-input buy-input ${hasBought?'has-val':''} ${overLimit?'over-limit':''}" data-slot-id="buy-${i}" value="${hasBought?(fPur[i]||''):''}" placeholder="${isToday?fmt(maxBuy):fmt(fSug[i])}" min="0" max="${maxBuy}" step="1000000" ${isToday?`onchange="setBought(${i},this.value,${maxBuy})"`:'readonly'}>
+        <input type="number" class="cell-input buy-input ${hasBought?'has-val':''} ${overLimit?'over-limit':''}" data-slot-id="buy-${i}" value="${hasBought?(fPur[i]||''):''}" placeholder="${isToday?fmt(maxBuy):fmt(FSUG[i])}" min="0" max="${maxBuy}" step="1000000" ${isToday?`onchange="setBought(${i},this.value,${maxBuy})"`:'readonly'}>
         ${overLimit?`<div class="warn-msg">⚠ Exceeds max ${fmt(maxBuy)} lbs</div>`:''}
       </td>
       <td class="c" style="border-left:3px solid #2a5a2a">
         <span style="color:${co2Col(dCO2P[i])};font-weight:700;font-size:12px">$${dCO2P[i]}</span>
       </td>
-      <td class="c" style="color:${cSug[i]>0?'#6a9a80':'#3a5a50'};font-style:${cSug[i]>0?'italic':'normal'}">
-        ${cSug[i]>0?fmt(cSug[i]):'—'}
+      <td class="c" style="color:${CSUG[i]>0?'#6a9a80':'#3a5a50'};font-style:${CSUG[i]>0?'italic':'normal'}">
+        ${CSUG[i]>0?fmt(CSUG[i]):'—'}
       </td>
       <td style="padding:3px 4px;border-left:1px solid #1a3a1a">
         <input type="number" class="cell-input co2-buy-input ${co2Bought>0?'has-val':''} ${co2OverLimit?'over-limit':''}" data-slot-id="co2-buy-${i}" value="${co2Bought>0?(cPur[i]||''):''}" placeholder="${sugValC}" min="0" max="${co2MaxBuy}" step="1000000" ${isToday?`onchange="setCO2Bought(${i},this.value,${co2MaxBuy})"`:'readonly'} style="color:${co2Bought>0?'#90d060':'#4a7a40'};width:95px">
@@ -1580,6 +1705,70 @@ function runQAC(){
   renderQACBuys('qacCO2Buys',qacRows(mpC),true,'quotas');
 }
 
+// ── SERVER PLAN PUSH (drives the per-player 15-min Discord buy alert) ─────────
+// A registered player's calculator posts its own optimiser plan (full-month
+// sugAll for fuel + CO2) to the server, which fires #fuel-alert warnings from it
+// even when this page is closed. Debounced (recalc fires often) and skipped when
+// the plan hasn't changed. Only registered players (opened via their ?did link)
+// push — window.__FUEL_PROFILE__.discord_id gates it.
+let _planPushTimer=null,_lastPlanPushKey='';
+function pushFuelPlan(baseDay,fsugAll,csugAll){
+  const did=window.__FUEL_PROFILE__&&window.__FUEL_PROFILE__.discord_id; if(!did) return;
+  const tok=window.__FUEL_PLAN_TOKEN__; if(!tok) return;   // only the server-injected personal page may push
+  const key=baseDay+'|'+fsugAll.join(',')+'|'+csugAll.join(',');
+  if(key===_lastPlanPushKey) return;                 // nothing changed → no POST
+  clearTimeout(_planPushTimer);
+  _planPushTimer=setTimeout(()=>{
+    _lastPlanPushKey=key;
+    fetch('/api/fuel-plan',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({discord_id:String(did),baseDay,fsug:fsugAll,csug:csugAll,plan_token:tok})})
+      .catch(e=>console.warn('[FUEL] plan push failed:',e));
+  },3000);
+}
+
+// ── BUY ALERTS (WO-FUEL-ALERTS-001) ──────────────────────────────────────────
+// Fire a visual banner + audible tone when the current game slot opens a suggested
+// buy window (FSUG[slot]>0 for fuel, CSUG[slot]>0 for CO2). Driven by the existing
+// 30-second slot watcher in init(). iOS autoplay policy: create a FRESH AudioContext
+// per call (never a persistent module-level one) so the tone plays after user gesture.
+function playAlertTone(type){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    const ctx=new AC();                       // fresh per call — iOS autoplay compliance
+    // fuel = two descending tones (660→520); CO2 = two ascending tones (520→660)
+    const seq=type==='fuel'?[660,520]:[520,660];
+    seq.forEach((freq,n)=>{
+      const t0=ctx.currentTime+n*0.22;
+      const osc=ctx.createOscillator(), g=ctx.createGain();
+      osc.type='sine'; osc.frequency.setValueAtTime(freq,t0);
+      g.gain.setValueAtTime(0.35,t0);
+      g.gain.exponentialRampToValueAtTime(0.001,t0+0.45);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0+0.45);
+    });
+    setTimeout(()=>{ try{ctx.close();}catch(_){}}, 1200);   // release the context after the sequence
+  }catch(e){ /* audio blocked / unsupported — banner still shows */ }
+}
+function showAlertBanner(type,slot,qty){
+  // Fuel and CO2 are separate alerts — each replaces only its OWN previous
+  // banner, and both stack together when they land in the same slot.
+  let stack=document.getElementById('fuelAlertStack');
+  if(!stack){ stack=document.createElement('div'); stack.id='fuelAlertStack'; document.body.appendChild(stack); }
+  const prev=document.getElementById('fuelAlertBanner_'+type); if(prev) prev.remove();
+  const isFuel=type==='fuel';
+  const b=document.createElement('div');
+  b.id='fuelAlertBanner_'+type;
+  b.className='fa-banner '+(isFuel?'fa-fuel':'fa-co2');
+  b.innerHTML=
+    '<span class="fa-icon">'+(isFuel?'⛽':'🌿')+'</span>'+
+    '<span class="fa-body"><span class="fa-title">'+(isFuel?'FUEL BUY NOW':'CO2 BUY NOW')+'</span>'+
+    '<span class="fa-meta">'+TIMES[slot]+' · '+fmt(qty)+'</span></span>'+
+    '<button type="button" class="fa-close" aria-label="Dismiss">✕</button>';
+  b.querySelector('.fa-close').onclick=()=>b.remove();   // onclick (not hover) for iPad
+  stack.insertBefore(b, isFuel?stack.firstChild:null);   // fuel always on top, CO2 beneath
+  setTimeout(()=>{ if(b.isConnected) b.remove(); }, 90000);   // auto-dismiss after 90s
+}
+
 async function init(){
   const den=getDenmarkNow();
   const dayLabel=den.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).toUpperCase();
@@ -1641,6 +1830,14 @@ async function init(){
     if(PRICES.length===0||!S[String(newDay)]){loadDayPrices(newDay);recalc();}
     else if(slot!==_lastSlot){ recalc(); }   // a buy window (slot) just passed → re-anchor NOW so any
                                               // missed suggested buy disappears instead of counting as bought
+    // Buy-alert watcher: on a NEW game slot, if today's plan opens a buy window, alert once
+    // (banner + tone). recalc() above has refreshed FSUG/CSUG for the current day. Only when
+    // viewing today (VIEW_OFFSET===0); guarded by _lastAlertSlot so it never re-fires same slot.
+    if(slot!==_lastAlertSlot && VIEW_OFFSET===0){
+      if(FSUG[slot]>0){ playAlertTone('fuel'); showAlertBanner('fuel',slot,FSUG[slot]); }
+      if(CSUG[slot]>0){ playAlertTone('co2');  showAlertBanner('co2', slot,CSUG[slot]); }
+      _lastAlertSlot=slot;
+    }
     _lastSlot=slot;
     highlightNowRow();
     if(typeof updateETACountdowns==="function") updateETACountdowns();  // keep countdowns ticking
