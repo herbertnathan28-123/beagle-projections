@@ -398,29 +398,36 @@ function syncBoxesFromDOM(){
 }
 function boxCount(b){ let s=0; for(const t of b.types) s+=parseInt(t.count)||0; return s; }   // total A/C entered in a box
 function onBoxInput(){ syncBoxesFromDOM(); saveCards(); recalc(); }
-function onTypeChange(key,i){ const b=boxByKey(key); if(b&&b.types[i]){ const ts=document.getElementById('type_'+b.key+'_'+i); const d=document.getElementById('dur_'+b.key); const bp=burnBlockFor(ts?ts.value:b.types[i].type, d?d.value:b.dur); b.types[i].fuel=bp?bp.fuel:null; b.types[i].co2=bp?bp.co2:null; } onBoxInput(); }   // manual type change → measured block burn if known, else global fallback
+function onTypeChange(key,i){ const b=boxByKey(key); if(b&&b.types[i]){ const ts=document.getElementById('type_'+b.key+'_'+i); const d=document.getElementById('dur_'+b.key); const did=(window.__FUEL_PROFILE__&&window.__FUEL_PROFILE__.discord_id)||''; const bp=burnBlockFor(did, ts?ts.value:b.types[i].type, d?d.value:b.dur); b.types[i].fuel=bp?bp.fuel:null; b.types[i].co2=bp?bp.co2:null; } onBoxInput(); }   // manual type change → this player's measured block burn if known, else global fallback
 function addBox(){ if(BOXES.length>=16)return; pushUndo(); syncBoxesFromDOM(); BOXES.push(mkBox()); buildFleetCards(); saveCards(); recalc(); }
 function removeBox(){ if(BOXES.length<=1)return; pushUndo(); syncBoxesFromDOM(); BOXES.pop(); buildFleetCards(); saveCards(); recalc(); }
 function removeBoxKey(k){ pushUndo(); syncBoxesFromDOM(); BOXES=BOXES.filter(b=>b.key!==k); if(!BOXES.length)BOXES=[mkBox()]; buildFleetCards(); saveCards(); recalc(); }
 // Aircraft types — mirrors config.AIRCRAFT_BURN_HOUR keys (static page can't require()
 // server config, so kept in sync manually).
 const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300','A330-200','B747-8','B747-8F','B747SP','B787-10','B787-9','B787-8','A350-900ULR','DC-10','MC-21-400','Concorde','A320neo','B737 MAX 8','Spacejet M100','A320-VIP','Cessna Citation X-VIP','Bombardier Challenger 605-VIP'];
-// ── MEASURED BURN PROFILE — per aircraft, per DEPARTURE, keyed by flight-time block ──
-// AM4 charges fuel/CO2 per DEPARTURE of a flight-time block, NOT per hour, and burn is
-// non-linear across flight time — so each (type|hours) block is measured on its own.
-// Value = exact average: Σ(all sampled wave totals) ÷ (total aircraft sampled). Kept as
-// Σ/n literals so the provenance is auditable and re-derivable — NEVER rounded. The box
-// multiplies this per-AC value by the fleet count you set (maintenance-adjusted) to get
-// the per-departure total. These OVERRIDE any per-AC figure carried in the injected
-// profile for the same block (the changeover to measured game data).
+// ── MEASURED BURN PROFILE — PER PLAYER, per aircraft, per DEPARTURE block ──
+// AM4 charges fuel/CO2 per DEPARTURE of a flight-time block (NOT per hour), non-linear
+// across flight time. Burn is measured from each operator's OWN screenshots and depends
+// on THEIR flight schedule/routes, so a block measured for one player must NEVER be
+// applied to another — every operator supplies their own numbers. Keyed by Discord ID:
+//   discord_id → { 'type|hours': { fuel, co2 } }
+// Value = exact per aircraft = Σ(all sampled wave totals) ÷ (total aircraft sampled),
+// kept as Σ/n literals so provenance is auditable and NEVER rounded. The box multiplies
+// this per-AC value by the fleet count set (maintenance-adjusted) → per-departure total,
+// so it auto-scales as aircraft are added/removed. Overrides ONLY the matching player's
+// own injected profile, for the listed blocks.
+const BEAGLE_DID='<SET_BEAGLE_DISCORD_ID>';   // .ATLAS. / BEAGLE GLOBAL — fill in to activate
 const BURN_PROFILE={
-  // A380-800 · 14h · 17 waves × 20 A/C = 340 sampled · ΣFuel 98,048,958 · ΣCO2 397,891,122
-  'A380-800|14':{ fuel:98048958/340, co2:397891122/340 }
+  [BEAGLE_DID]:{
+    // A380-800 · 14h · 17 waves × 20 A/C = 340 sampled · ΣFuel 98,048,958 · ΣCO2 397,891,122
+    'A380-800|14':{ fuel:98048958/340, co2:397891122/340 }
+  }
 };
-function burnBlockFor(type,hours){
+function burnBlockFor(did,type,hours){
+  const P=BURN_PROFILE[String(did==null?'':did)]; if(!P) return null;   // player not measured → no override
   if(type==null||hours==null||hours==='') return null;
   const h=parseFloat(hours); if(isNaN(h)) return null;
-  return BURN_PROFILE[type+'|'+(Math.round(h*100)/100)]||null;   // 14 / 14.0 / "14" → "14"; 3.5 stays "3.5"
+  return P[type+'|'+(Math.round(h*100)/100)]||null;   // 14 / 14.0 / "14" → "14"; 3.5 stays "3.5"
 }
 let SCHEDULE_LOCKED=false;          // false = planning (anchor 00:00), true = live (anchor nowH)
 let DEP_AC=new Array(48).fill(0);   // aircraft departing per slot — derived
@@ -742,7 +749,7 @@ function populateFromProfile(p){
         types[MAX_TYPES-1]={...types[MAX_TYPES-1], count:types[MAX_TYPES-1].count+extra};
       }
       BOXES.push({key:'b'+(++BOX_SEQ),dur:g.dur,eta:'',maint:0,departed:false,
-        types:types.map(t=>{ const bp=burnBlockFor(t.type,g.dur);   // measured block overrides the profile's per-AC figure
+        types:types.map(t=>{ const bp=burnBlockFor(p&&p.discord_id,t.type,g.dur);   // THIS player's measured block overrides their profile's per-AC figure
           return {type:t.type,count:t.count,fuel:bp?bp.fuel:t.fuel,co2:bp?bp.co2:t.co2}; })});
     }
     if(!BOXES.length) BOXES=[mkBox()];
