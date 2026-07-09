@@ -641,6 +641,31 @@ app.post('/api/fuel-plan', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── FUEL BUY-ALERT TEST FIRE ───────────────────────────────────────────────
+// Fire one dummy warning to the #fuel-alert webhook on demand, to prove the
+// webhook + @mention work without waiting for a real buy window. Token-gated
+// (same tokens as the other API routes). Optional did= mentions that player;
+// otherwise it posts without a mention. Browser-friendly:
+//   GET /api/fuel-alert-test?token=...&did=690861328507731978
+app.get('/api/fuel-alert-test', (req, res) => {
+  if (req.query.token !== N8N_TOKEN && req.query.token !== SECRET) {
+    return res.status(401).json({ ok: false, error: 'Unauthorized' });
+  }
+  if (!cfg.FUEL_ALERT_WEBHOOK) {
+    return res.status(503).json({ ok: false, error: 'FUEL_CALCULATOR_WEBHOOK not set on the server' });
+  }
+  const did = String(req.query.did || '').replace(/[^0-9]/g, '');
+  const now = new Date();
+  const target = fuelAlerts.upcomingBuyTarget(now);
+  const msg = (did ? '<@' + did + '> ' : '') +
+    '🧪 **TEST** — fuel-calculator buy alert wiring OK · next slot ' + target.label + '\n' +
+    '⛽ Fuel: buy **12,345,678** Lbs\n🌿 CO2: buy **9,999** quotas\n' +
+    '_(dummy numbers — real alerts fire at :15/:45 only when your schedule has an upcoming buy)_';
+  storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK, msg, 'fuel-alert-test');
+  console.log('[FUEL-ALERT] Test fire' + (did ? ' for ' + did : ''));
+  res.json({ ok: true, mentioned: did || null, slot: target.label });
+});
+
 // ── MAINTENANCE TRACKER ROUTES ────────────────────────────────────────────
 app.get('/api/maintenance/:discordId', (req, res) => {
   const did = String(req.params.discordId || '').replace(/[^0-9]/g, '');
