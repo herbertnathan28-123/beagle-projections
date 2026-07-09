@@ -1930,8 +1930,11 @@ async function init(){
     // (banner + tone). recalc() above has refreshed FSUG/CSUG for the current day. Only when
     // viewing today (VIEW_OFFSET===0); guarded by _lastAlertSlot so it never re-fires same slot.
     if(slot!==_lastAlertSlot && VIEW_OFFSET===0){
-      if(FSUG[slot]>0){ playAlertTone('fuel'); showAlertBanner('fuel',slot,FSUG[slot]); }
-      if(CSUG[slot]>0){ playAlertTone('co2');  showAlertBanner('co2', slot,CSUG[slot]); }
+      const _fp=PRICES[slot]||0, _cp=CO2P[slot]||0;
+      // Alert only on green (cheap) price zones — amber/grey slots may have optimizer buys
+      // but they're not urgent; the table shows them. Fuel ≤$500, CO2 ≤$114.
+      if(FSUG[slot]>0 && _fp>0 && _fp<=500){ playAlertTone('fuel'); showAlertBanner('fuel',slot,FSUG[slot]); }
+      if(CSUG[slot]>0 && _cp>0 && _cp<=114){ playAlertTone('co2');  showAlertBanner('co2', slot,CSUG[slot]); }
       _lastAlertSlot=slot;
     }
     _lastSlot=slot;
