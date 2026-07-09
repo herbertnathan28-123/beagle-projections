@@ -638,6 +638,11 @@ app.post('/api/fuel-plan', (req, res) => {
   const clean = a => a.map(v => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; });
   fuelPlans[did] = { baseDay: day, fsug: clean(fsug), csug: clean(csug), updated: new Date().toISOString() };
   saveFuelPlans();
+  // Late-breaking cover: if the freshly pushed plan (e.g. DEP pressed at :29,
+  // month reshuffled) contains a buy inside the 15-min window the :15/:45
+  // scheduler can no longer warn about, alert immediately instead of never.
+  try { fireImminentAlerts(did, fuelPlans[did], new Date()); }
+  catch (e) { console.error('[FUEL-ALERT] imminent check error:', e.message); }
   res.json({ ok: true });
 });
 
@@ -951,6 +956,23 @@ function runFuelAlertPass(now) {
   if (_firedAlertKeys.size > 5000) _firedAlertKeys.clear();   // bound the dedup set (rolls over daily anyway)
 }
 setInterval(() => { try { runFuelAlertPass(new Date()); } catch (e) { console.error('[FUEL-ALERT] pass error:', e.message); } }, 60000);
+
+// Immediate alert for buys a fresh plan push placed inside the 15-min window
+// (the normal warning minute for that slot has already passed). Same
+// per-(player, day, slot) dedup as the scheduler, so a buy that was already
+// warned at :15/:45 never fires twice.
+function fireImminentAlerts(did, plan, now) {
+  if (!cfg.FUEL_ALERT_WEBHOOK) return;
+  for (const t of fuelAlerts.imminentBuys(plan, now)) {
+    const a = { discordId: did, slot: t.slot, label: t.label, fuel: t.fuel, co2: t.co2 };
+    const key = fuelAlerts.firedKey(now, a);
+    if (_firedAlertKeys.has(key)) continue;
+    _firedAlertKeys.add(key);
+    const lead = t.minsLeft <= 0 ? 'NOW — window open' : 'in ' + t.minsLeft + ' min';
+    storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK, fuelAlerts.buildAlertMessage(did, t.label, t.fuel, t.co2, lead), 'fuel-alert-imminent');
+    console.log('[FUEL-ALERT] Imminent ' + did + ' @ ' + t.label + ' (' + lead + ') fuel=' + t.fuel + ' co2=' + t.co2);
+  }
+}
 
 storage.checkPersistence();
 app.listen(PORT, () => console.log(`Beagle Projections live on port ${PORT}`));
