@@ -914,7 +914,7 @@ function runFuelAlertPass(now) {
   if (minuteKey === _lastAlertMinuteKey) return;   // don't repeat within the same minute
   if (!fuelAlerts.isWarningMinute(now)) return;
   _lastAlertMinuteKey = minuteKey;
-  if (!cfg.FUEL_ALERT_WEBHOOK) { console.log('[FUEL-ALERT] Skipped — FUEL_ALERT_WEBHOOK not set'); return; }
+  if (!cfg.FUEL_ALERT_WEBHOOK) { console.log('[FUEL-ALERT] Skipped — FUEL_CALCULATOR_WEBHOOK not set'); return; }
   const due = fuelAlerts.dueAlerts(fuelPlans, now, FUEL_ALERT_MAX_AGE_DAYS);
   for (const a of due) {
     const key = fuelAlerts.firedKey(now, a);

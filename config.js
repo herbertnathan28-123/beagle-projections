@@ -16,8 +16,10 @@ const ALLIANCE_UPLOAD_WEBHOOK        = process.env.ALLIANCE_UPLOADS || '';
 const PLAYER_STATS_WEBHOOK           = process.env.PLAYER_STATS || '';
 // FUEL_CO2_SCREENSHOOT_UPLOAD — personal fuel-dashboard link (auto-deletes)
 const FUEL_SCREENSHOT_UPLOAD_WEBHOOK = process.env.FUEL_CO2_SCREENSHOOT_UPLOAD || '';
-// FUEL_ALERT_WEBHOOK — #fuel-alert channel; per-player 15-min buy warnings (server-scheduled)
-const FUEL_ALERT_WEBHOOK             = process.env.FUEL_ALERT_WEBHOOK || '';
+// FUEL_CALCULATOR_WEBHOOK — #fuel-alert channel; per-player 15-min calculator buy warnings
+// (server-scheduled). Named CALCULATOR deliberately: the generic on-the-hour price ticker
+// already uses the "fuel alert" name elsewhere, so the two must never be confused.
+const FUEL_ALERT_WEBHOOK             = process.env.FUEL_CALCULATOR_WEBHOOK || '';
 
 // ── PERSISTENT DISK STATE FILES ────────────────────────────────────────────
 const STATE_FILE             = '/data/state.json';
