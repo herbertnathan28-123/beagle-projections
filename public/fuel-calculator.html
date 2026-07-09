@@ -203,21 +203,25 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .qac-buy .q{color:#fff;text-align:right;font-size:12px;white-space:nowrap}
 .qac-empty{color:#3a4d5f;font-size:12px;font-style:italic;padding:8px 0}
 @media(max-width:760px){.qac-grid2,.qac-results{grid-template-columns:1fr}.qac-tab{display:none}}
-/* ── BUY ALERT BANNER (WO-FUEL-ALERTS-001) ── */
-#fuelAlertBanner{position:fixed;top:16px;right:16px;z-index:9999;display:flex;align-items:center;gap:12px;
+/* ── BUY ALERT BANNERS (WO-FUEL-ALERTS-001) ──
+   Fuel and CO2 are SEPARATE alerts (separate price windows/timings) — they
+   stack in a fixed container instead of replacing one another. */
+#fuelAlertStack{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:10px;max-width:90vw;pointer-events:none}
+.fa-banner{display:flex;align-items:center;gap:12px;
   font-family:monospace;font-weight:800;font-size:15px;padding:14px 20px;border-radius:8px;border:2px solid;
   pointer-events:auto;transition:opacity .3s;box-shadow:0 6px 24px rgba(0,0,0,.45);max-width:90vw}
-#fuelAlertBanner.fa-fuel{background:#1a1200;border-color:#6a4a00;color:#f0b429}
-#fuelAlertBanner.fa-co2 {background:#061507;border-color:#23a55a;color:#33ff00}
-#fuelAlertBanner .fa-icon{font-size:22px;line-height:1}
-#fuelAlertBanner .fa-body{display:flex;flex-direction:column;gap:2px}
-#fuelAlertBanner .fa-title{letter-spacing:1px}
-#fuelAlertBanner .fa-meta{font-weight:600;font-size:12px;opacity:.85}
-#fuelAlertBanner .fa-close{margin-left:6px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;
+.fa-banner.fa-fuel{background:#1a1200;border-color:#6a4a00;color:#f0b429}
+.fa-banner.fa-co2 {background:#061507;border-color:#23a55a;color:#33ff00}
+.fa-banner .fa-icon{font-size:22px;line-height:1}
+.fa-banner .fa-body{display:flex;flex-direction:column;gap:2px}
+.fa-banner .fa-title{letter-spacing:1px}
+.fa-banner .fa-meta{font-weight:600;font-size:12px;opacity:.85}
+.fa-banner .fa-close{margin-left:6px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;
   background:transparent;border:none;color:inherit;font-size:18px;font-weight:800;cursor:pointer;line-height:1;padding:0}
 /* iPad/phone: sit above the thumb zone, don't cover the schedule table header; readable + touch-friendly */
 @media(max-width:768px){
-  #fuelAlertBanner{top:auto;bottom:16px;right:auto;left:50%;transform:translateX(-50%);font-size:13px;max-width:90vw}
+  #fuelAlertStack{top:auto;bottom:16px;right:auto;left:50%;transform:translateX(-50%)}
+  .fa-banner{font-size:13px}
 }
 </style>
 </head>
@@ -1458,18 +1462,22 @@ function playAlertTone(type){
   }catch(e){ /* audio blocked / unsupported — banner still shows */ }
 }
 function showAlertBanner(type,slot,qty){
-  const prev=document.getElementById('fuelAlertBanner'); if(prev) prev.remove();
+  // Fuel and CO2 are separate alerts — each replaces only its OWN previous
+  // banner, and both stack together when they land in the same slot.
+  let stack=document.getElementById('fuelAlertStack');
+  if(!stack){ stack=document.createElement('div'); stack.id='fuelAlertStack'; document.body.appendChild(stack); }
+  const prev=document.getElementById('fuelAlertBanner_'+type); if(prev) prev.remove();
   const isFuel=type==='fuel';
   const b=document.createElement('div');
-  b.id='fuelAlertBanner';
-  b.className=isFuel?'fa-fuel':'fa-co2';
+  b.id='fuelAlertBanner_'+type;
+  b.className='fa-banner '+(isFuel?'fa-fuel':'fa-co2');
   b.innerHTML=
     '<span class="fa-icon">'+(isFuel?'⛽':'🌿')+'</span>'+
     '<span class="fa-body"><span class="fa-title">'+(isFuel?'FUEL BUY NOW':'CO2 BUY NOW')+'</span>'+
     '<span class="fa-meta">'+TIMES[slot]+' · '+fmt(qty)+'</span></span>'+
     '<button type="button" class="fa-close" aria-label="Dismiss">✕</button>';
   b.querySelector('.fa-close').onclick=()=>b.remove();   // onclick (not hover) for iPad
-  document.body.appendChild(b);
+  stack.insertBefore(b, isFuel?stack.firstChild:null);   // fuel always on top, CO2 beneath
   setTimeout(()=>{ if(b.isConnected) b.remove(); }, 90000);   // auto-dismiss after 90s
 }
 

@@ -662,13 +662,17 @@ app.get('/api/fuel-alert-test', (req, res) => {
   const did = String(req.query.did || '').replace(/[^0-9]/g, '');
   const now = new Date();
   const target = fuelAlerts.upcomingBuyTarget(now);
-  const msg = (did ? '<@' + did + '> ' : '') +
-    '🧪 **TEST** — fuel-calculator buy alert wiring OK · next slot ' + target.label + '\n' +
-    '⛽ Fuel: buy **12,345,678** Lbs\n🌿 CO2: buy **9,999** quotas\n' +
-    '_(dummy numbers — real alerts fire at :15/:45 only when your schedule has an upcoming buy)_';
-  storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK, msg, 'fuel-alert-test');
-  console.log('[FUEL-ALERT] Test fire' + (did ? ' for ' + did : ''));
-  res.json({ ok: true, mentioned: did || null, slot: target.label });
+  const tag = did ? '<@' + did + '> ' : '';
+  const foot = '\n_(dummy test — real alerts fire per commodity, only when your schedule has an upcoming buy)_';
+  // Two SEPARATE posts, mirroring production: fuel and CO2 are never combined.
+  storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK,
+    tag + '🧪 **TEST — FUEL buy alert** · next slot ' + target.label + '\n⛽ Fuel: buy **12,345,678** Lbs' + foot,
+    'fuel-alert-test');
+  storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK,
+    tag + '🧪 **TEST — CO2 buy alert** · next slot ' + target.label + '\n🌿 CO2: buy **9,999** quotas' + foot,
+    'fuel-alert-test');
+  console.log('[FUEL-ALERT] Test fire (fuel + co2, separate posts)' + (did ? ' for ' + did : ''));
+  res.json({ ok: true, mentioned: did || null, slot: target.label, posts: ['fuel', 'co2'] });
 });
 
 // ── MAINTENANCE TRACKER ROUTES ────────────────────────────────────────────
@@ -951,7 +955,7 @@ function runFuelAlertPass(now) {
     if (_firedAlertKeys.has(key)) continue;   // already fired this (player, day, slot)
     _firedAlertKeys.add(key);
     storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK, a.message, 'fuel-alert');
-    console.log('[FUEL-ALERT] ' + a.discordId + ' @ ' + a.label + ' fuel=' + a.fuel + ' co2=' + a.co2);
+    console.log('[FUEL-ALERT] ' + a.discordId + ' @ ' + a.label + ' ' + a.type + '=' + a.qty);
   }
   if (_firedAlertKeys.size > 5000) _firedAlertKeys.clear();   // bound the dedup set (rolls over daily anyway)
 }
@@ -963,14 +967,14 @@ setInterval(() => { try { runFuelAlertPass(new Date()); } catch (e) { console.er
 // warned at :15/:45 never fires twice.
 function fireImminentAlerts(did, plan, now) {
   if (!cfg.FUEL_ALERT_WEBHOOK) return;
-  for (const t of fuelAlerts.imminentBuys(plan, now)) {
-    const a = { discordId: did, slot: t.slot, label: t.label, fuel: t.fuel, co2: t.co2 };
+  for (const t of fuelAlerts.imminentBuys(plan, now)) {   // one entry per type — fuel and CO2 post separately
+    const a = { discordId: did, slot: t.slot, label: t.label, type: t.type, qty: t.qty };
     const key = fuelAlerts.firedKey(now, a);
     if (_firedAlertKeys.has(key)) continue;
     _firedAlertKeys.add(key);
     const lead = t.minsLeft <= 0 ? 'NOW — window open' : 'in ' + t.minsLeft + ' min';
-    storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK, fuelAlerts.buildAlertMessage(did, t.label, t.fuel, t.co2, lead), 'fuel-alert-imminent');
-    console.log('[FUEL-ALERT] Imminent ' + did + ' @ ' + t.label + ' (' + lead + ') fuel=' + t.fuel + ' co2=' + t.co2);
+    storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK, fuelAlerts.buildAlertMessage(did, t.label, t.type, t.qty, lead), 'fuel-alert-imminent');
+    console.log('[FUEL-ALERT] Imminent ' + did + ' @ ' + t.label + ' (' + lead + ') ' + t.type + '=' + t.qty);
   }
 }
 
