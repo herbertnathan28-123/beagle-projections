@@ -10,6 +10,7 @@ const crypto  = require('crypto');
 const https   = require('https');
 const fs      = require('fs');
 const path    = require('path');
+const webpush = require('web-push');
 
 const cfg        = require('./config');
 const storage    = require('./lib/storage');
@@ -75,6 +76,36 @@ const saveFuelApprovedUsers = () => storage.writeJSON(cfg.FUEL_APPROVED_USERS_FI
 let fuelPlans = storage.readJSON(cfg.FUEL_PLANS_FILE, {});
 if (Object.keys(fuelPlans).length) console.log('[STARTUP] Fuel plans loaded: ' + Object.keys(fuelPlans).length);
 const saveFuelPlans = () => storage.writeJSON(cfg.FUEL_PLANS_FILE, fuelPlans);
+
+// Per-player WEB-PUSH subscriptions — on-screen alerts on the player's device
+// even when the calculator AND Discord are closed. VAPID keys are generated
+// once and persisted to /data so subscriptions survive redeploys.
+let fuelPushSubs = storage.readJSON(cfg.FUEL_PUSH_SUBS_FILE, {});
+if (Object.keys(fuelPushSubs).length) console.log('[STARTUP] Push subscriptions loaded: ' + Object.keys(fuelPushSubs).length + ' player(s)');
+const saveFuelPushSubs = () => storage.writeJSON(cfg.FUEL_PUSH_SUBS_FILE, fuelPushSubs);
+let VAPID = storage.readJSON('/data/vapid.json', null);
+try {
+  if (!VAPID || !VAPID.publicKey || !VAPID.privateKey) {
+    VAPID = webpush.generateVAPIDKeys();
+    storage.writeJSON('/data/vapid.json', VAPID);
+    console.log('[PUSH] Generated + persisted VAPID keys');
+  }
+  webpush.setVapidDetails('mailto:herbertnathan28@gmail.com', VAPID.publicKey, VAPID.privateKey);
+} catch (e) { console.error('[PUSH] VAPID init failed — web push disabled:', e.message); VAPID = null; }
+// Push a system notification to every device the player subscribed. Expired or
+// revoked subscriptions (404/410) are pruned automatically.
+function sendPushAlert(did, title, body) {
+  if (!VAPID) return;
+  for (const sub of (fuelPushSubs[did] || []).slice()) {
+    webpush.sendNotification(sub, JSON.stringify({ title, body })).catch(err => {
+      const code = err && err.statusCode;
+      if (code === 404 || code === 410) {
+        fuelPushSubs[did] = (fuelPushSubs[did] || []).filter(s => s.endpoint !== sub.endpoint);
+        saveFuelPushSubs();
+      } else console.error('[PUSH] send failed (' + (code || err.message) + ')');
+    });
+  }
+}
 
 // Per-player plan-push credential: HMAC(did) injected ONLY into that player's
 // personal calculator page. Discord IDs are semi-public, so without this any
@@ -151,7 +182,11 @@ app.get('/fuel-calculator', (req, res, next) => {
     let html = fs.readFileSync(path.join(__dirname, 'public', 'fuel-calculator.html'), 'utf8');
     const json = JSON.stringify(fuelProfiles[did]).replace(/</g, '\\u003c');   // prevent </script> breakout
     // __FUEL_PLAN_TOKEN__ authorises this player's plan pushes (/api/fuel-plan) — hex HMAC, injection-safe.
-    html = html.replace('</head>', '<script>window.__FUEL_PROFILE__=' + json + ';window.__FUEL_PLAN_TOKEN__="' + fuelPlanToken(did) + '";</script>\n</head>');
+    // Manifest link makes the personal page installable to the Home Screen (iOS requires that for web push).
+    html = html.replace('</head>',
+      '<link rel="manifest" href="/fuel-manifest.json?did=' + did + '">\n' +
+      '<meta name="apple-mobile-web-app-capable" content="yes">\n' +
+      '<script>window.__FUEL_PROFILE__=' + json + ';window.__FUEL_PLAN_TOKEN__="' + fuelPlanToken(did) + '";</script>\n</head>');
     logFuelAccess(did, fuelProfiles[did].discord_name || '', 'calc_view');
     // Never cache the per-player injected page — a cached copy could serve the wrong
     // player's profile (or a stale one) to a shared browser.
@@ -669,6 +704,35 @@ app.post('/api/fuel-plan', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── WEB-PUSH SUBSCRIBE (on-screen alerts with the calculator closed) ────────
+app.get('/api/fuel-push-key', (req, res) => res.json({ key: VAPID ? VAPID.publicKey : null }));
+app.post('/api/fuel-push-subscribe', (req, res) => {
+  const { discord_id, plan_token, subscription } = req.body || {};
+  const did = String(discord_id || '').replace(/[^0-9]/g, '');
+  if (!(/^\d{17,20}$/).test(did) || !fuelProfiles[did]) return res.status(403).json({ ok: false, error: 'Not a registered fuel profile' });
+  if (!fuelPlanTokenValid(did, plan_token)) return res.status(403).json({ ok: false, error: 'Invalid plan token' });
+  if (!subscription || typeof subscription.endpoint !== 'string') return res.status(400).json({ ok: false, error: 'Invalid subscription' });
+  const list = fuelPushSubs[did] || (fuelPushSubs[did] = []);
+  if (!list.some(s => s.endpoint === subscription.endpoint)) {
+    list.push(subscription);
+    if (list.length > 5) list.shift();   // keep the 5 most recent devices per player
+    saveFuelPushSubs();
+  }
+  console.log('[PUSH] Subscribed device for ' + did + ' (' + list.length + ' device(s))');
+  res.json({ ok: true, devices: list.length });
+});
+
+// Per-player web-app manifest: iOS only delivers web push to Home-Screen apps,
+// and the installed app must reopen the player's OWN ?did link.
+app.get('/fuel-manifest.json', (req, res) => {
+  const did = String(req.query.did || '').replace(/[^0-9]/g, '');
+  res.json({
+    name: 'Beagle Fuel Calculator', short_name: 'Fuel Calc', display: 'standalone',
+    start_url: '/fuel-calculator' + (did ? '?did=' + did : ''),
+    background_color: '#050b12', theme_color: '#050b12',
+  });
+});
+
 // ── FUEL BUY-ALERT TEST FIRE ───────────────────────────────────────────────
 // Fire one dummy warning to the #fuel-alert webhook on demand, to prove the
 // webhook + @mention work without waiting for a real buy window. Token-gated
@@ -694,8 +758,14 @@ app.get('/api/fuel-alert-test', (req, res) => {
   storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK,
     tag + '🧪 **TEST — CO2 buy alert** · next slot ' + target.label + '\n🌿 CO2: buy **9,999** quotas' + foot,
     'fuel-alert-test');
-  console.log('[FUEL-ALERT] Test fire (fuel + co2, separate posts)' + (did ? ' for ' + did : ''));
-  res.json({ ok: true, mentioned: did || null, slot: target.label, posts: ['fuel', 'co2'] });
+  // Also exercise the on-screen web-push path for this player's subscribed devices.
+  if (did) {
+    sendPushAlert(did, '🧪 TEST — FUEL buy alert · ' + target.label, 'Buy 12,345,678 Lbs (dummy test)');
+    sendPushAlert(did, '🧪 TEST — CO2 buy alert · ' + target.label, 'Buy 9,999 quotas (dummy test)');
+  }
+  const pushDevices = did ? (fuelPushSubs[did] || []).length : 0;
+  console.log('[FUEL-ALERT] Test fire (fuel + co2, separate posts)' + (did ? ' for ' + did + ', push devices: ' + pushDevices : ''));
+  res.json({ ok: true, mentioned: did || null, slot: target.label, posts: ['fuel', 'co2'], push_devices: pushDevices });
 });
 
 // ── MAINTENANCE TRACKER ROUTES ────────────────────────────────────────────
@@ -978,6 +1048,9 @@ function runFuelAlertPass(now) {
     if (_firedAlertKeys.has(key)) continue;   // already fired this (player, day, slot)
     _firedAlertKeys.add(key);
     storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK, a.message, 'fuel-alert');
+    sendPushAlert(a.discordId,
+      (a.type === 'fuel' ? '⛽ FUEL' : '🌿 CO2') + ' buy in 15 min · ' + a.label,
+      'Buy ' + fuelAlerts.fmt(a.qty) + (a.type === 'fuel' ? ' Lbs' : ' quotas'));
     console.log('[FUEL-ALERT] ' + a.discordId + ' @ ' + a.label + ' ' + a.type + '=' + a.qty);
   }
   if (_firedAlertKeys.size > 5000) _firedAlertKeys.clear();   // bound the dedup set (rolls over daily anyway)
@@ -997,6 +1070,9 @@ function fireImminentAlerts(did, plan, now) {
     _firedAlertKeys.add(key);
     const lead = t.minsLeft <= 0 ? 'NOW — window open' : 'in ' + t.minsLeft + ' min';
     storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK, fuelAlerts.buildAlertMessage(did, t.label, t.type, t.qty, lead), 'fuel-alert-imminent');
+    sendPushAlert(did,
+      (t.type === 'fuel' ? '⛽ FUEL' : '🌿 CO2') + ' buy ' + lead + ' · ' + t.label,
+      'Buy ' + fuelAlerts.fmt(t.qty) + (t.type === 'fuel' ? ' Lbs' : ' quotas'));
     console.log('[FUEL-ALERT] Imminent ' + did + ' @ ' + t.label + ' (' + lead + ') ' + t.type + '=' + t.qty);
   }
 }
