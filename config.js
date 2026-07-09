@@ -110,7 +110,10 @@ const AIRCRAFT_REVENUE = {
   'A330-300':92000,'A330-200':85000,'B747-8':150000,'B747-8F':170000,
   'B747SP':100000,'B787-10':105000,'B787-9':98000,'B787-8':90000,
   'A350-900ULR':110000,'DC-10':75000,'MC-21-400':45000,
-  'Concorde':203939,'A320neo':40000,'B737 MAX 8':38000,'Spacejet M100':20000
+  'Concorde':203939,'A320neo':40000,'B737 MAX 8':38000,'Spacejet M100':20000,
+  // A340-200 charter — measured (wingfoot3, Jul 4): $109,684,649 / 20 A/C over a
+  // 10-cycle × 9.5h departure (95h) → per A/C per day. Exact expression, never rounded.
+  'A340-200':109684649*24/1900
 };
 // Aircraft fuel burn per type per hour (lbs)
 
@@ -120,7 +123,10 @@ const AIRCRAFT_BURN_HOUR = {
   'A330-300':12500,'A330-200':11000,'B747-8':20000,'B747-8F':22346,
   'B747SP':16000,'B787-10':12000,'B787-9':11000,'B787-8':10500,
   'A350-900ULR':12500,'DC-10':15000,'MC-21-400':6000,
-  'Concorde':37274,'A320neo':5500,'B737 MAX 8':5200,'Spacejet M100':3000
+  'Concorde':37274,'A320neo':5500,'B737 MAX 8':5200,'Spacejet M100':3000,
+  // A340-200 charter — measured (wingfoot3): 40,789,334 Lbs / 20 A/C / 10 cycles ÷ 9.5h
+  // = per A/C per hour. Exact expression, never rounded.
+  'A340-200':40789334/1900
 };
 
 

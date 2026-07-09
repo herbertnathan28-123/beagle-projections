@@ -6,6 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 const express = require('express');
 const cors    = require('cors');
+const crypto  = require('crypto');
 const https   = require('https');
 const fs      = require('fs');
 const path    = require('path');
@@ -75,6 +76,17 @@ let fuelPlans = storage.readJSON(cfg.FUEL_PLANS_FILE, {});
 if (Object.keys(fuelPlans).length) console.log('[STARTUP] Fuel plans loaded: ' + Object.keys(fuelPlans).length);
 const saveFuelPlans = () => storage.writeJSON(cfg.FUEL_PLANS_FILE, fuelPlans);
 
+// Per-player plan-push credential: HMAC(did) injected ONLY into that player's
+// personal calculator page. Discord IDs are semi-public, so without this any
+// client could overwrite another player's alert plan and trigger false
+// @mention buy warnings. Stateless — verified per request, nothing stored.
+const fuelPlanToken = did => crypto.createHmac('sha256', SECRET).update('fuel-plan:' + did).digest('hex');
+function fuelPlanTokenValid(did, tok) {
+  const want = fuelPlanToken(did);
+  const got = String(tok || '');
+  return got.length === want.length && crypto.timingSafeEqual(Buffer.from(got), Buffer.from(want));
+}
+
 function logFuelAccess(did, name, action) {
   const log = storage.readJSON(FUEL_ACCESS_LOG_FILE, []);
   log.push({ discord_id: did || 'unknown', discord_name: name || '', action, timestamp: new Date().toISOString() });
@@ -138,7 +150,8 @@ app.get('/fuel-calculator', (req, res, next) => {
     logVisit(req);
     let html = fs.readFileSync(path.join(__dirname, 'public', 'fuel-calculator.html'), 'utf8');
     const json = JSON.stringify(fuelProfiles[did]).replace(/</g, '\\u003c');   // prevent </script> breakout
-    html = html.replace('</head>', '<script>window.__FUEL_PROFILE__=' + json + ';</script>\n</head>');
+    // __FUEL_PLAN_TOKEN__ authorises this player's plan pushes (/api/fuel-plan) — hex HMAC, injection-safe.
+    html = html.replace('</head>', '<script>window.__FUEL_PROFILE__=' + json + ';window.__FUEL_PLAN_TOKEN__="' + fuelPlanToken(did) + '";</script>\n</head>');
     logFuelAccess(did, fuelProfiles[did].discord_name || '', 'calc_view');
     // Never cache the per-player injected page — a cached copy could serve the wrong
     // player's profile (or a stale one) to a shared browser.
@@ -633,10 +646,12 @@ app.get('/api/fuel-profile', (req, res) => {
 // alerts work even when the player's page is closed. No secret in this request;
 // it only sets that player's own alert plan, and only for a registered id.
 app.post('/api/fuel-plan', (req, res) => {
-  const { discord_id, baseDay, fsug, csug } = req.body || {};
+  const { discord_id, baseDay, fsug, csug, plan_token } = req.body || {};
   const did = String(discord_id || '').replace(/[^0-9]/g, '');
   if (!(/^\d{17,20}$/).test(did)) return res.status(400).json({ ok: false, error: 'Invalid Discord ID' });
   if (!fuelProfiles[did]) return res.status(403).json({ ok: false, error: 'Not a registered fuel profile' });
+  // Only the player's own injected page holds this token — rejects spoofed pushes for someone else's id.
+  if (!fuelPlanTokenValid(did, plan_token)) return res.status(403).json({ ok: false, error: 'Invalid plan token' });
   const day = parseInt(baseDay, 10);
   if (!(day >= 1 && day <= 31)) return res.status(400).json({ ok: false, error: 'Invalid baseDay' });
   if (!Array.isArray(fsug) || !Array.isArray(csug)) return res.status(400).json({ ok: false, error: 'fsug/csug must be arrays' });

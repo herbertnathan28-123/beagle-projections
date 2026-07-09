@@ -449,13 +449,28 @@ function optsFor(v){ return '<option value="">— Select —</option>'+AIRCRAFT_
 // DOM → model sync: pull the editable fields (flight time, per-type type+count) back into
 // BOXES before any save/recalc. maint/departed live only in the model (button-driven).
 function syncBoxesFromDOM(){
+  const _did=(window.__FUEL_PROFILE__&&window.__FUEL_PROFILE__.discord_id)||'';
   for(const b of BOXES){
+    const oldDur=b.dur;
     const d=document.getElementById('dur_'+b.key); if(d){ const v=parseFloat(d.value); if(!isNaN(v))b.dur=v; }
     const et=document.getElementById('eta_'+b.key); if(et){ const newEta=et.value; if(b.departed!==false && newEta!==b.eta) b.departed=gameNowHour(); b.eta=newEta; }
     for(let i=0;i<MAX_TYPES;i++){
       if(!b.types[i]) b.types[i]=mkType();
       const ts=document.getElementById('type_'+b.key+'_'+i); if(ts) b.types[i].type=ts.value;
       const cs=document.getElementById('cnt_'+b.key+'_'+i);  if(cs) b.types[i].count=cs.value;
+    }
+    // Flight-time changed → the old block's measured burn no longer applies (burn is per
+    // departure of a specific block, e.g. charter cycleHours × cycles). Re-look-up each
+    // type at the new duration; no measured block → null (global fallback), matching a
+    // manual type change. Runs only on an actual duration edit, so profile-loaded burns
+    // on untouched boxes are never clobbered.
+    if(parseFloat(b.dur)!==parseFloat(oldDur)){
+      for(const t of b.types){
+        if(!t.type) continue;
+        const bp=burnBlockFor(_did,t.type,b.dur);
+        t.fuel=(bp&&bp.fuel!=null)?bp.fuel:null;
+        t.co2 =(bp&&bp.co2 !=null)?bp.co2 :null;
+      }
     }
   }
 }
@@ -1699,13 +1714,14 @@ function runQAC(){
 let _planPushTimer=null,_lastPlanPushKey='';
 function pushFuelPlan(baseDay,fsugAll,csugAll){
   const did=window.__FUEL_PROFILE__&&window.__FUEL_PROFILE__.discord_id; if(!did) return;
+  const tok=window.__FUEL_PLAN_TOKEN__; if(!tok) return;   // only the server-injected personal page may push
   const key=baseDay+'|'+fsugAll.join(',')+'|'+csugAll.join(',');
   if(key===_lastPlanPushKey) return;                 // nothing changed → no POST
   clearTimeout(_planPushTimer);
   _planPushTimer=setTimeout(()=>{
     _lastPlanPushKey=key;
     fetch('/api/fuel-plan',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({discord_id:String(did),baseDay,fsug:fsugAll,csug:csugAll})})
+      body:JSON.stringify({discord_id:String(did),baseDay,fsug:fsugAll,csug:csugAll,plan_token:tok})})
       .catch(e=>console.warn('[FUEL] plan push failed:',e));
   },3000);
 }
