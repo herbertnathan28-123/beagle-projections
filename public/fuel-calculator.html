@@ -763,21 +763,8 @@ function updateETACountdowns(){
   const mult=speedMult();
   for(const b of BOXES){
     const el=document.getElementById('etacd_'+b.key); if(!el) continue;
-    if(b.departed!==false){
-      const nowH=gameNowHour();
-      let elapsed=nowH-b.departed; if(elapsed<0)elapsed+=24;
-      const dur=parseFloat(b.dur)||DEFAULT_DUR;
-      const cycle=dur/mult;
-      const etaVal=parseEtaHours(b.eta);
-      const remaining=(etaVal!==null&&etaVal>0)?(etaVal-elapsed):(cycle-elapsed);
-      if(remaining<=0){
-        el.textContent='00:00:00 — LANDED';
-        el.className='eta-countdown overdue';
-      } else {
-        el.textContent=fmtHMS(remaining*3600000);
-        el.className='eta-countdown green-active';
-      }
-    } else if(b.etaSetTime&&b.eta){
+    if(b.etaSetTime&&b.eta){
+      // ETA confirmed via Enter — always overrides DEP clock; resets countdown to entered value
       const etaMs=(parseEtaHours(b.eta)||0)*3600000;
       const remainingMs=etaMs-(Date.now()-b.etaSetTime);
       if(remainingMs<=0){
@@ -785,6 +772,20 @@ function updateETACountdowns(){
         el.className='eta-countdown overdue';
       } else {
         el.textContent=fmtHMS(remainingMs);
+        el.className='eta-countdown green-active';
+      }
+    } else if(b.departed!==false){
+      // DEP pressed, no ETA — count down from full flight cycle based on departure timestamp
+      const nowH=gameNowHour();
+      let elapsed=nowH-b.departed; if(elapsed<0)elapsed+=24;
+      const dur=parseFloat(b.dur)||DEFAULT_DUR;
+      const cycle=dur/mult;
+      const remaining=cycle-elapsed;
+      if(remaining<=0){
+        el.textContent='00:00:00 — LANDED';
+        el.className='eta-countdown overdue';
+      } else {
+        el.textContent=fmtHMS(remaining*3600000);
         el.className='eta-countdown green-active';
       }
     } else {
