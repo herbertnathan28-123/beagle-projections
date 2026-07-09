@@ -45,7 +45,7 @@ body{background:#060f1e;color:#e0e6f0;font-family:Arial,sans-serif;min-height:10
 .dropdown-item{display:block;padding:8px 14px;font-size:11px;font-weight:700;color:#70d070;cursor:pointer;white-space:nowrap;letter-spacing:.4px}
 .dropdown-item:hover{background:#1a3a1a}
 .stats-wrap{display:flex;gap:14px;align-items:stretch;flex-wrap:wrap;width:100%}
-.stats-left{display:grid;grid-template-columns:repeat(7,auto);gap:10px;align-items:end;flex:1}
+.stats-left{display:grid;grid-template-columns:repeat(5,auto);gap:10px;align-items:end;flex:1}
 .stats-right{display:flex;flex-direction:column;gap:6px;justify-content:space-around}
 .stat-sub{color:#4a8a6a;font-size:11px;margin-top:3px;letter-spacing:.3px;line-height:1.4}
 .stat-input-wrap{display:flex;flex-direction:column;gap:3px}
@@ -255,6 +255,23 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
   #fuelAlertStack{top:auto;bottom:16px;right:auto;left:50%;transform:translateX(-50%)}
   .fa-banner{font-size:13px}
 }
+/* ── PLAYER GUIDE TERMS BAR + HELP MODAL (WO-FUEL-GUIDE-001) ── */
+.terms-bar{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;align-items:center;padding:4px 0}
+.terms-lbl{font-size:9px;font-weight:800;letter-spacing:1.5px;color:#23a55a;white-space:nowrap;margin-right:2px}
+.term-btn{background:#0a1828;border:1px solid #1a5a3a;color:#33ff00;font-size:10px;font-weight:800;letter-spacing:.5px;padding:5px 9px;border-radius:5px;cursor:pointer;font-family:inherit;min-height:36px;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:background .12s,border-color .12s}
+.term-btn:active,.term-btn:focus{background:#0d2818;border-color:#23a55a;outline:none}
+#helpModal{position:fixed;inset:0;background:rgba(0,0,0,.84);z-index:10001;display:none;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#helpModal.open{display:flex}
+#helpModalBox{background:#0d1e36;border:2px solid #23a55a;border-radius:12px;padding:22px 20px 22px;max-width:520px;width:100%;margin:auto;position:relative;box-shadow:0 8px 40px rgba(0,0,0,.65)}
+#helpModalClose{position:absolute;top:10px;right:10px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;background:#1a0a0a;border:1px solid #5a2a2a;border-radius:6px;color:#e06060;font-size:18px;font-weight:800;cursor:pointer;line-height:1;padding:0}
+#helpModalTitle{color:#f5a623;font-size:14px;font-weight:800;letter-spacing:1px;margin-bottom:14px;padding-right:50px;line-height:1.3}
+#helpModalBody{color:#c0d0e0;font-size:13px;line-height:1.75}
+#helpModalBody .hc{margin-bottom:10px}
+.hm-green{display:inline-block;padding:2px 8px;border-radius:3px;font-weight:800;font-size:11px;background:#23a55a;color:#0a0a0a}
+.hm-amber{display:inline-block;padding:2px 8px;border-radius:3px;font-weight:800;font-size:11px;background:#f0b429;color:#0a0a0a}
+.hm-grey{display:inline-block;padding:2px 8px;border-radius:3px;font-weight:800;font-size:11px;background:#1a2a3a;color:#5a8aaa;border:1px solid #2a3a50}
+.hm-red{display:inline-block;padding:2px 8px;border-radius:3px;font-weight:800;font-size:11px;background:#c0392b;color:#fff}
+.hm-blue{color:#7ab0d0;font-weight:800}
 </style>
 </head>
 <body>
@@ -302,16 +319,16 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
       <div class="stat-box"><div class="stat-label">MIN FUEL RESERVE</div><div class="stat-value" style="color:#e07b39">15,000,000 lbs</div></div>
       <div class="stat-box"><div class="stat-label">⛽ FUEL PURCHASED</div><div class="stat-value" id="sBought" style="color:#23a55a">0 lbs</div></div>
       <div class="stat-box"><div class="stat-label">⛽ FUEL COST</div><div class="stat-value" id="sCost" style="color:#f0b429">$0</div></div>
-      <div class="stat-box"><div class="stat-label">YOUR AVG FUEL PURCHASE COST</div><div class="stat-value" id="sAvgFuel" style="color:#f0b429">—</div></div>
-      <div class="stat-box" style="border-color:#1a5a5a"><div class="stat-label">VS JUNE AVG $1,414</div><div class="stat-value" id="sVsJuneFuel" style="color:#7a9090">—</div></div>
+      
+      
       <!-- CO2 ROW -->
       <div class="stat-input-wrap"><div class="stat-input-label">🌿 STARTING CO2 RESERVES (quotas)</div><div style="display:flex;align-items:center;gap:4px"><input class="stat-input" id="startCO2" type="number" value="" placeholder="enter CO2 reserves" step="1000000" oninput="saveTank('startCO2');recalc()" style="border-color:#2a5a2a;color:#70d070"><button class="btn-fill-full co2" onclick="fillFullCO2Reserves()" title="Fill starting CO2 reserves to full CO2 tank capacity">FILL FULL</button><button class="btn-clear-co2" onclick="clearCO2Reserve()" title="Clear CO2 reserve back to blank">✕</button></div></div>
       <div class="stat-input-wrap"><div class="stat-input-label">🌿 CO2 TANK CAPACITY (quotas)</div><input class="stat-input" id="co2Tank" type="number" value="" placeholder="enter CO2 tank" step="1000000" oninput="saveTank('co2Tank');recalc()" style="border-color:#2a5a2a;color:#70d070"></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">MIN CO2 RESERVE</div><div class="stat-value" style="color:#e07b39">15,000,000</div></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">🌿 CO2 PURCHASED</div><div class="stat-value" id="sCO2Bought" style="color:#70d070">0</div></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">🌿 CO2 COST</div><div class="stat-value" id="sCO2Cost" style="color:#90c060">$0</div></div>
-      <div class="stat-box co2-stat-box"><div class="stat-label">YOUR AVG CO2 PURCHASE COST</div><div class="stat-value" id="sAvgCO2" style="color:#90c060">—</div></div>
-      <div class="stat-box co2-stat-box" style="border-color:#1a5a5a"><div class="stat-label">VS JUNE AVG $149.70</div><div class="stat-value" id="sVsJuneCO2" style="color:#7a9090">—</div></div>
+      
+      
     </div>
     <div class="stats-right">
       <div class="stat-box" style="border-color:#4a2a0a;min-width:80px;padding:5px 8px"><div class="stat-label">📊 TOTAL SV</div><div class="stat-value" id="sTotalSV" style="color:#f5a623;font-size:13px">0.00</div></div>
@@ -332,6 +349,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
         <input class="dep-eta-input" id="co2BurnDep" type="number" placeholder="quotas" style="width:84px" oninput="saveTank('co2BurnDep');recalc()" title="CO2 quotas burned per aircraft per departure event">
       </div>
       <div class="dep-status" id="depStatus" style="min-width:160px">Add a box · set its flight time + aircraft · tap DEP when you launch in-game</div>
+      <div class="terms-bar"><span class="terms-lbl">◆ GUIDE</span><button class="term-btn" onclick="showHelp('schedule')">SCHEDULE</button><button class="term-btn" onclick="showHelp('dep')">DEP</button><button class="term-btn" onclick="showHelp('eta')">ETA</button><button class="term-btn" onclick="showHelp('fleetcolours')">FLEET COLOURS</button><button class="term-btn" onclick="showHelp('pricecolours')">PRICE COLOURS</button><button class="term-btn" onclick="showHelp('rescolours')">RESERVE COLOURS</button><button class="term-btn" onclick="showHelp('sugbuy')">SUGGESTED BUY</button><button class="term-btn" onclick="showHelp('burnac')">BURN &amp; CO2/AC</button></div>
     </div>
   </div>
   <div class="fleet-cards" id="fleetCards"></div>
@@ -1396,28 +1414,16 @@ function recalc(){
   // Stats
   document.getElementById('sBought').textContent=fmt(totBought)+' lbs';
   document.getElementById('sCost').textContent=fmtM(totCost);
-  document.getElementById('sAvgFuel').textContent=totBought>0?'$'+Math.round(totCost/totBought*1000).toLocaleString()+'/1k lbs':'—';
-  const elJF=document.getElementById('sVsJuneFuel');
   const el900=document.getElementById('sCap900');
   if(totBought>0){
     const actualAvgF=totCost/totBought*1000;
-    const diffJF=1414.50-actualAvgF;
-    elJF.textContent=(diffJF>=0?'+$':'-$')+Math.abs(diffJF).toFixed(0)+'/1k';
-    elJF.style.color=diffJF>=0?'#23a55a':'#f0b429';
     const diff900=900-actualAvgF;
     el900.textContent=(diff900>=0?'+$':'-$')+Math.abs(diff900).toFixed(0)+'/1k';
     el900.style.color=diff900>=0?'#23a55a':'#f0b429';
-  }else{elJF.textContent='—';elJF.style.color='#7a9090';el900.textContent='—';el900.style.color='#7a9090';}
+  }else{el900.textContent='—';el900.style.color='#7a9090';}
   document.getElementById('sCO2Bought').textContent=fmt(totCO2Bought)+' quotas';
   document.getElementById('sCO2Cost').textContent=fmtM(totCO2Cost);
-  document.getElementById('sAvgCO2').textContent=totCO2Bought>0?'$'+Math.round(totCO2Cost/totCO2Bought*1000).toLocaleString()+'/1k quotas':'—';
-  const elJC=document.getElementById('sVsJuneCO2');
-  if(totCO2Bought>0){
-    const actualAvgC=totCO2Cost/totCO2Bought*1000;
-    const diffJC=149.70-actualAvgC;
-    elJC.textContent=(diffJC>=0?'+$':'-$')+Math.abs(diffJC).toFixed(2)+'/1k';
-    elJC.style.color=diffJC>=0?'#23a55a':'#f0b429';
-  }else{elJC.textContent='—';elJC.style.color='#7a9090';}
+
   const totalSV=((totCost+totCO2Cost)/SV);
   document.getElementById('sTotalSV').textContent='-'+totalSV.toFixed(2);
   document.getElementById('ftBought').textContent=fmt(totBought)+' lbs';
@@ -1814,6 +1820,28 @@ function showAlertBanner(type,slot,qty){
   setTimeout(()=>{ if(b.isConnected) b.remove(); }, 90000);   // auto-dismiss after 90s
 }
 
+// ── PLAYER GUIDE — HELP MODAL (WO-FUEL-GUIDE-001) ──
+const HELP_CONTENT={
+  schedule:{title:'SCHEDULE: UNLOCKED / LOCKED',body:'<div class="hc"><span class="hm-grey">UNLOCKED</span> is planning mode. Your departure slots are spread across the full day from 00:00 so you can see the complete buy plan before your fleet is running. Use this when setting up.</div><div class="hc"><span class="hm-green">LOCKED</span> anchors the schedule to real time — use this once your fleet is actually in the air. Switch to LOCKED when you press DEP.</div>'},
+  dep:{title:'DEP — DEPARTURE',body:'<div class="hc"><span class="hm-amber">Orange</span> = not departed. &nbsp;<span class="hm-green">Green</span> = locked, saved schedule, departed and running.</div><div class="hc">When you launch your fleet in-game, tap DEP immediately. This stamps the exact game time you departed and locks your schedule to that real departure — your fuel burn slots and buy suggestions then align to your actual in-game timing, optimised for the entire month moving ahead.</div><div class="hc">Your fleet scheduling is calculated and placed into the exact 30-minute game time zone that fleet will land and depart in, repeated across every cycle for the rest of the month.</div><div class="hc">If you change your schedule, tap DEP to reset to orange, update your flight time or aircraft settings, then tap DEP again when you relaunch in-game to lock in your new schedule and timings for the month ahead.</div>'},
+  eta:{title:'ETA — ESTIMATED TIME OF ARRIVAL',body:'<div class="hc">Type the time until your fleet next lands in HH:MM format (e.g. 04:32 = 4 hours 32 minutes). Press Enter to confirm. The field turns <span class="hm-green">GREEN</span> and a live countdown starts.</div><div class="hc">ETA always overrides DEP — if your in-game timing drifts from the DEP stamp, enter your actual ETA to resync the schedule to reality.</div><div class="hc">When ETA expires it shows <b>00:00:00 — LANDED</b>, which means tap DEP in-game and reset your ETA for the next cycle. ETA will sync and reset the exact schedule ahead for the month on that flight time strategy, ensuring your buy suggestions and burn slots are perfectly aligned to your real in-game departure pattern.</div>'},
+  fleetcolours:{title:'FLEET BOX COLOURS',body:'<div class="hc">The numbered boxes in the FLEET DEPARTURE column show which fleet groups are departing at each slot.</div><div class="hc"><span class="hm-grey">GREY</span> — that fleet is not scheduled to depart at that slot.</div><div class="hc"><span class="hm-amber">AMBER</span> — scheduled to depart at that slot but DEP not yet pressed.</div><div class="hc"><span class="hm-green">GREEN</span> — departed and confirmed as live at that slot.</div>'},
+  pricecolours:{title:'PRICE COLOURS',body:'<div class="hc"><span class="hm-green">GREEN</span> — cheap, buy here (≤$500 fuel / ≤$114 CO2).</div><div class="hc"><span class="hm-amber">AMBER</span> — moderate, only buy if needed.</div><div class="hc"><span class="hm-grey">GREY</span> — expensive, avoid if possible.</div><div class="hc">The SUGGESTED BUY column (italic) shows the exact amount to buy at each slot. Follow the plan and your reserves will never run dry at minimum cost.</div>'},
+  rescolours:{title:'RESERVE COLOURS',body:'<div class="hc"><span class="hm-blue">BLUE</span> — healthy, reserves well above the floor.</div><div class="hc"><span class="hm-amber">AMBER</span> — getting low, within 4× the 15,000,000 minimum floor.</div><div class="hc"><span class="hm-red">RED</span> — critical, at or below the 15,000,000 minimum. The suggested buy at that slot will rescue it — enter the suggested amount in FUEL PURCHASED immediately.</div>'},
+  sugbuy:{title:'SUGGESTED BUY',body:'<div class="hc">The SUGGESTED BUY column (shown in italic green ◆) shows the exact amount the optimizer recommends purchasing at each slot.</div><div class="hc">The optimizer calculates the cheapest path through all remaining buy windows for the entire month ahead — carrying cheap fuel forward past expensive upcoming slots, always keeping reserves above the 15,000,000 floor.</div><div class="hc">Follow the suggested amounts precisely. Manual purchases you enter are folded into the plan so the remaining pathway re-optimises around them automatically.</div>'},
+  burnac:{title:'BURN/AC & CO2/AC',body:'<div class="hc"><b>BURN/AC</b> — average fuel burn per aircraft per departure in lbs. Multiplied by your active aircraft count to calculate total fleet fuel burn per slot.</div><div class="hc"><b>CO2/AC</b> — CO2 quotas burned per aircraft per departure. Multiplied by your active aircraft count to calculate total fleet CO2 burn per slot.</div><div class="hc">Both values are loaded automatically from your registered player profile if you opened the calculator via your personal link. If the fields are blank enter your values manually — check your in-game airline statistics for the correct figures.</div>'}
+};
+function showHelp(key){
+  const c=HELP_CONTENT[key]; if(!c)return;
+  document.getElementById('helpModalTitle').textContent=c.title;
+  document.getElementById('helpModalBody').innerHTML=c.body;
+  document.getElementById('helpModal').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeHelp(){
+  document.getElementById('helpModal').classList.remove('open');
+  document.body.style.overflow='';
+}
 async function init(){
   const den=getDenmarkNow();
   const dayLabel=den.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).toUpperCase();
@@ -1910,5 +1938,12 @@ function highlightNowRow(){
   }
 }
 </script>
+<div id="helpModal" onclick="if(event.target===this)closeHelp()">
+  <div id="helpModalBox">
+    <button id="helpModalClose" type="button" onclick="closeHelp()">✕</button>
+    <div id="helpModalTitle"></div>
+    <div id="helpModalBody"></div>
+  </div>
+</div>
 </body>
 </html>
