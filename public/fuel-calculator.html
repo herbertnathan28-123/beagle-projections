@@ -524,9 +524,11 @@ const BURN_PROFILE={
     'A380F|14':{ fuel:484529/2, co2:1158632/2 },
     'B747-8F|14':{ fuel:4540674/20, co2:9750688/20 },
     // Concorde runs 4h blocks (not 3.5): 20 departed
-    'Concorde|4':{ fuel:2240648/20, co2:2004177/20 }
+    'Concorde|4':{ fuel:2240648/20, co2:2004177/20 },
+    // A380-800 · 14h · clean isolated wave (everything else grounded): 20 departed,
+    // Fuel used 4,063,680. CO2 quotas not captured yet → co2:null keeps profile CO2.
+    'A380-800|14':{ fuel:4063680/20, co2:null }
     // A340-200 charter → generated from CHARTER_PROFILE below (all 1–10 cycle blocks)
-    // A380-800 14h: caption supplied but wave popup missing — pending their screenshot
   },
   // ── whitedevil123456789 — 712277555214024705 — awaiting this player's own screenshots (fuel + CO2 per block) ──
   '712277555214024705':{}
