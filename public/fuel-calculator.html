@@ -171,7 +171,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .beta{display:flex;align-items:center;gap:6px;padding:4px 8px 2px;margin:0 5px}
 .beta .etalbl{font-size:9px;font-weight:800;letter-spacing:.8px;color:#6a7a8a;flex:0 0 auto}
 .finput.feta{flex:1 1 auto;font-size:12px;padding:6px 6px;color:#8aa0b8}
-.finput.feta.has-val{color:#e8f4ff;font-weight:700;border-color:#4a7ab8!important}
+.finput.feta.has-val{color:#33ff00;font-weight:700;border-color:#23a55a!important;background:#061507}
 .trows .frow{gap:5px;padding:6px 8px}
 .finput.ftype{flex:1 1 auto;font-size:13px;font-weight:700;padding:8px 6px}
 .finput.fac{flex:0 0 62px;width:62px;color:#8aa0b8;font-size:13px;padding:8px 4px}
@@ -201,7 +201,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .daynav-today:hover{background:#22344a}
 .daynav-ro{font-size:11px;color:#c99a3a;font-style:italic}
 @media(max-width:1100px){.fleet-cards{flex-wrap:wrap}.fcard{flex:1 1 30%}}
-@media print{body{background:#fff;color:#000}.btn-row,.legend{display:none}.header{background:#f5f5f5}.co2-row{display:none!important}}.eta-countdown{font-size:9px;color:#4a9a6a;font-family:monospace;text-align:center;padding:2px 6px;min-height:13px;letter-spacing:.3px}.eta-countdown.urgent{color:#f0b429;font-weight:700}.eta-countdown.overdue{color:#33ff00;font-weight:800;animation:etapulse 1s ease-in-out infinite}@keyframes etapulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media print{body{background:#fff;color:#000}.btn-row,.legend{display:none}.header{background:#f5f5f5}.co2-row{display:none!important}}.eta-countdown{font-size:9px;color:#4a9a6a;font-family:monospace;text-align:center;padding:2px 6px;min-height:13px;letter-spacing:.3px}.eta-countdown.urgent{color:#33ff00;font-weight:800}.eta-countdown.green-active{color:#33ff00;font-weight:700}.eta-countdown.overdue{color:#33ff00;font-weight:800;animation:etapulse 1s ease-in-out infinite}@keyframes etapulse{0%,100%{opacity:1}50%{opacity:.35}}
 /* ── QAC — QUICK ACCESS CALCULATOR (WO-FUEL-QAC-001) ── */
 .qac-wrap{margin:10px 12px 0}
 .qac-tab{position:fixed;left:0;top:50%;transform:translateY(-50%) rotate(180deg);writing-mode:vertical-rl;background:#0d1e36;border:1px solid #1a5a3a;border-left:none;border-radius:6px 0 0 6px;color:#33ff00;font-size:11px;font-weight:800;letter-spacing:2px;padding:12px 6px;cursor:pointer;z-index:60;display:flex;align-items:center;gap:8px;user-select:none}
@@ -422,7 +422,7 @@ const MAX_TYPES=4;      // aircraft types per box
 const DEFAULT_DUR=24;   // a fresh box shows 24h until the player changes it
 let BOX_SEQ=0;
 function mkType(){ return {type:'',count:'',fuel:null,co2:null}; }   // fuel/co2 = per-AC burn (from profile) or null → global fallback
-function mkBox(dur){ return {key:'b'+(++BOX_SEQ), dur:(dur!=null?dur:DEFAULT_DUR), eta:'', maint:0, departed:false, types:[mkType()]}; }
+function mkBox(dur){ return {key:'b'+(++BOX_SEQ), dur:(dur!=null?dur:DEFAULT_DUR), eta:'', etaSetTime:null, maint:0, departed:false, types:[mkType()]}; }
 let BOXES=[mkBox()];
 function boxByKey(k){ return BOXES.find(b=>b.key===k); }
 function optsFor(v){ return '<option value="">— Select —</option>'+AIRCRAFT_TYPES.map(t=>`<option${t===v?' selected':''}>${t}</option>`).join(''); }
@@ -596,7 +596,7 @@ function buildFleetCards(){
         <button class="stp" type="button" onclick="stepMaint('${b.key}',-1)" title="Remove from maintenance">−</button>
         <span class="maint-info" id="mainttype_${b.key}"></span>
       </div>
-      <div class="beta"><span class="etalbl">ETA</span><input class="finput feta${b.eta?' has-val':''}" id="eta_${b.key}" type="text" placeholder="HH:MM until it lands" value="${b.eta!=null?b.eta:''}" oninput="onBoxInput();this.classList.toggle('has-val',this.value.trim().length>0)" title="Time until this box next lands/departs (HH:MM or decimal hours). Anchors the schedule; a DEP tap overrides it."></div>
+      <div class="beta"><span class="etalbl">ETA</span><input class="finput feta${b.eta?' has-val':''}" id="eta_${b.key}" type="text" placeholder="HH:MM until it lands" value="${b.eta!=null?b.eta:''}" oninput="onBoxInput();this.classList.toggle('has-val',this.value.trim().length>0)" onkeydown="if(event.key==='Enter'){confirmETA('${b.key}',this.value);this.blur()}" title="Time until this box next lands/departs (HH:MM or decimal hours). Anchors the schedule; a DEP tap overrides it."></div>
       <div class="eta-countdown" id="etacd_${b.key}"></div>
       <div class="trows">${rows}</div>
       <div class="frow frow-total">
@@ -634,7 +634,9 @@ function applyDepartClasses(){
     if(depBtn){const dep=b.departed!==false;depBtn.classList.toggle('on',dep);depBtn.textContent=dep?'DEP ✓':'DEP';}
   }
 }
+function confirmETA(key,val){ const b=boxByKey(key); if(!b)return; b.etaSetTime=val.trim()?Date.now():null; b.eta=val; saveCards(); recalc(); updateETACountdowns(); }
 function updateETACountdowns(){
+  function fmtHMS(ms){ const s=Math.max(0,Math.floor(ms/1000)); const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60; return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(sc).padStart(2,'0'); }
   const mult=speedMult();
   for(const b of BOXES){
     const el=document.getElementById('etacd_'+b.key); if(!el) continue;
@@ -644,24 +646,28 @@ function updateETACountdowns(){
       const dur=parseFloat(b.dur)||DEFAULT_DUR;
       const cycle=dur/mult;
       const etaVal=parseEtaHours(b.eta);
-      const remaining=(etaVal!==null&&etaVal>0)?(etaVal-elapsed):(cycle-elapsed);  // ETA drives countdown if set, else cycle math
+      const remaining=(etaVal!==null&&etaVal>0)?(etaVal-elapsed):(cycle-elapsed);
       if(remaining<=0){
-        el.textContent='LANDED — tap DEP to log';
+        el.textContent='00:00:00 — LANDED';
         el.className='eta-countdown overdue';
       } else {
-        const rh=Math.floor(remaining);
-        const rm=Math.round((remaining-rh)*60);
-        el.textContent=rh+'h '+(rm<10?'0':'')+rm+'m until lands';
-        el.className='eta-countdown'+(remaining<0.75?' urgent':'');
+        el.textContent=fmtHMS(remaining*3600000);
+        el.className='eta-countdown green-active';
       }
-    } else if(b.eta){
-      const eta=parseEtaHours(b.eta);
-      if(eta!==null&&eta>0){
-        const eh=Math.floor(eta),em=Math.round((eta-eh)*60);
-        el.textContent='~'+eh+'h '+(em<10?'0':'')+em+'m until lands';
-        el.className='eta-countdown';
-      } else { el.textContent=''; el.className='eta-countdown'; }
-    } else { el.textContent=''; el.className='eta-countdown'; }
+    } else if(b.etaSetTime&&b.eta){
+      const etaMs=(parseEtaHours(b.eta)||0)*3600000;
+      const remainingMs=etaMs-(Date.now()-b.etaSetTime);
+      if(remainingMs<=0){
+        el.textContent='00:00:00 — LANDED';
+        el.className='eta-countdown overdue';
+      } else {
+        el.textContent=fmtHMS(remainingMs);
+        el.className='eta-countdown green-active';
+      }
+    } else {
+      el.textContent='00:00';
+      el.className='eta-countdown';
+    }
   }
 }
 function toggleDepart(key){
@@ -741,7 +747,7 @@ function saveCards(){
     syncBoxesFromDOM();
     const b=document.getElementById('fourxBtn');
     localStorage.setItem(LSK('fleet'),JSON.stringify({
-      boxes:BOXES.map(x=>({dur:x.dur,eta:x.eta,maint:x.maint,departed:x.departed,types:x.types.map(t=>({type:t.type,count:t.count,fuel:t.fuel,co2:t.co2}))})),
+      boxes:BOXES.map(x=>({dur:x.dur,eta:x.eta,etaSetTime:x.etaSetTime||null,maint:x.maint,departed:x.departed,types:x.types.map(t=>({type:t.type,count:t.count,fuel:t.fuel,co2:t.co2}))})),
       mode:gv('gameMode'), fourx:b?b.classList.contains('on'):true
     }));
   }catch(e){}
@@ -757,7 +763,7 @@ function restoreCards(){
       BOXES=d.boxes.map(x=>({
         key:'b'+(++BOX_SEQ),
         dur:(x.dur!=null?x.dur:DEFAULT_DUR),
-        eta:(x.eta!=null?x.eta:''),
+        eta:(x.eta!=null?x.eta:''), etaSetTime:(x.etaSetTime||null),
         maint:parseInt(x.maint)||0,
         departed:(typeof x.departed==='number')?x.departed:false,
         types:(Array.isArray(x.types)&&x.types.length?x.types:[mkType()]).slice(0,MAX_TYPES)
@@ -1639,6 +1645,8 @@ async function init(){
     highlightNowRow();
     if(typeof updateETACountdowns==="function") updateETACountdowns();  // keep countdowns ticking
   },30000);
+  // Live ETA stopwatch — ticks every second so countdown reads like a real clock
+  setInterval(()=>{ if(typeof updateETACountdowns==="function") updateETACountdowns(); },1000);
 }
 init();
 
