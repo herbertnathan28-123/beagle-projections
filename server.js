@@ -16,6 +16,7 @@ const engine     = require('./lib/engine');
 const parse      = require('./lib/parse');
 const calculator = require('./lib/calculator');
 const fuel       = require('./lib/fuel');
+const fuelAlerts = require('./lib/fuelAlerts');
 const hunter     = require('./lib/hunter');
 const { buildCalcPage }      = require('./views/calc');
 const { HQ_HTML }            = require('./views/hq');
@@ -68,6 +69,11 @@ if (hunterData) console.log('[HUNTER] Loaded persisted data from disk');
 
 const saveFuelProfiles     = () => storage.writeJSON(cfg.FUEL_PROFILES_FILE, fuelProfiles);
 const saveFuelApprovedUsers = () => storage.writeJSON(cfg.FUEL_APPROVED_USERS_FILE, fuelApprovedUsers);
+
+// Per-player buy plans pushed from the calculator (drive the 15-min alerts).
+let fuelPlans = storage.readJSON(cfg.FUEL_PLANS_FILE, {});
+if (Object.keys(fuelPlans).length) console.log('[STARTUP] Fuel plans loaded: ' + Object.keys(fuelPlans).length);
+const saveFuelPlans = () => storage.writeJSON(cfg.FUEL_PLANS_FILE, fuelPlans);
 
 function logFuelAccess(did, name, action) {
   const log = storage.readJSON(FUEL_ACCESS_LOG_FILE, []);
@@ -612,6 +618,29 @@ app.get('/api/fuel-profile', (req, res) => {
   res.json({ found: true, profile });
 });
 
+// ── FUEL BUY-ALERT PLAN PUSH ───────────────────────────────────────────────
+// The registered player's calculator posts its own optimiser plan (per-slot
+// suggested buys for fuel + CO2, sugAll layout) here. The server caches it per
+// player and the 15-min scheduler fires #fuel-alert warnings from it — so
+// alerts work even when the player's page is closed. No secret in this request;
+// it only sets that player's own alert plan, and only for a registered id.
+app.post('/api/fuel-plan', (req, res) => {
+  const { discord_id, baseDay, fsug, csug } = req.body || {};
+  const did = String(discord_id || '').replace(/[^0-9]/g, '');
+  if (!(/^\d{17,20}$/).test(did)) return res.status(400).json({ ok: false, error: 'Invalid Discord ID' });
+  if (!fuelProfiles[did]) return res.status(403).json({ ok: false, error: 'Not a registered fuel profile' });
+  const day = parseInt(baseDay, 10);
+  if (!(day >= 1 && day <= 31)) return res.status(400).json({ ok: false, error: 'Invalid baseDay' });
+  if (!Array.isArray(fsug) || !Array.isArray(csug)) return res.status(400).json({ ok: false, error: 'fsug/csug must be arrays' });
+  const MAX = 32 * 48;   // guard: at most a full month of 30-min slots
+  if (fsug.length > MAX || csug.length > MAX) return res.status(400).json({ ok: false, error: 'plan too long' });
+  // Coerce to finite non-negative numbers — never store junk that could mis-fire an alert.
+  const clean = a => a.map(v => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; });
+  fuelPlans[did] = { baseDay: day, fsug: clean(fsug), csug: clean(csug), updated: new Date().toISOString() };
+  saveFuelPlans();
+  res.json({ ok: true });
+});
+
 // ── MAINTENANCE TRACKER ROUTES ────────────────────────────────────────────
 app.get('/api/maintenance/:discordId', (req, res) => {
   const did = String(req.params.discordId || '').replace(/[^0-9]/g, '');
@@ -870,6 +899,33 @@ app.get('*', (req, res) => {
   logVisit(req);
   res.type('html').send(HTML_COMPILED);
 });
+
+// ── FUEL BUY-ALERT SCHEDULER ───────────────────────────────────────────────
+// Every minute, on the :15 and :45 marks, fire a 15-min buy warning to
+// #fuel-alert for each registered player whose pushed plan has a buy in the
+// upcoming slot. Game time = UTC. Each (player, day, slot) fires at most once
+// (firedKey guard), and plans older than 3 days are skipped as stale.
+const FUEL_ALERT_MAX_AGE_DAYS = 3;
+const _firedAlertKeys = new Set();
+let _lastAlertMinuteKey = '';
+function runFuelAlertPass(now) {
+  const minuteKey = now.getUTCFullYear() + '-' + now.getUTCMonth() + '-' + now.getUTCDate() +
+                    'T' + now.getUTCHours() + ':' + now.getUTCMinutes();
+  if (minuteKey === _lastAlertMinuteKey) return;   // don't repeat within the same minute
+  if (!fuelAlerts.isWarningMinute(now)) return;
+  _lastAlertMinuteKey = minuteKey;
+  if (!cfg.FUEL_ALERT_WEBHOOK) { console.log('[FUEL-ALERT] Skipped — FUEL_ALERT_WEBHOOK not set'); return; }
+  const due = fuelAlerts.dueAlerts(fuelPlans, now, FUEL_ALERT_MAX_AGE_DAYS);
+  for (const a of due) {
+    const key = fuelAlerts.firedKey(now, a);
+    if (_firedAlertKeys.has(key)) continue;   // already fired this (player, day, slot)
+    _firedAlertKeys.add(key);
+    storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK, a.message, 'fuel-alert');
+    console.log('[FUEL-ALERT] ' + a.discordId + ' @ ' + a.label + ' fuel=' + a.fuel + ' co2=' + a.co2);
+  }
+  if (_firedAlertKeys.size > 5000) _firedAlertKeys.clear();   // bound the dedup set (rolls over daily anyway)
+}
+setInterval(() => { try { runFuelAlertPass(new Date()); } catch (e) { console.error('[FUEL-ALERT] pass error:', e.message); } }, 60000);
 
 storage.checkPersistence();
 app.listen(PORT, () => console.log(`Beagle Projections live on port ${PORT}`));

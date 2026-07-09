@@ -982,6 +982,7 @@ function recalc(){
   const fPlan=monthPathway(startRes,fuelTank,MIN_FUEL,BURNS,0,fPurchased);
   const cPlan=monthPathway(startCO2,co2Tank,MIN_CO2,CO2B,1,co2Purchased);
   const today=fPlan.today, daysInMonth=fPlan.daysInMonth;
+  pushFuelPlan(fPlan.today, fPlan.sugAll, cPlan.sugAll);   // keep the server's 15-min buy-alert plan in sync
   const vDay=Math.max(today,Math.min(today+(VIEW_OFFSET||0),daysInMonth));
   VIEW_OFFSET=vDay-today;                        // clamp offset into range
   const isToday=(vDay===today), offset=(vDay-today)*48;
@@ -1411,6 +1412,26 @@ function runQAC(){
   const mpC=monthPathway(co2Res,co2Tank,MIN_CO2,CO2B,1,noManual);
   renderQACBuys('qacFuelBuys',qacRows(mpF),false,'lbs');
   renderQACBuys('qacCO2Buys',qacRows(mpC),true,'quotas');
+}
+
+// ── SERVER PLAN PUSH (drives the per-player 15-min Discord buy alert) ─────────
+// A registered player's calculator posts its own optimiser plan (full-month
+// sugAll for fuel + CO2) to the server, which fires #fuel-alert warnings from it
+// even when this page is closed. Debounced (recalc fires often) and skipped when
+// the plan hasn't changed. Only registered players (opened via their ?did link)
+// push — window.__FUEL_PROFILE__.discord_id gates it.
+let _planPushTimer=null,_lastPlanPushKey='';
+function pushFuelPlan(baseDay,fsugAll,csugAll){
+  const did=window.__FUEL_PROFILE__&&window.__FUEL_PROFILE__.discord_id; if(!did) return;
+  const key=baseDay+'|'+fsugAll.join(',')+'|'+csugAll.join(',');
+  if(key===_lastPlanPushKey) return;                 // nothing changed → no POST
+  clearTimeout(_planPushTimer);
+  _planPushTimer=setTimeout(()=>{
+    _lastPlanPushKey=key;
+    fetch('/api/fuel-plan',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({discord_id:String(did),baseDay,fsug:fsugAll,csug:csugAll})})
+      .catch(e=>console.warn('[FUEL] plan push failed:',e));
+  },3000);
 }
 
 // ── BUY ALERTS (WO-FUEL-ALERTS-001) ──────────────────────────────────────────

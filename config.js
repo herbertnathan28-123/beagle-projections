@@ -16,6 +16,8 @@ const ALLIANCE_UPLOAD_WEBHOOK        = process.env.ALLIANCE_UPLOADS || '';
 const PLAYER_STATS_WEBHOOK           = process.env.PLAYER_STATS || '';
 // FUEL_CO2_SCREENSHOOT_UPLOAD — personal fuel-dashboard link (auto-deletes)
 const FUEL_SCREENSHOT_UPLOAD_WEBHOOK = process.env.FUEL_CO2_SCREENSHOOT_UPLOAD || '';
+// FUEL_ALERT_WEBHOOK — #fuel-alert channel; per-player 15-min buy warnings (server-scheduled)
+const FUEL_ALERT_WEBHOOK             = process.env.FUEL_ALERT_WEBHOOK || '';
 
 // ── PERSISTENT DISK STATE FILES ────────────────────────────────────────────
 const STATE_FILE             = '/data/state.json';
@@ -27,6 +29,7 @@ const FUEL_ACCESS_LOG_FILE   = '/data/fuel_access_log.json';
 const FUEL_APPROVED_USERS_FILE = '/data/fuel_approved_users.json';
 const HUNTER_DATA_FILE       = '/data/hunter_data.json';
 const FUEL_PATH_FILE         = '/data/fuel-path.json';
+const FUEL_PLANS_FILE        = '/data/fuel_plans.json';   // per-player pushed buy plans (drives 15-min alerts)
 
 // ── PROJECTION / SCORING ASSUMPTIONS ───────────────────────────────────────
 // Merit score = weighted blend of the six per-player component scores.
@@ -136,9 +139,10 @@ for (let h = 1; h <= 24; h += 0.5) CALC_TIMES.push(h);
 module.exports = {
   SECRET, N8N_TOKEN, HQ_N8N_TOKEN,
   ALLIANCE_UPLOAD_WEBHOOK, PLAYER_STATS_WEBHOOK, FUEL_SCREENSHOT_UPLOAD_WEBHOOK,
+  FUEL_ALERT_WEBHOOK,
   STATE_FILE, HQ_STATE_FILE, SNAPSHOT_HISTORY_FILE, MANUAL_OVERRIDES_FILE,
   FUEL_PROFILES_FILE, FUEL_ACCESS_LOG_FILE, FUEL_APPROVED_USERS_FILE,
-  HUNTER_DATA_FILE, FUEL_PATH_FILE,
+  HUNTER_DATA_FILE, FUEL_PATH_FILE, FUEL_PLANS_FILE,
   MERIT_WEIGHTS, SNAPSHOT_LIMIT, IMPROVED_WINDOW_DAYS,
   DEFAULT_DATA, AIRCRAFT_DATA, AIRCRAFT_REVENUE, AIRCRAFT_BURN_HOUR, FUEL_SCHEDULE,
   ALL_DISTANCES, CALC_TIMES,
