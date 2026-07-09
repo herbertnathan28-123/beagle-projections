@@ -466,14 +466,37 @@ const BURN_PROFILE={
     'A380F|14':{ fuel:484529/2, co2:1158632/2 },
     'B747-8F|14':{ fuel:4540674/20, co2:9750688/20 },
     // Concorde runs 4h blocks (not 3.5): 20 departed
-    'Concorde|4':{ fuel:2240648/20, co2:2004177/20 },
-    // A340-200 charters: 9.5h per cycle × 10 cycles per departure → 95h box; totals are per DEPARTURE
-    'A340-200|95':{ fuel:40789334/20, co2:45416618/20 }
+    'Concorde|4':{ fuel:2240648/20, co2:2004177/20 }
+    // A340-200 charter → generated from CHARTER_PROFILE below (all 1–10 cycle blocks)
     // A380-800 14h: caption supplied but wave popup missing — pending their screenshot
   },
   // ── whitedevil123456789 — 712277555214024705 — awaiting this player's own screenshots (fuel + CO2 per block) ──
   '712277555214024705':{}
 };
+// ── CHARTERS — cycle-aware expansion ─────────────────────────────────────────
+// AM4 charters lock in 1–10 CYCLES per departure: the same route flown N times
+// back-to-back, so burn scales linearly with cycles and per-CYCLE burn is the
+// true base unit. Spec holds the measured per-cycle per-AC figures; expanded
+// into BURN_PROFILE blocks for every cycle count (cycleHours×1 … ×10), so the
+// player just sets their charter box's flight time to cycleHours × cycles and
+// the right per-departure burn is picked up. No separate cycles control needed.
+const CHARTER_CYCLES_MAX=10;
+const CHARTER_PROFILE={
+  // wingfoot3 · A340-200 · 9.5h/cycle · measured at 10 cycles, 20 A/C:
+  //   ΣFuel 40,789,334 ÷ 20 ÷ 10 and ΣCO2 45,416,618 ÷ 20 ÷ 10 per cycle per A/C
+  '1373719656455602267':{
+    'A340-200':{ cycleHours:9.5, fuel:40789334/200, co2:45416618/200 }
+  }
+};
+for(const did in CHARTER_PROFILE){
+  const P=BURN_PROFILE[did]||(BURN_PROFILE[did]={});
+  for(const type in CHARTER_PROFILE[did]){
+    const c=CHARTER_PROFILE[did][type];
+    for(let n=1;n<=CHARTER_CYCLES_MAX;n++){
+      P[type+'|'+(Math.round(c.cycleHours*n*100)/100)]={ fuel:c.fuel*n, co2:(c.co2!=null)?c.co2*n:null };
+    }
+  }
+}
 function burnBlockFor(did,type,hours){
   const P=BURN_PROFILE[String(did==null?'':did)]; if(!P) return null;   // player not measured → no override
   if(type==null||hours==null||hours==='') return null;
