@@ -32,6 +32,7 @@ const FUEL_APPROVED_USERS_FILE = '/data/fuel_approved_users.json';
 const HUNTER_DATA_FILE       = '/data/hunter_data.json';
 const FUEL_PATH_FILE         = '/data/fuel-path.json';
 const FUEL_PLANS_FILE        = '/data/fuel_plans.json';   // per-player pushed buy plans (drives 15-min alerts)
+const FUEL_PUSH_SUBS_FILE    = '/data/fuel_push_subs.json'; // per-player web-push subscriptions (on-screen alerts)
 
 // ── PROJECTION / SCORING ASSUMPTIONS ───────────────────────────────────────
 // Merit score = weighted blend of the six per-player component scores.
@@ -150,7 +151,7 @@ module.exports = {
   FUEL_ALERT_WEBHOOK,
   STATE_FILE, HQ_STATE_FILE, SNAPSHOT_HISTORY_FILE, MANUAL_OVERRIDES_FILE,
   FUEL_PROFILES_FILE, FUEL_ACCESS_LOG_FILE, FUEL_APPROVED_USERS_FILE,
-  HUNTER_DATA_FILE, FUEL_PATH_FILE, FUEL_PLANS_FILE,
+  HUNTER_DATA_FILE, FUEL_PATH_FILE, FUEL_PLANS_FILE, FUEL_PUSH_SUBS_FILE,
   MERIT_WEIGHTS, SNAPSHOT_LIMIT, IMPROVED_WINDOW_DAYS,
   DEFAULT_DATA, AIRCRAFT_DATA, AIRCRAFT_REVENUE, AIRCRAFT_BURN_HOUR, FUEL_SCHEDULE,
   ALL_DISTANCES, CALC_TIMES,

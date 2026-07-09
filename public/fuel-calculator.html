@@ -687,6 +687,7 @@ function buildFleetCards(){
     <span class="mcount" id="boxCount">${BOXES.length}</span>
     <button class="stp" type="button" onclick="addBox()" title="Add a strategy box">+</button>
     <button class="depall-btn" type="button" onclick="departAll()" title="Depart / recall ALL boxes at once">DEP ALL</button>
+    ${window.__FUEL_PLAN_TOKEN__?`<button class="depall-btn" type="button" id="pushAlertBtn" onclick="enablePushAlerts()" title="Get buy alerts on THIS device even with the calculator closed. iPad: first Share → Add to Home Screen, open from the icon, then tap this.">🔔 ALERTS</button>`:''}
     <span class="bc-hint">each box = one flight time · up to 4 aircraft types</span>
   </div>`;
   for(let _bi=0;_bi<BOXES.length;_bi++){const b=BOXES[_bi];
@@ -735,6 +736,7 @@ function buildFleetCards(){
   applyDepartClasses();
   if(typeof updateETACountdowns==="function") updateETACountdowns();
   if(typeof updateFleetBurnDisplays==="function") updateFleetBurnDisplays();
+  if(typeof refreshPushBtnState==="function") refreshPushBtnState();   // rebuilt button reflects an existing push subscription
 }
 // Departure toggle. box.departed holds either false (not departed → orange) or the
 // game-time hour at which DEP was pressed (departed → green). That press-time anchors
@@ -1727,6 +1729,46 @@ function pushFuelPlan(baseDay,fsugAll,csugAll){
       body:JSON.stringify({discord_id:String(did),baseDay,fsug:fsugAll,csug:csugAll,plan_token:tok})})
       .catch(e=>console.warn('[FUEL] plan push failed:',e));
   },3000);
+}
+
+// ── WEB PUSH — on-screen system notifications with the calculator CLOSED ─────
+// The server pushes buy alerts straight to this device (independent of Discord).
+// iOS/iPadOS requirement: web push only reaches pages installed to the Home
+// Screen (Share → Add to Home Screen, then open from the icon). The 🔔 ALERTS
+// button appears only on a registered player's personal page (needs the plan
+// token) and must be a user gesture — iOS blocks permission prompts otherwise.
+function urlB64ToU8(s){ const p='='.repeat((4-s.length%4)%4); const b=(s+p).replace(/-/g,'+').replace(/_/g,'/'); const raw=atob(b); const a=new Uint8Array(raw.length); for(let i=0;i<raw.length;i++)a[i]=raw.charCodeAt(i); return a; }
+async function enablePushAlerts(){
+  const btn=document.getElementById('pushAlertBtn');
+  try{
+    const did=window.__FUEL_PROFILE__&&window.__FUEL_PROFILE__.discord_id, tok=window.__FUEL_PLAN_TOKEN__;
+    if(!did||!tok){ alert('Open your personal calculator link (?did=...) first.'); return; }
+    if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){
+      alert('This browser cannot receive push here.\n\niPad/iPhone: tap Share → Add to Home Screen, open the calculator from that icon, then tap 🔔 ALERTS again.');
+      return;
+    }
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){ alert('Notifications were not allowed. Enable them for this app in Settings, then try again.'); return; }
+    const reg=await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+    const kr=await fetch('/api/fuel-push-key'); const {key}=await kr.json();
+    if(!key){ alert('Server push is not configured yet.'); return; }
+    const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToU8(key)});
+    const r=await fetch('/api/fuel-push-subscribe',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({discord_id:String(did),plan_token:tok,subscription:sub})});
+    const d=await r.json();
+    if(d.ok){ if(btn){btn.textContent='🔔 ALERTS ON';btn.disabled=true;} }
+    else alert('Subscribe failed: '+(d.error||'unknown'));
+  }catch(e){ alert('Push setup failed: '+(e&&e.message||e)); }
+}
+// Reflect an existing subscription on load (button shows ON instead of re-prompting).
+async function refreshPushBtnState(){
+  try{
+    if(!('serviceWorker' in navigator)||!('PushManager' in window)) return;
+    const reg=await navigator.serviceWorker.getRegistration('/sw.js'); if(!reg) return;
+    const sub=await reg.pushManager.getSubscription();
+    if(sub){ const btn=document.getElementById('pushAlertBtn'); if(btn){btn.textContent='🔔 ALERTS ON';btn.disabled=true;} }
+  }catch(_){}
 }
 
 // ── BUY ALERTS (WO-FUEL-ALERTS-001) ──────────────────────────────────────────
