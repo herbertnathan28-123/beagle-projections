@@ -993,7 +993,9 @@ function monthOptimize(startRes, tank, minR, price, burn, manual){
       const need=pre[k]-pre[i];                         // net demand from i until the next cheaper slot
       const want=Math.max(0,(minR+need)-reserve);       // enough to reach k above the floor
       const cap=Math.max(0,tank-Math.max(0,reserve-burn[i]));   // headroom after burn, clamped — matches the table's maxBuy = tank - max(0, afterBurn); never exceeds one tank
-      const b=Math.min(want,cap);
+      // Fill to full when extra headroom would be consumed before the next cheaper slot
+      const extraCap=Math.max(0,cap-want);
+      const b=Math.min(cap,extraCap>0&&need>=extraCap?cap:want);
       if(b>1){ sug[i]=b; reserve+=b; }   // >1 (not >0): drop sub-lb floating-point dust buys that pollute the plan/PDF/QAC
     }
     reserve-=d[i];                                       // net: consume burn, credit committed purchase
