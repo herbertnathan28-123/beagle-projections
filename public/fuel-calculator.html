@@ -482,6 +482,11 @@ const BURN_PROFILE={
 // the right per-departure burn is picked up. No separate cycles control needed.
 const CHARTER_CYCLES_MAX=10;
 const CHARTER_PROFILE={
+  // .ATLAS. · A330-900neo · 21h/cycle · 7 of 10 charters sampled (one popup each,
+  //   cycle 1/10, own routes ~10,200–12,000 km): ΣFuel 9,638,629 · ΣCO2 45,596,824 ÷ 7
+  '690861328507731978':{
+    'A330-900neo':{ cycleHours:21, fuel:9638629/7, co2:45596824/7 }
+  },
   // wingfoot3 · A340-200 · 9.5h/cycle · measured at 10 cycles, 20 A/C:
   //   ΣFuel 40,789,334 ÷ 20 ÷ 10 and ΣCO2 45,416,618 ÷ 20 ÷ 10 per cycle per A/C
   '1373719656455602267':{
