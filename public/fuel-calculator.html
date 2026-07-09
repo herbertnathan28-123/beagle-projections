@@ -421,10 +421,12 @@ const BURN_PROFILE={
   '690861328507731978':{
     // A380-800 · 14h · FUEL from reserve-delta ÷ flights-operated count (exact divisor):
     //   reserve 1,036,074,808 − 763,782,862 = 272,291,946 Lbs; flights 5,912,101 − 5,911,101
-    //   = 1,000 A/C departed → 272,291.95/AC. CO2 from 17-wave sample (340 A/C): ΣCO2 397,891,122.
-    'A380-800|14':{ fuel:272291946/1000, co2:397891122/340 },
-    // A380-800 · 21h · 9 waves (20×7 + 18 + 10) = 168 A/C sampled · ΣFuel 56,561,021 · ΣCO2 231,763,904
-    'A380-800|21':{ fuel:56561021/168, co2:231763904/168 },
+    //   = 1,000 A/C departed → 272,291.95/AC. CO2 from profile shots (co2:null).
+    'A380-800|14':{ fuel:272291946/1000, co2:null },
+    // A380-800 · 21h · FUEL from 9-wave sample (20×7 + 18 + 10 = 168 A/C): ΣFuel 56,561,021
+    //   → 336,672.74/AC (2 waves missing; upgrade to reserve-delta when before-reserve given).
+    //   CO2 from profile shots (co2:null).
+    'A380-800|21':{ fuel:56561021/168, co2:null },
     // Concorde · 3.5h · FUEL from reserve-delta: 1,101,567,537 − 1,036,074,808 = 65,492,729 Lbs
     //   over 462 A/C. CO2 not yet measured → co2:null keeps this player's own profile CO2.
     'Concorde|3.5':{ fuel:65492729/462, co2:null },
