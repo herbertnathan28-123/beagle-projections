@@ -1930,11 +1930,14 @@ async function init(){
     // (banner + tone). recalc() above has refreshed FSUG/CSUG for the current day. Only when
     // viewing today (VIEW_OFFSET===0); guarded by _lastAlertSlot so it never re-fires same slot.
     if(slot!==_lastAlertSlot && VIEW_OFFSET===0){
-      const _fp=PRICES[slot]||0, _cp=CO2P[slot]||0;
-      // Alert only on green (cheap) price zones — amber/grey slots may have optimizer buys
-      // but they're not urgent; the table shows them. Fuel ≤$500, CO2 ≤$114.
-      if(FSUG[slot]>0 && _fp>0 && _fp<=500){ playAlertTone('fuel'); showAlertBanner('fuel',slot,FSUG[slot]); }
-      if(CSUG[slot]>0 && _cp>0 && _cp<=114){ playAlertTone('co2');  showAlertBanner('co2', slot,CSUG[slot]); }
+      // Alert fires at the FIRST slot of each buying sequence — when the previous slot
+      // had no suggested buy but this one does. One alert per buying window, not one
+      // per stepping-stone slot. The table shows full detail; alert is the trigger to act.
+      // Covers green fill-ups AND cheapest intermediate steps alike — all optimizer buys
+      // are valid (buy at cheap, bridge minimum to next cheap, fill at cheap again).
+      const _prev=slot>0?slot-1:0;
+      if(FSUG[slot]>0 && (FSUG[_prev]||0)===0){ playAlertTone('fuel'); showAlertBanner('fuel',slot,FSUG[slot]); }
+      if(CSUG[slot]>0 && (CSUG[_prev]||0)===0){ playAlertTone('co2');  showAlertBanner('co2', slot,CSUG[slot]); }
       _lastAlertSlot=slot;
     }
     _lastSlot=slot;
