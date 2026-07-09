@@ -1879,12 +1879,35 @@ async function init(){
       if(!document.getElementById(id).value){const sv=localStorage.getItem(LSK(id));if(sv){const e=document.getElementById(id);if(e)e.value=sv;}}
     });
     ['fuelTank','co2Tank','startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>saveTank(id));
+    // ── RUNTIME STATE RESTORE (WO-FUEL-DEP-PERSIST-001) ──
+    // Profile builds the fleet skeleton (types, counts, burn rates).
+    // localStorage holds the player's live state — DEP timestamp, ETA, MAINT, schedule lock.
+    // Overlay the saved runtime state on top of the fresh profile boxes (matched by index:
+    // profile and saved boxes are sorted identically — longest duration first).
+    // Without this, every page reload clears DEP (amber), drops ETA and wipes SCHEDULE: LOCKED.
+    try{
+      const _sv=JSON.parse(localStorage.getItem(LSK('fleet'))||'{}');
+      if(_sv.boxes&&_sv.boxes.length===BOXES.length){
+        _sv.boxes.forEach((x,i)=>{
+          if(!BOXES[i])return;
+          if(typeof x.departed==='number') BOXES[i].departed=x.departed;
+          if(x.eta!=null&&x.eta!==''){BOXES[i].eta=x.eta;}
+          if(x.etaSetTime) BOXES[i].etaSetTime=x.etaSetTime;
+          if(typeof x.maint==='number'&&x.maint>0) BOXES[i].maint=x.maint;
+        });
+        buildFleetCards();
+        if(typeof applyDepartClasses==='function') applyDepartClasses();
+        if(typeof updateETACountdowns==='function') updateETACountdowns();
+      }
+      const _sl=localStorage.getItem(LSK('schedLock'));
+      if(_sl==='1') setScheduleLock(true);
+    }catch(_){}
     saveCards();
   }
   else {
-    // No profile and no ?seed — fleet cards stay blank (only load from server profile or seed).
-    // Tank/reserve fields restore from browser storage so user-entered values survive refresh.
+    // No profile and no ?seed — restore full fleet state (boxes + tanks + schedule lock).
     restoreTanks();
+    try{ restoreCards(); }catch(_){}
   }
   // Reserves come from the server profile (screenshot → n8n → /api/fuel-profile → this link),
   // which is the authoritative live figure. The profile value populated above stands — we no
