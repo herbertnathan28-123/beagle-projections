@@ -515,10 +515,11 @@ const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300',
 const BURN_PROFILE={
   // ── .ATLAS. / BEAGLE GLOBAL — 690861328507731978 ──
   '690861328507731978':{
-    // A380-800 · 14h · FUEL from reserve-delta ÷ flights-operated count (exact divisor):
-    //   reserve 1,036,074,808 − 763,782,862 = 272,291,946 Lbs; flights 5,912,101 − 5,911,101
-    //   = 1,000 A/C departed → 272,291.95/AC. CO2 from profile shots (co2:null).
-    'A380-800|14':{ fuel:272291946/1000, co2:null },
+    // A380-800 · 14h · FUEL set to the operator's original Multi-Step spreadsheet figure
+    //   274,287.723/AC (997 × 274,287.723 = 273,464,860) — operator judged the measured
+    //   reserve-delta (272,291.946/AC) under-burns in practice; the original runs ~0.73%
+    //   higher as a safety buffer. CO2 from profile shots (co2:null).
+    'A380-800|14':{ fuel:274287.723, co2:null },
     // A380-800 · 21h · FUEL from 9-wave sample (20×7 + 18 + 10 = 168 A/C): ΣFuel 56,561,021
     //   → 336,672.74/AC (2 waves missing; upgrade to reserve-delta when before-reserve given).
     //   CO2 from profile shots (co2:null).
