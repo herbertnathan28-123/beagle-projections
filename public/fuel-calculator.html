@@ -1667,10 +1667,13 @@ function openQAC(){
 // Mirror the header reserves into the QAC so the player doesn't re-type them. Only fills
 // blanks — anything the player typed into the QAC (an off-plan "current" figure) is kept.
 function qacSyncReserves(){
+  // Always reset QAC fields to header reserves on open.
+  // Player can override manually during the session;
+  // closing and reopening always restores header values.
   const f=document.getElementById('qacFuelRes'), c=document.getElementById('qacCO2Res');
   const sr=gv('startRes'), sc=gv('startCO2');
-  if(f && !f.value && sr) f.value=sr;
-  if(c && !c.value && sc) c.value=sc;
+  if(f && sr) f.value=sr;
+  if(c && sc) c.value=sc;
 }
 // QAC is a RESCUE calculator, not a price finder. It reads the master optimizer's
 // full-month pathway (mp.rows — the scheduled buy checkpoints), takes the next up to 3
