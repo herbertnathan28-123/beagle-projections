@@ -515,11 +515,13 @@ const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300',
 const BURN_PROFILE={
   // ── .ATLAS. / BEAGLE GLOBAL — 690861328507731978 ──
   '690861328507731978':{
-    // A380-800 · 14h · FUEL set to the operator's original Multi-Step spreadsheet figure
-    //   274,287.723/AC (997 × 274,287.723 = 273,464,860) — operator judged the measured
-    //   reserve-delta (272,291.946/AC) under-burns in practice; the original runs ~0.73%
-    //   higher as a safety buffer. CO2 from profile shots (co2:null).
-    'A380-800|14':{ fuel:274287.723, co2:null },
+    // A380-800 · 14h · FUEL derived from the operator's fleet-average target (10 Jul):
+    //   full 1,051-A/C 14h departure (998 A380-800 + 43 B747-8F + 10 A380F) must average
+    //   274,808.1627021883/AC → total 288,823,379 Lbs (= 1051 × avg, exact). Subtracting
+    //   the measured freighter burns below (13,452,553 + 3,420,980) leaves 271,949,846 Lbs
+    //   over 998 A/C = 272,494.8357/AC. Replaces the prior Multi-Step spreadsheet figure
+    //   (274,287.723/AC). CO2 from profile shots (co2:null).
+    'A380-800|14':{ fuel:271949846/998, co2:null },
     // A380-800 · 21h · FUEL from 9-wave sample (20×7 + 18 + 10 = 168 A/C): ΣFuel 56,561,021
     //   → 336,672.74/AC (2 waves missing; upgrade to reserve-delta when before-reserve given).
     //   CO2 from profile shots (co2:null).
