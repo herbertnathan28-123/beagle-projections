@@ -1390,7 +1390,7 @@ function recalc(){
       <td style="color:${hasSug?'#23a55a':'#2a4a60'};font-style:${hasSug?'italic':'normal'};font-weight:${hasSug?700:400};background:${hasSug?'rgba(35,165,90,0.08)':'transparent'}">${fmt(FSUG[i])}</td>
       <td style="color:${lc};font-weight:${parseFloat(lastsStr)<4&&lastsStr!=='>24h'?700:400}">${lastsStr}</td>
       <td style="padding:3px 5px;background:#141a0a;border-left:1px solid #2a3a10;border-right:1px solid #2a3a10">
-        <input type="number" class="cell-input buy-input ${hasBought?'has-val':''} ${overLimit?'over-limit':''}" data-slot-id="buy-${i}" value="${hasBought?(fPur[i]||''):''}" placeholder="${isToday?fmt(maxBuy):fmt(FSUG[i])}" min="0" max="${maxBuy}" step="1000000" ${isToday?`onchange="setBought(${i},this.value,${maxBuy})"`:'readonly'}>
+        <input type="number" class="cell-input buy-input ${hasBought?'has-val':''} ${overLimit?'over-limit':''}" data-slot-id="buy-${i}" value="${hasBought?(fPur[i]||''):''}" placeholder="${FSUG[i]>0?(isToday?fmt(maxBuy):fmt(FSUG[i])):''}" min="0" max="${maxBuy}" step="1000000" ${isToday?`onchange="setBought(${i},this.value,${maxBuy})"`:'readonly'}>
         ${overLimit?`<div class="warn-msg">⚠ Exceeds max ${fmt(maxBuy)} lbs</div>`:''}
       </td>
       <td class="c" style="border-left:3px solid #2a5a2a">
@@ -1400,7 +1400,7 @@ function recalc(){
         ${CSUG[i]>0?fmt(CSUG[i]):'—'}
       </td>
       <td style="padding:3px 4px;border-left:1px solid #1a3a1a">
-        <input type="number" class="cell-input co2-buy-input ${co2Bought>0?'has-val':''} ${co2OverLimit?'over-limit':''}" data-slot-id="co2-buy-${i}" value="${co2Bought>0?(cPur[i]||''):''}" placeholder="${sugValC}" min="0" max="${co2MaxBuy}" step="1000000" ${isToday?`onchange="setCO2Bought(${i},this.value,${co2MaxBuy})"`:'readonly'} style="color:${co2Bought>0?'#90d060':'#4a7a40'};width:95px">
+        <input type="number" class="cell-input co2-buy-input ${co2Bought>0?'has-val':''} ${co2OverLimit?'over-limit':''}" data-slot-id="co2-buy-${i}" value="${co2Bought>0?(cPur[i]||''):''}" placeholder="${CSUG[i]>0?sugValC:''}" min="0" max="${co2MaxBuy}" step="1000000" ${isToday?`onchange="setCO2Bought(${i},this.value,${co2MaxBuy})"`:'readonly'} style="color:${co2Bought>0?'#90d060':'#4a7a40'};width:95px">
         ${co2OverLimit?`<div class="warn-msg">⚠ Over limit</div>`:''}
       </td>
       <td style="padding:2px 4px">
