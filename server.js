@@ -72,7 +72,7 @@ if (hunterData) console.log('[HUNTER] Loaded persisted data from disk');
 const saveFuelProfiles     = () => storage.writeJSON(cfg.FUEL_PROFILES_FILE, fuelProfiles);
 const saveFuelApprovedUsers = () => storage.writeJSON(cfg.FUEL_APPROVED_USERS_FILE, fuelApprovedUsers);
 
-// Per-player buy plans pushed from the calculator (drive the 15-min alerts).
+// Per-player buy plans pushed from the calculator (drive the 5-min alerts).
 let fuelPlans = storage.readJSON(cfg.FUEL_PLANS_FILE, {});
 if (Object.keys(fuelPlans).length) console.log('[STARTUP] Fuel plans loaded: ' + Object.keys(fuelPlans).length);
 const saveFuelPlans = () => storage.writeJSON(cfg.FUEL_PLANS_FILE, fuelPlans);
@@ -677,7 +677,7 @@ app.get('/api/fuel-profile', (req, res) => {
 // ── FUEL BUY-ALERT PLAN PUSH ───────────────────────────────────────────────
 // The registered player's calculator posts its own optimiser plan (per-slot
 // suggested buys for fuel + CO2, sugAll layout) here. The server caches it per
-// player and the 15-min scheduler fires #fuel-alert warnings from it — so
+// player and the 5-min scheduler fires #fuel-alert warnings from it — so
 // alerts work even when the player's page is closed. No secret in this request;
 // it only sets that player's own alert plan, and only for a registered id.
 app.post('/api/fuel-plan', (req, res) => {
@@ -697,7 +697,7 @@ app.post('/api/fuel-plan', (req, res) => {
   fuelPlans[did] = { baseDay: day, fsug: clean(fsug), csug: clean(csug), updated: new Date().toISOString() };
   saveFuelPlans();
   // Late-breaking cover: if the freshly pushed plan (e.g. DEP pressed at :29,
-  // month reshuffled) contains a buy inside the 15-min window the :15/:45
+  // month reshuffled) contains a buy inside the 5-min window the :25/:55
   // scheduler can no longer warn about, alert immediately instead of never.
   try { fireImminentAlerts(did, fuelPlans[did], new Date()); }
   catch (e) { console.error('[FUEL-ALERT] imminent check error:', e.message); }
@@ -871,8 +871,8 @@ app.get('/api/fuel-access-log', (req, res) => {
   }
 });
 
-// ── NOTIFICATION ENDPOINT — for the n8n :15/:45 schedule trigger ───────────
-// Fires ~15 min before the SHARED cheapest buy slot (getFuelPath). Returns one
+// ── NOTIFICATION ENDPOINT — for the n8n :25/:55 schedule trigger ───────────
+// Fires ~5min before the SHARED cheapest buy slot (getFuelPath). Returns one
 // row per registered player per due window; fuel and CO2 are SEPARATE rows so
 // the workflow sends them as separate clean DMs. Game clock = UTC; each row also
 // carries the player's local time for display only.
@@ -887,7 +887,7 @@ app.get('/api/fuel-notifications', (req, res) => {
     const fp = getFuelPath();                 // shared cheapest-slot schedule
     const now = new Date();
     const nowMs = now.getTime();
-    const WINDOW_MS = 16 * 60 * 1000;         // ~15 min ahead (trigger runs at :15/:45)
+    const WINDOW_MS = 16 * 60 * 1000;         // ~5 min ahead (trigger runs at :25/:55)
     const todayUTC = now.getUTCDate();
     const members = [];
 
@@ -909,7 +909,7 @@ app.get('/api/fuel-notifications', (req, res) => {
           const [slotH, slotM] = slotInfo.slot.split(':').map(Number);
           const slotDate = new Date(Date.UTC(fp.year, fp.month - 1, checkDay, slotH, slotM));
           const diff = slotDate.getTime() - nowMs;
-          if (diff <= 0 || diff > WINDOW_MS) continue;      // only ~15 min before the slot
+          if (diff <= 0 || diff > WINDOW_MS) continue;      // only ~5 min before the slot
 
           // Suggested top-up to full tank (per-player figure, no simulation).
           const tankCap  = Number(kind === 'fuel' ? profile.fuel_tank_capacity : profile.co2_tank_capacity) || 0;
@@ -1028,7 +1028,7 @@ app.get('*', (req, res) => {
 });
 
 // ── FUEL BUY-ALERT SCHEDULER ───────────────────────────────────────────────
-// Every minute, on the :15 and :45 marks, fire a 15-min buy warning to
+// Every minute, on the :25 and :55 marks, fire a 5-min buy warning to
 // #fuel-alert for each registered player whose pushed plan has a buy in the
 // upcoming slot. Game time = UTC. Each (player, day, slot) fires at most once
 // (firedKey guard), and plans older than 3 days are skipped as stale.
@@ -1049,7 +1049,7 @@ function runFuelAlertPass(now) {
     _firedAlertKeys.add(key);
     storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK, a.message, 'fuel-alert');
     sendPushAlert(a.discordId,
-      (a.type === 'fuel' ? '⛽ FUEL' : '🌿 CO2') + ' buy in 15 min · ' + a.label,
+      (a.type === 'fuel' ? '⛽ FUEL' : '🌿 CO2') + ' buy in 5 min · ' + a.label,
       'Buy ' + fuelAlerts.fmt(a.qty) + (a.type === 'fuel' ? ' Lbs' : ' quotas'));
     console.log('[FUEL-ALERT] ' + a.discordId + ' @ ' + a.label + ' ' + a.type + '=' + a.qty);
   }
@@ -1057,10 +1057,10 @@ function runFuelAlertPass(now) {
 }
 setInterval(() => { try { runFuelAlertPass(new Date()); } catch (e) { console.error('[FUEL-ALERT] pass error:', e.message); } }, 60000);
 
-// Immediate alert for buys a fresh plan push placed inside the 15-min window
+// Immediate alert for buys a fresh plan push placed inside the 5-min window
 // (the normal warning minute for that slot has already passed). Same
 // per-(player, day, slot) dedup as the scheduler, so a buy that was already
-// warned at :15/:45 never fires twice.
+// warned at :25/:55 never fires twice.
 function fireImminentAlerts(did, plan, now) {
   if (!cfg.FUEL_ALERT_WEBHOOK) return;
   for (const t of fuelAlerts.imminentBuys(plan, now)) {   // one entry per type — fuel and CO2 post separately
