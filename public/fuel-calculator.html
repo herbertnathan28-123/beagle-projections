@@ -551,8 +551,23 @@ const BURN_PROFILE={
     'A380-800|14':{ fuel:4063680/20, co2:null }
     // A340-200 charter → generated from CHARTER_PROFILE below (all 1–10 cycle blocks)
   },
-  // ── whitedevil123456789 — 712277555214024705 — awaiting this player's own screenshots (fuel + CO2 per block) ──
-  '712277555214024705':{}
+  // ── whitedevil123456789 — 712277555214024705 — measured from their own wave
+  //    popups (10 Jul), fuel + CO2 per departure ÷ N departed. 11h50m blocks key
+  //    as 11.83 (enter flight time 11.83). Charter blocks still pending. ──
+  '712277555214024705':{
+    // A380-800 · 11h50 · 10 departed: popup Fuel 2,485,313 / CO2 10,475,058 —
+    // popup verified against reserve-delta (33,378,830 − 30,893,517 = 2,485,313 ✓)
+    'A380-800|11.83':{ fuel:2485313/10, co2:10475058/10 },
+    // A380-800 · 8h · 10 departed: popup Fuel 2,782,014 / CO2 10,352,621
+    // (refuel between shots → reserve-delta unusable; popup authoritative)
+    'A380-800|8':{ fuel:2782014/10, co2:10352621/10 },
+    // B747-8F · 11h50 · 4 departed: popup Fuel 1,391,918 / CO2 3,224,687 —
+    // popup verified against reserve-delta (38,820,070 − 37,428,152 = 1,391,918 ✓)
+    'B747-8F|11.83':{ fuel:1391918/4, co2:3224687/4 },
+    // B747-8F · 8h · 6 departed: popup Fuel 1,850,574 / CO2 3,984,784
+    // (refuel between shots → reserve-delta unusable; popup authoritative)
+    'B747-8F|8':{ fuel:1850574/6, co2:3984784/6 }
+  }
 };
 // ── CHARTERS — cycle-aware expansion ─────────────────────────────────────────
 // AM4 charters lock in 1–10 CYCLES per departure: the same route flown N times
