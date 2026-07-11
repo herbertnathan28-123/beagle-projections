@@ -1684,10 +1684,13 @@ function openQAC(){
 // Mirror the header reserves into the QAC so the player doesn't re-type them. Only fills
 // blanks — anything the player typed into the QAC (an off-plan "current" figure) is kept.
 function qacSyncReserves(){
+  // Always reset QAC fields to header reserves on open.
+  // Player can override manually during the session;
+  // closing and reopening always restores header values.
   const f=document.getElementById('qacFuelRes'), c=document.getElementById('qacCO2Res');
   const sr=gv('startRes'), sc=gv('startCO2');
-  if(f && !f.value && sr) f.value=sr;
-  if(c && !c.value && sc) c.value=sc;
+  if(f && sr) f.value=sr;
+  if(c && sc) c.value=sc;
 }
 // QAC is a RESCUE calculator, not a price finder. It reads the master optimizer's
 // full-month pathway (mp.rows — the scheduled buy checkpoints), takes the next up to 3
@@ -1832,7 +1835,7 @@ function showAlertBanner(type,slot,qty){
   b.innerHTML=
     '<span class="fa-icon">'+(isFuel?'⛽':'🌿')+'</span>'+
     '<span class="fa-body"><span class="fa-title">'+(isFuel?'FUEL BUY NOW':'CO2 BUY NOW')+'</span>'+
-    '<span class="fa-meta">'+TIMES[slot]+' · '+fmt(qty)+'</span></span>'+
+    '<span class="fa-meta">'+TIMES[slot]+' · $'+(isFuel?PRICES[slot]:CO2P[slot])+'/1k · '+fmt(qty)+(isFuel?' Lbs':' quotas')+'</span></span>'+
     '<button type="button" class="fa-close" aria-label="Dismiss">✕</button>';
   b.querySelector('.fa-close').onclick=()=>b.remove();   // onclick (not hover) for iPad
   stack.insertBefore(b, isFuel?stack.firstChild:null);   // fuel always on top, CO2 beneath
