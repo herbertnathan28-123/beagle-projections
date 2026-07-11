@@ -1315,7 +1315,7 @@ function recalc(){
   const fPlan=monthPathway(startRes,fuelTank,MIN_FUEL,BURNS,0,fPurchased);
   const cPlan=monthPathway(startCO2,co2Tank,MIN_CO2,CO2B,1,co2Purchased);
   const today=fPlan.today, daysInMonth=fPlan.daysInMonth;
-  pushFuelPlan(fPlan.today, fPlan.sugAll, cPlan.sugAll);   // keep the server's 15-min buy-alert plan in sync
+  pushFuelPlan(fPlan.today, fPlan.sugAll, cPlan.sugAll, PRICES.slice(), CO2P.slice());   // keep the server's 15-min buy-alert plan in sync
   const vDay=Math.max(today,Math.min(today+(VIEW_OFFSET||0),daysInMonth));
   VIEW_OFFSET=vDay-today;                        // clamp offset into range
   const isToday=(vDay===today), offset=(vDay-today)*48;
@@ -1745,7 +1745,7 @@ function runQAC(){
 // the plan hasn't changed. Only registered players (opened via their ?did link)
 // push — window.__FUEL_PROFILE__.discord_id gates it.
 let _planPushTimer=null,_lastPlanPushKey='';
-function pushFuelPlan(baseDay,fsugAll,csugAll){
+function pushFuelPlan(baseDay,fsugAll,csugAll,fpricesArr,cpricesArr){
   const did=window.__FUEL_PROFILE__&&window.__FUEL_PROFILE__.discord_id; if(!did) return;
   const tok=window.__FUEL_PLAN_TOKEN__; if(!tok) return;   // only the server-injected personal page may push
   const key=baseDay+'|'+fsugAll.join(',')+'|'+csugAll.join(',');
@@ -1754,7 +1754,7 @@ function pushFuelPlan(baseDay,fsugAll,csugAll){
   _planPushTimer=setTimeout(()=>{
     _lastPlanPushKey=key;
     fetch('/api/fuel-plan',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({discord_id:String(did),baseDay,fsug:fsugAll,csug:csugAll,plan_token:tok})})
+      body:JSON.stringify({discord_id:String(did),baseDay,fsug:fsugAll,csug:csugAll,fprices:fpricesArr||[],cprices:cpricesArr||[],plan_token:tok})})
       .catch(e=>console.warn('[FUEL] plan push failed:',e));
   },3000);
 }
