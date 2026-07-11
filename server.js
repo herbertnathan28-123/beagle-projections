@@ -681,7 +681,7 @@ app.get('/api/fuel-profile', (req, res) => {
 // alerts work even when the player's page is closed. No secret in this request;
 // it only sets that player's own alert plan, and only for a registered id.
 app.post('/api/fuel-plan', (req, res) => {
-  const { discord_id, baseDay, fsug, csug, plan_token } = req.body || {};
+  const { discord_id, baseDay, fsug, csug, fprices, cprices, plan_token } = req.body || {};
   const did = String(discord_id || '').replace(/[^0-9]/g, '');
   if (!(/^\d{17,20}$/).test(did)) return res.status(400).json({ ok: false, error: 'Invalid Discord ID' });
   if (!fuelProfiles[did]) return res.status(403).json({ ok: false, error: 'Not a registered fuel profile' });
@@ -694,7 +694,8 @@ app.post('/api/fuel-plan', (req, res) => {
   if (fsug.length > MAX || csug.length > MAX) return res.status(400).json({ ok: false, error: 'plan too long' });
   // Coerce to finite non-negative numbers — never store junk that could mis-fire an alert.
   const clean = a => a.map(v => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; });
-  fuelPlans[did] = { baseDay: day, fsug: clean(fsug), csug: clean(csug), updated: new Date().toISOString() };
+  const cleanArr = a => Array.isArray(a) ? a.map(v => { const n = Number(v); return Number.isFinite(n) && n >= 0 ? n : 0; }) : [];
+  fuelPlans[did] = { baseDay: day, fsug: clean(fsug), csug: clean(csug), fprices: cleanArr(fprices), cprices: cleanArr(cprices), updated: new Date().toISOString() };
   saveFuelPlans();
   // Late-breaking cover: if the freshly pushed plan (e.g. DEP pressed at :29,
   // month reshuffled) contains a buy inside the 5-min window the :25/:55
@@ -1048,8 +1049,9 @@ function runFuelAlertPass(now) {
     if (_firedAlertKeys.has(key)) continue;   // already fired this (player, day, slot)
     _firedAlertKeys.add(key);
     storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK, a.message, 'fuel-alert');
+    const _sPrice = a.price && a.price > 0 ? ' · ' + a.price + '/1k' : '';
     sendPushAlert(a.discordId,
-      (a.type === 'fuel' ? '⛽ FUEL' : '🌿 CO2') + ' buy in 5 min · ' + a.label,
+      (a.type === 'fuel' ? '⛽ FUEL' : '🌿 CO2') + ' buy in 5 min · ' + a.label + _sPrice,
       'Buy ' + fuelAlerts.fmt(a.qty) + (a.type === 'fuel' ? ' Lbs' : ' quotas'));
     console.log('[FUEL-ALERT] ' + a.discordId + ' @ ' + a.label + ' ' + a.type + '=' + a.qty);
   }
@@ -1070,8 +1072,9 @@ function fireImminentAlerts(did, plan, now) {
     _firedAlertKeys.add(key);
     const lead = t.minsLeft <= 0 ? 'NOW — window open' : 'in ' + t.minsLeft + ' min';
     storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK, fuelAlerts.buildAlertMessage(did, t.label, t.type, t.qty, lead), 'fuel-alert-imminent');
+    const _iPrice = t.price && t.price > 0 ? ' · ' + t.price + '/1k' : '';
     sendPushAlert(did,
-      (t.type === 'fuel' ? '⛽ FUEL' : '🌿 CO2') + ' buy ' + lead + ' · ' + t.label,
+      (t.type === 'fuel' ? '⛽ FUEL' : '🌿 CO2') + ' buy ' + lead + ' · ' + t.label + _iPrice,
       'Buy ' + fuelAlerts.fmt(t.qty) + (t.type === 'fuel' ? ' Lbs' : ' quotas'));
     console.log('[FUEL-ALERT] Imminent ' + did + ' @ ' + t.label + ' (' + lead + ') ' + t.type + '=' + t.qty);
   }
