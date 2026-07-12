@@ -202,6 +202,14 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .daynav-ro{font-size:11px;color:#c99a3a;font-style:italic}
 @media(max-width:1100px){.fleet-cards{flex-wrap:wrap}.fcard{flex:1 1 30%}}
 @media print{body{background:#fff;color:#000}.btn-row,.legend{display:none}.header{background:#f5f5f5}.co2-row{display:none!important}}.eta-countdown{font-size:9px;color:#4a9a6a;font-family:monospace;text-align:center;padding:2px 6px;min-height:13px;letter-spacing:.3px}.eta-countdown.urgent{color:#33ff00;font-weight:800}.eta-countdown.green-active{color:#33ff00;font-weight:700}.eta-countdown.overdue{color:#33ff00;font-weight:800;animation:etapulse 1s ease-in-out infinite}@keyframes etapulse{0%,100%{opacity:1}50%{opacity:.35}}
+/* Player name in the heading — sharp mirror-chrome rendering. Gradient-clipped text with
+   a faded reflection below (-webkit-box-reflect: Chromium + WebKit/iPad; harmless no-op
+   elsewhere). Name resolved from the injected profile in populateFromProfile(). */
+.player-name{font-weight:900;font-size:26px;line-height:1;text-transform:uppercase;letter-spacing:3px;font-family:inherit;
+  background:linear-gradient(180deg,#ffffff 0%,#bfe9ff 38%,#4aa8e0 50%,#daf5ff 62%,#33ff88 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  -webkit-box-reflect:below -8px linear-gradient(transparent 52%,rgba(255,255,255,.28));
+  filter:drop-shadow(0 0 6px rgba(80,180,255,.35))}
 .fleet-cds{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
 .fleet-cd-chip{background:#0a1420;border:1px solid #16283a;border-radius:5px;padding:4px 10px;font-family:monospace;font-size:12px;color:#5a7284;white-space:nowrap}
 .fleet-cd-chip .hdr-cd{color:#4a6072;font-weight:700;font-size:15px;margin-left:6px;letter-spacing:.3px}
@@ -283,7 +291,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 <div id="app">
 <div class="header" id="hdr">
   <div class="header-top">
-    <div><div class="title">⛽🌿 BEAGLE GLOBAL — FUEL & CO2 CALCULATOR</div><div class="date-label" id="dlbl"></div></div>
+    <div><div class="title" style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">⛽🌿 BEAGLE GLOBAL — FUEL & CO2 CALCULATOR<span class="player-name" id="playerName"></span></div><div class="date-label" id="dlbl"></div></div>
     <div class="btn-row">
       <div class="dropdown" id="pdfDrop">
         <button class="btn btn-pdf" onclick="toggleDropdown('pdfMenu')">⬇ PDF ▾</button>
@@ -1018,6 +1026,13 @@ function undoLast(){ if(!UNDO_STACK.length)return; const s=UNDO_STACK.pop(); res
 function populateFromProfile(p){
   try{
     if(!p) return;
+    // Heading player name — operator-set display names by Discord id; any other
+    // registered player falls back to their profile discord_name, uppercased.
+    try{
+      const PLAYER_DISPLAY={'690861328507731978':'ATLAS','712277555214024705':'LOL','1373719656455602267':'WINGFOOT'};
+      const nm=PLAYER_DISPLAY[String(p.discord_id||'')]||String(p.discord_name||'').toUpperCase();
+      const pn=document.getElementById('playerName'); if(pn&&nm) pn.textContent=nm;
+    }catch(_){}
     if(p.timezone) applyLocalTZ(p.timezone);   // second clock column → this player's local time
     const set=(id,v)=>{const e=document.getElementById(id); if(e && v!=null && v!=='') e.value=v;};
     set('fuelTank', p.fuel_tank_capacity);
