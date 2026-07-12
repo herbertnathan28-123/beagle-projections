@@ -897,7 +897,10 @@ const STORE_DID=(function(){
 })();
 const LSK=k=>STORE_DID?('bgl_'+STORE_DID+'_'+k):('bgl_'+k);
 function saveCntLock(el){ try{ const k=LSK('cnt_'+el.id); if(el.value==='') localStorage.removeItem(k); else localStorage.setItem(k,el.value); }catch(e){} }
-function restoreCntLocks(){ document.querySelectorAll('.finput.fac').forEach(function(el){ try{ const v=localStorage.getItem(LSK('cnt_'+el.id)); if(v!=null&&v!=='') el.value=v; }catch(e){} }); }
+// Re-apply device-local count corrections over profile-injected counts. MUST sync the
+// model afterwards: a DOM-only restore leaves burn/quotas/subtitle computing on the old
+// profile counts while the input shows the restored value (e.g. field 983, burn on 977).
+function restoreCntLocks(){ let changed=false; document.querySelectorAll('.finput.fac').forEach(function(el){ try{ const v=localStorage.getItem(LSK('cnt_'+el.id)); if(v!=null&&v!==''&&el.value!==v){ el.value=v; changed=true; } }catch(e){} }); if(changed){ syncBoxesFromDOM(); saveCards(); recalc(); } }
 function saveCards(){
   try{
     syncBoxesFromDOM();
