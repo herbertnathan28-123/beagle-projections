@@ -460,7 +460,7 @@ const MAX_TYPES=4;      // aircraft types per box
 const DEFAULT_DUR=24;   // a fresh box shows 24h until the player changes it
 let BOX_SEQ=0;
 function mkType(){ return {type:'',count:'',fuel:null,co2:null}; }   // fuel/co2 = per-AC burn (from profile) or null → global fallback
-function mkBox(dur){ return {key:'b'+(++BOX_SEQ), dur:(dur!=null?dur:DEFAULT_DUR), eta:'', etaSetTime:null, maint:0, departed:false, types:[mkType()]}; }
+function mkBox(dur){ return {key:'b'+(++BOX_SEQ), dur:(dur!=null?dur:DEFAULT_DUR), eta:'', etaSetTime:null, maint:0, departed:false, depSetTime:null, recalledAt:null, types:[mkType()]}; }
 let BOXES=[mkBox()];
 function boxByKey(k){ return BOXES.find(b=>b.key===k); }
 function optsFor(v){ return '<option value="">— Select —</option>'+AIRCRAFT_TYPES.map(t=>`<option${t===v?' selected':''}>${t}</option>`).join(''); }
@@ -471,7 +471,7 @@ function syncBoxesFromDOM(){
   for(const b of BOXES){
     const oldDur=b.dur;
     const d=document.getElementById('dur_'+b.key); if(d){ const v=parseFloat(d.value); if(!isNaN(v))b.dur=v; }
-    const et=document.getElementById('eta_'+b.key); if(et){ const newEta=et.value; if(b.departed!==false && newEta!==b.eta) b.departed=gameNowHour(); b.eta=newEta; }
+    const et=document.getElementById('eta_'+b.key); if(et){ b.eta=et.value; }   // ETA no longer clobbers the DEP anchor — the schedule anchor reads ETA directly (ETA overrides DEP)
     for(let i=0;i<MAX_TYPES;i++){
       if(!b.types[i]) b.types[i]=mkType();
       const ts=document.getElementById('type_'+b.key+'_'+i); if(ts) b.types[i].type=ts.value;
@@ -672,9 +672,16 @@ function computeDepartures(){
     // manual ETA (game-hours from now until it next lands); (3) else GENERIC default —
     // schedule on its own cycle across the day (anchored at now), so a box with A/C but no
     // ETA/DEP still produces a full forward burn + buy plan (the player refines with ETA/DEP).
+    // Priority rework (operator spec): (1) a typed ETA ALWAYS overrides the DEP clock and
+    // re-syncs the schedule to the declared next landing (mod-cycle congruent to the true
+    // departure); (2) else DEP press time; (3) else a recalled box (green→amber) re-anchors
+    // at the recall slot so its pathway resets from the current 30-min zone — cycling DEP
+    // re-syncs the optimizer any time; (4) else the generic planning anchor.
     let anchor0;
-    if(b.departed!==false && b.departed!=null) anchor0=b.departed;
-    else { const eta=parseEtaHours(b.eta); anchor0=(eta!==null)?(nowH+eta):(SCHEDULE_LOCKED?nowH:0); }
+    const etaH=parseEtaHours(b.eta);
+    if(etaH!==null) anchor0=nowH+etaH;
+    else if(b.departed!==false && b.departed!=null) anchor0=b.departed;
+    else anchor0=(b.recalledAt!=null)?b.recalledAt:(SCHEDULE_LOCKED?nowH:0);
     let anchor=anchor0-Math.floor(anchor0/cycle)*cycle;
     const bNum=String(BOXES.indexOf(b)+1);
     const slotsBurned=new Set();   // each box burns at most once per 30-min slot
@@ -807,17 +814,20 @@ function updateETACountdowns(){
         el.className='eta-countdown green-active';
       }
     } else if(b.departed!==false){
-      // DEP pressed, no ETA — count down from full flight cycle based on departure timestamp
-      const nowH=gameNowHour();
-      let elapsed=nowH-b.departed; if(elapsed<0)elapsed+=24;
+      // DEP pressed, no ETA — count down the full flight cycle. Prefer the real-clock press
+      // timestamp (survives reloads, absences and day wrap); hour-of-day math only as a
+      // fallback for states saved before depSetTime existed (it wraps every 24h and showed
+      // false LANDED after long absences).
       const dur=parseFloat(b.dur)||DEFAULT_DUR;
       const cycle=dur/mult;
-      const remaining=cycle-elapsed;
-      if(remaining<=0){
+      let remainingMs;
+      if(b.depSetTime){ remainingMs=cycle*3600000-(Date.now()-b.depSetTime); }
+      else { const nowH=gameNowHour(); let elapsed=nowH-b.departed; if(elapsed<0)elapsed+=24; remainingMs=(cycle-elapsed)*3600000; }
+      if(remainingMs<=0){
         el.textContent='00:00:00 — LANDED';
         el.className='eta-countdown overdue';
       } else {
-        el.textContent=fmtHMS(remaining*3600000);
+        el.textContent=fmtHMS(remainingMs);
         el.className='eta-countdown green-active';
       }
     } else {
@@ -831,8 +841,12 @@ function toggleDepart(key){
   pushUndo(); syncBoxesFromDOM();
   if(b.departed===false){
     b.departed=gameNowHour();  // anchor to now; ETA field drives countdown directly
+    b.depSetTime=Date.now();   // real-clock stamp — countdown survives reloads and day wrap
+    b.recalledAt=null;
   } else {
-    b.departed=false;  // recall
+    b.departed=false;  // recall — pathway re-anchors from the current 30-min slot
+    b.depSetTime=null;
+    b.recalledAt=gameNowHour();
   }
   applyDepartClasses();
   saveCards(); recalc(); updateETACountdowns();
@@ -850,8 +864,8 @@ function stepMaint(key,d){
 function departAll(){
   pushUndo(); syncBoxesFromDOM();
   const anyOff=BOXES.some(b=>b.departed===false);
-  const t=gameNowHour();
-  for(const b of BOXES){ if(anyOff){ if(b.departed===false) b.departed=t; } else b.departed=false; }
+  const t=gameNowHour(), rt=Date.now();
+  for(const b of BOXES){ if(anyOff){ if(b.departed===false){ b.departed=t; b.depSetTime=rt; b.recalledAt=null; } } else { b.departed=false; b.depSetTime=null; b.recalledAt=t; } }
   applyDepartClasses(); saveCards(); recalc(); updateETACountdowns();
 }
 function setFourx(on){
@@ -906,7 +920,7 @@ function saveCards(){
     syncBoxesFromDOM();
     const b=document.getElementById('fourxBtn');
     localStorage.setItem(LSK('fleet'),JSON.stringify({
-      boxes:BOXES.map(x=>({dur:x.dur,eta:x.eta,etaSetTime:x.etaSetTime||null,maint:x.maint,departed:x.departed,types:x.types.map(t=>({type:t.type,count:t.count,fuel:t.fuel,co2:t.co2}))})),
+      boxes:BOXES.map(x=>({dur:x.dur,eta:x.eta,etaSetTime:x.etaSetTime||null,maint:x.maint,departed:x.departed,depSetTime:x.depSetTime||null,recalledAt:(x.recalledAt!=null?x.recalledAt:null),types:x.types.map(t=>({type:t.type,count:t.count,fuel:t.fuel,co2:t.co2}))})),
       mode:gv('gameMode'), fourx:b?b.classList.contains('on'):true
     }));
   }catch(e){}
@@ -925,6 +939,8 @@ function restoreCards(){
         eta:(x.eta!=null?x.eta:''), etaSetTime:(x.etaSetTime||null),
         maint:parseInt(x.maint)||0,
         departed:(typeof x.departed==='number')?x.departed:false,
+        depSetTime:(typeof x.depSetTime==='number')?x.depSetTime:null,
+        recalledAt:(typeof x.recalledAt==='number')?x.recalledAt:null,
         types:(Array.isArray(x.types)&&x.types.length?x.types:[mkType()]).slice(0,MAX_TYPES)
           .map(t=>({type:t.type||'',count:(t.count!=null?t.count:''),fuel:(t.fuel!=null?t.fuel:null),co2:(t.co2!=null?t.co2:null)}))
       }));
@@ -1909,6 +1925,8 @@ async function init(){
         _sv.boxes.forEach((x,i)=>{
           if(!BOXES[i])return;
           if(typeof x.departed==='number') BOXES[i].departed=x.departed;
+          if(typeof x.depSetTime==='number') BOXES[i].depSetTime=x.depSetTime;
+          if(typeof x.recalledAt==='number') BOXES[i].recalledAt=x.recalledAt;
           if(x.eta!=null&&x.eta!==''){BOXES[i].eta=x.eta;}
           if(x.etaSetTime) BOXES[i].etaSetTime=x.etaSetTime;
           if(typeof x.maint==='number'&&x.maint>0) BOXES[i].maint=x.maint;
@@ -1919,6 +1937,11 @@ async function init(){
       }
       const _sl=localStorage.getItem(LSK('schedLock'));
       if(_sl==='1') setScheduleLock(true);
+      // 4× and game-mode are device prefs — restore them on profile (?did) pages too.
+      // Previously only the no-profile path restored them, so every did-link reload
+      // silently reset 4× back ON and game-mode to default.
+      if(_sv.mode){const gm=document.getElementById('gameMode'); if(gm)gm.value=_sv.mode;}
+      if(typeof _sv.fourx==='boolean') setFourx(_sv.fourx);
     }catch(_){}
     saveCards();
   }
