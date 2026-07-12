@@ -231,7 +231,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .qac-buy{display:grid;grid-template-columns:auto auto auto 1fr;gap:10px;align-items:baseline;background:#0a1420;border:1px solid #16283a;border-radius:5px;padding:8px 10px;font-family:monospace}
 .qac-buy .t{color:#fff;font-weight:700;font-size:13px}
 .qac-buy .h{color:#5a7284;font-size:11px}
-.qac-buy .p{font-weight:700;font-size:13px}
+.qac-buy .p{font-weight:800;font-size:17px;letter-spacing:0.3px}
 .qac-buy .q{color:#fff;text-align:right;font-size:12px;white-space:nowrap}
 .qac-empty{color:#3a4d5f;font-size:12px;font-style:italic;padding:8px 0}
 @media(max-width:760px){.qac-grid2,.qac-results{grid-template-columns:1fr}.qac-tab{display:none}}
@@ -1390,8 +1390,8 @@ function recalc(){
       <td class="ind" style="text-align:center;padding:3px">${hasSug?`<span style="color:${hasBought?'#23a55a':'#2a6040'}">◆</span>`:''}</td>
       <td class="c" style="color:${hasSug?'#70e0a0':crit?'#ff6060':warn?'#f5a623':'#5a8aaa'};font-weight:${hasSug||crit||warn?700:400}">${TIMES[i]}</td>
       <td class="c" style="color:#3a6070;font-size:13px">${PERTH[i]}</td>
-      <td class="c"><span style="color:${priceCol(dPRICES[i])};font-weight:700;font-size:13px">$${dPRICES[i]}</span></td>
-      <td class="c" style="color:${DEP_AC[i]?'#8aa0b8':'#2a4060'}">${DEP_AC[i]||'—'}</td>
+      <td class="c"><span style="color:${priceCol(dPRICES[i])};font-weight:800;font-size:17px;letter-spacing:0.3px">$${dPRICES[i]}</span></td>
+      <td class="c" style="color:${DEP_AC[i]?'#5a7088':'#22344a'};font-size:11px">${DEP_AC[i]||'—'}</td>
       <td style="font-size:15px;text-align:center;font-weight:${DEP_BOXES[i]?700:400}">${fboxDisplay(i)}</td>
       <td style="padding:2px 4px">
         <span style="display:inline-flex;align-items:center;gap:2px">
@@ -1407,7 +1407,7 @@ function recalc(){
         ${overLimit?`<div class="warn-msg">⚠ Exceeds max ${fmt(maxBuy)} lbs</div>`:''}
       </td>
       <td class="c" style="border-left:3px solid #2a5a2a">
-        <span style="color:${co2Col(dCO2P[i])};font-weight:700;font-size:12px">$${dCO2P[i]}</span>
+        <span style="color:${co2Col(dCO2P[i])};font-weight:800;font-size:17px;letter-spacing:0.3px">$${dCO2P[i]}</span>
       </td>
       <td class="c" style="color:${CSUG[i]>0?'#6a9a80':'#3a5a50'};font-style:${CSUG[i]>0?'italic':'normal'}">
         ${CSUG[i]>0?fmt(CSUG[i]):'—'}
