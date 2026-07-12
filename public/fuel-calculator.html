@@ -202,6 +202,16 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .daynav-ro{font-size:11px;color:#c99a3a;font-style:italic}
 @media(max-width:1100px){.fleet-cards{flex-wrap:wrap}.fcard{flex:1 1 30%}}
 @media print{body{background:#fff;color:#000}.btn-row,.legend{display:none}.header{background:#f5f5f5}.co2-row{display:none!important}}.eta-countdown{font-size:9px;color:#4a9a6a;font-family:monospace;text-align:center;padding:2px 6px;min-height:13px;letter-spacing:.3px}.eta-countdown.urgent{color:#33ff00;font-weight:800}.eta-countdown.green-active{color:#33ff00;font-weight:700}.eta-countdown.overdue{color:#33ff00;font-weight:800;animation:etapulse 1s ease-in-out infinite}@keyframes etapulse{0%,100%{opacity:1}50%{opacity:.35}}
+/* Per-fleet DEP/ETA countdown bar — full-width band inside each fleet card (operator PDF).
+   Values ticked by updateETACountdowns() via the hdrcd_ mirror. */
+.fleet-cd-bar{display:flex;align-items:center;gap:8px;background:#05100a;border:1px solid #14301c;border-radius:4px;margin:4px 0 2px;padding:5px 12px;font-family:monospace;font-size:13px;font-weight:700;letter-spacing:1px;color:#5a7284}
+.fleet-cd-bar .hdr-cd{margin-left:auto;font-size:16px;font-weight:800;letter-spacing:.5px;color:#4a6072}
+.fleet-cd-bar .hdr-cd.green-active{color:#33ff00}
+.fleet-cd-bar .hdr-cd.overdue{color:#33ff00;animation:etapulse 1s ease-in-out infinite}
+/* Month-optimizer status badge (SCHEDULE OPTIMIZED FOR MONTH: Y/N) */
+.month-opt{font-weight:800;font-size:11px;letter-spacing:1.2px;font-family:monospace;margin-left:10px}
+.month-opt.ok{color:#33ff00}
+.month-opt.bad{color:#ff6060;animation:etapulse 1s ease-in-out infinite}
 /* Player name in the heading — sharp mirror-chrome rendering. Gradient-clipped text with
    a faded reflection below (-webkit-box-reflect: Chromium + WebKit/iPad; harmless no-op
    elsewhere). Name resolved from the injected profile in populateFromProfile(). */
@@ -216,14 +226,14 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .fleet-cd-chip .hdr-cd.green-active{color:#33ff00}
 .fleet-cd-chip .hdr-cd.overdue{color:#33ff00;animation:etapulse 1s ease-in-out infinite}
 /* ── QAC — QUICK ACCESS CALCULATOR (WO-FUEL-QAC-001) ── */
-.qac-wrap{margin:10px 12px 0}
-.qac-tab{position:fixed;left:0;top:50%;transform:translateY(-50%) rotate(180deg);writing-mode:vertical-rl;background:#0d1e36;border:1px solid #1a5a3a;border-left:none;border-radius:6px 0 0 6px;color:#33ff00;font-size:11px;font-weight:800;letter-spacing:2px;padding:12px 6px;cursor:pointer;z-index:60;display:flex;align-items:center;gap:8px;user-select:none}
+.qac-wrap{margin:0;flex:1 1 380px;min-width:320px;align-self:stretch}
+.qac-tab{display:none;position:fixed;left:0;top:50%;transform:translateY(-50%) rotate(180deg);writing-mode:vertical-rl;background:#0d1e36;border:1px solid #1a5a3a;border-left:none;border-radius:6px 0 0 6px;color:#33ff00;font-size:11px;font-weight:800;letter-spacing:2px;padding:12px 6px;cursor:pointer;z-index:60;align-items:center;gap:8px;user-select:none}
 .qac-tab:hover{background:#123049}
 .qac-dot{width:8px;height:8px;border-radius:50%;background:#33ff00;box-shadow:0 0 6px #33ff00;display:inline-block;flex-shrink:0;animation:qacpulse 1.6s ease-in-out infinite}
 @keyframes qacpulse{0%,100%{opacity:1}50%{opacity:.35}}
 .qac-toggle{display:flex;align-items:center;gap:8px;background:#0d1e36;border:1px solid #1a5a3a;border-radius:6px;color:#33ff00;font-size:12px;font-weight:800;letter-spacing:1.5px;padding:9px 14px;cursor:pointer;user-select:none}
 .qac-toggle .chev{margin-left:auto;color:#3a7a3a;transition:transform .15s}
-.qac-panel{display:none;background:#080e18;border:1px solid #17324a;border-top:none;border-radius:0 0 8px 8px;padding:16px}
+.qac-panel{display:none;background:#080e18;border:1px solid #1a5a3a;border-top:none;border-radius:0 0 8px 8px;padding:16px}
 .qac-panel.open{display:block}
 .qac-wrap.open .qac-toggle{border-radius:6px 6px 0 0}
 .qac-wrap.open .qac-toggle .chev{transform:rotate(90deg)}
@@ -365,10 +375,27 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
         <input class="dep-eta-input" id="co2BurnDep" type="number" placeholder="quotas" style="width:84px" oninput="saveTank('co2BurnDep');recalc()" title="CO2 quotas burned per aircraft per departure event">
       </div>
       <div class="dep-status" id="depStatus" style="min-width:160px">Add a box · set its flight time + aircraft · tap DEP when you launch in-game</div>
-      <!-- Per-fleet DEP flight-time countdowns (in addition to the ETA field in each card) —
-           chips rebuilt by buildFleetCards(), values ticked by updateETACountdowns(). -->
-      <div class="fleet-cds" id="fleetCountdowns"></div>
       <div class="terms-bar"><span class="terms-lbl">◆ GUIDE</span><button class="term-btn" onclick="showHelp('schedule')">SCHEDULE</button><button class="term-btn" onclick="showHelp('dep')">DEP</button><button class="term-btn" onclick="showHelp('eta')">ETA</button><button class="term-btn" onclick="showHelp('fleetcolours')">FLEET COLOURS</button><button class="term-btn" onclick="showHelp('pricecolours')">PRICE COLOURS</button><button class="term-btn" onclick="showHelp('rescolours')">RESERVE COLOURS</button><button class="term-btn" onclick="showHelp('sugbuy')">SUGGESTED BUY</button><button class="term-btn" onclick="showHelp('burnac')">BURN &amp; CO2/AC</button></div>
+    </div>
+    <!-- QAC — QUICK ACCESS CALCULATOR (WO-FUEL-QAC-001) — embedded header section per
+         operator PDF (13 Jul): always visible, no hyperlink/edge-tab needed. -->
+    <div class="qac-wrap open" id="qacWrap">
+      <div class="qac-toggle" onclick="toggleQAC()"><span class="qac-dot"></span>◆ QAC — QUICK ACCESS CALCULATOR<span class="chev">▸</span></div>
+      <div class="qac-panel open" id="qacPanel">
+        <div class="qac-grid2">
+          <div class="qac-field fuel"><label>⛽ CURRENT FUEL RESERVES (LBS)</label><input id="qacFuelRes" type="number" placeholder="Enter current reserves"></div>
+          <div class="qac-field co2"><label>🌿 CURRENT CO2 RESERVES (QUOTAS)</label><input id="qacCO2Res" type="number" placeholder="Enter current reserves"></div>
+        </div>
+        <div class="qac-grid2">
+          <div class="qac-field fuel"><label>FUEL PURCHASE AMOUNT</label><input id="qacFuelBuy" type="number" placeholder="Enter current"></div>
+          <div class="qac-field co2"><label>CO2 PURCHASE AMOUNT</label><input id="qacCO2Buy" type="number" placeholder="Enter current"></div>
+        </div>
+        <button class="qac-calc" onclick="runQAC()">▶ CALCULATE</button>
+        <div class="qac-results">
+          <div class="qac-col fuel"><h4>⛽ FUEL — NEXT 3 PATHWAY CHECKPOINTS</h4><div class="qac-buys" id="qacFuelBuys"><div class="qac-empty">Enter current reserves and press Calculate.</div></div></div>
+          <div class="qac-col co2"><h4>🌿 CO2 — NEXT 3 PATHWAY CHECKPOINTS</h4><div class="qac-buys" id="qacCO2Buys"><div class="qac-empty">Enter current reserves and press Calculate.</div></div></div>
+        </div>
+      </div>
     </div>
   </div>
   <div class="fleet-cards" id="fleetCards"></div>
@@ -384,26 +411,7 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
     </div>
   </div>
 </div>
-<!-- QAC — QUICK ACCESS CALCULATOR (WO-FUEL-QAC-001) -->
-<div class="qac-tab" id="qacTab" onclick="openQAC()" title="Open Quick Access Calculator"><span class="qac-dot"></span>◆ QAC — QUICK ACCESS CALCULATOR</div>
-<div class="qac-wrap" id="qacWrap">
-  <div class="qac-toggle" onclick="toggleQAC()"><span class="qac-dot"></span>◆ QAC — QUICK ACCESS CALCULATOR<span class="chev">▸</span></div>
-  <div class="qac-panel" id="qacPanel">
-    <div class="qac-grid2">
-      <div class="qac-field fuel"><label>⛽ CURRENT FUEL RESERVES (LBS)</label><input id="qacFuelRes" type="number" placeholder="Enter current reserves"></div>
-      <div class="qac-field co2"><label>🌿 CURRENT CO2 RESERVES (QUOTAS)</label><input id="qacCO2Res" type="number" placeholder="Enter current reserves"></div>
-    </div>
-    <div class="qac-grid2">
-      <div class="qac-field fuel"><label>FUEL PURCHASE AMOUNT</label><input id="qacFuelBuy" type="number" placeholder="Enter current"></div>
-      <div class="qac-field co2"><label>CO2 PURCHASE AMOUNT</label><input id="qacCO2Buy" type="number" placeholder="Enter current"></div>
-    </div>
-    <button class="qac-calc" onclick="runQAC()">▶ CALCULATE</button>
-    <div class="qac-results">
-      <div class="qac-col fuel"><h4>⛽ FUEL — NEXT 3 PATHWAY CHECKPOINTS</h4><div class="qac-buys" id="qacFuelBuys"><div class="qac-empty">Enter current reserves and press Calculate.</div></div></div>
-      <div class="qac-col co2"><h4>🌿 CO2 — NEXT 3 PATHWAY CHECKPOINTS</h4><div class="qac-buys" id="qacCO2Buys"><div class="qac-empty">Enter current reserves and press Calculate.</div></div></div>
-    </div>
-  </div>
-</div>
+<!-- QAC moved into the header (operator PDF, 13 Jul) — see stats-wrap. -->
 <div class="day-nav">
   <button id="dayNavPrev" class="daynav-btn" type="button" onclick="dayStepView(-1)" title="Previous day">◀</button>
   <span id="dayNavLbl" class="daynav-lbl">TODAY</span>
@@ -744,6 +752,7 @@ function buildFleetCards(){
     <button class="stp" type="button" onclick="addBox()" title="Add a strategy box">+</button>
     <button class="depall-btn" type="button" onclick="departAll()" title="Depart / recall ALL boxes at once">DEP ALL</button>
     ${window.__FUEL_PLAN_TOKEN__?`<button class="depall-btn" type="button" id="pushAlertBtn" onclick="enablePushAlerts()" title="Get buy alerts on THIS device even with the calculator closed. iPad: first Share → Add to Home Screen, open from the icon, then tap this.">🔔 ALERTS</button>`:''}
+    <span class="month-opt" id="monthOptBadge"></span>
     <span class="bc-hint">each box = one flight time · up to 4 aircraft types</span>
   </div>`;
   for(let _bi=0;_bi<BOXES.length;_bi++){const b=BOXES[_bi];
@@ -769,6 +778,7 @@ function buildFleetCards(){
         <button class="dep-toggle-btn${b.departed!==false?' on':''}" id="depbtn_${b.key}" type="button" onclick="toggleDepart('${b.key}')" title="Tap to confirm departure · orange = not departed · green = departed">${b.departed!==false?'DEP ✓':'DEP'}</button>
         <button class="xbox" type="button" onclick="removeBoxKey('${b.key}')" title="Remove this fleet">✕</button>
       </div>
+      <div class="fleet-cd-bar">FLEET ${_bi+1} · ${b.dur}h<span class="hdr-cd" id="hdrcd_${b.key}">00:00</span></div>
       <div class="brow2">
         <span class="mlbl">MAINT</span>
         <button class="stp" type="button" onclick="stepMaint('${b.key}',1)" title="Add to maintenance">+</button>
@@ -789,9 +799,6 @@ function buildFleetCards(){
     </div>`;
   }
   wrap.innerHTML=html;
-  // Header countdown chips — one per fleet box, mirroring each card's DEP/ETA countdown.
-  const fcds=document.getElementById('fleetCountdowns');
-  if(fcds) fcds.innerHTML=BOXES.map((b,i)=>`<span class="fleet-cd-chip">FLEET ${i+1} · ${b.dur}h<span class="hdr-cd" id="hdrcd_${b.key}">00:00</span></span>`).join('');
   applyDepartClasses();
   if(typeof updateETACountdowns==="function") updateETACountdowns();
   if(typeof updateFleetBurnDisplays==="function") updateFleetBurnDisplays();
@@ -1360,6 +1367,9 @@ function recalc(){
   const cPlan=monthPathway(startCO2,co2Tank,MIN_CO2,CO2B,1,co2Purchased);
   const today=fPlan.today, daysInMonth=fPlan.daysInMonth;
   pushFuelPlan(fPlan.today, fPlan.sugAll, cPlan.sugAll, PRICES.slice(), CO2P.slice());   // keep the server's 15-min buy-alert plan in sync
+  // Month-optimizer status: Y when neither pathway goes negative before month end.
+  const _mob=document.getElementById('monthOptBadge');
+  if(_mob){ const _ok=!fPlan.firstNeg&&!cPlan.firstNeg; _mob.textContent='SCHEDULE OPTIMIZED FOR MONTH: '+(_ok?'Y ✓':'N ✗'); _mob.className='month-opt '+(_ok?'ok':'bad'); }
   const vDay=Math.max(today,Math.min(today+(VIEW_OFFSET||0),daysInMonth));
   VIEW_OFFSET=vDay-today;                        // clamp offset into range
   const isToday=(vDay===today), offset=(vDay-today)*48;
