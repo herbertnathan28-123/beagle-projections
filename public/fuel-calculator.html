@@ -202,6 +202,11 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
 .daynav-ro{font-size:11px;color:#c99a3a;font-style:italic}
 @media(max-width:1100px){.fleet-cards{flex-wrap:wrap}.fcard{flex:1 1 30%}}
 @media print{body{background:#fff;color:#000}.btn-row,.legend{display:none}.header{background:#f5f5f5}.co2-row{display:none!important}}.eta-countdown{font-size:9px;color:#4a9a6a;font-family:monospace;text-align:center;padding:2px 6px;min-height:13px;letter-spacing:.3px}.eta-countdown.urgent{color:#33ff00;font-weight:800}.eta-countdown.green-active{color:#33ff00;font-weight:700}.eta-countdown.overdue{color:#33ff00;font-weight:800;animation:etapulse 1s ease-in-out infinite}@keyframes etapulse{0%,100%{opacity:1}50%{opacity:.35}}
+.fleet-cds{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.fleet-cd-chip{background:#0a1420;border:1px solid #16283a;border-radius:5px;padding:4px 10px;font-family:monospace;font-size:12px;color:#5a7284;white-space:nowrap}
+.fleet-cd-chip .hdr-cd{color:#4a6072;font-weight:700;font-size:15px;margin-left:6px;letter-spacing:.3px}
+.fleet-cd-chip .hdr-cd.green-active{color:#33ff00}
+.fleet-cd-chip .hdr-cd.overdue{color:#33ff00;animation:etapulse 1s ease-in-out infinite}
 /* ── QAC — QUICK ACCESS CALCULATOR (WO-FUEL-QAC-001) ── */
 .qac-wrap{margin:10px 12px 0}
 .qac-tab{position:fixed;left:0;top:50%;transform:translateY(-50%) rotate(180deg);writing-mode:vertical-rl;background:#0d1e36;border:1px solid #1a5a3a;border-left:none;border-radius:6px 0 0 6px;color:#33ff00;font-size:11px;font-weight:800;letter-spacing:2px;padding:12px 6px;cursor:pointer;z-index:60;display:flex;align-items:center;gap:8px;user-select:none}
@@ -317,20 +322,23 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
       <div class="stat-input-wrap"><div class="stat-input-label">⛽ STARTING FUEL RESERVES (lbs)</div><div style="display:flex;align-items:center;gap:4px"><input class="stat-input" id="startRes" type="number" value="" placeholder="enter reserves" step="1000000" oninput="saveTank('startRes');recalc()"><button class="btn-fill-full" onclick="fillFullReserves()" title="Fill starting reserves to full fuel tank capacity">FILL FULL</button></div></div>
       <div class="stat-input-wrap"><div class="stat-input-label">⛽ FUEL TANK CAPACITY (lbs)</div><input class="stat-input" id="fuelTank" type="number" value="" placeholder="enter tank capacity" step="1000000" oninput="saveTank('fuelTank');recalc()"></div>
       <div class="stat-box"><div class="stat-label">MIN FUEL RESERVE</div><div class="stat-value" style="color:#e07b39">15,000,000 lbs</div></div>
-      <div class="stat-box"><div class="stat-label">⛽ FUEL PURCHASED</div><div class="stat-value" id="sBought" style="color:#23a55a">0 lbs</div></div>
-      <div class="stat-box"><div class="stat-label">⛽ FUEL COST</div><div class="stat-value" id="sCost" style="color:#f0b429">$0</div></div>
+      <!-- Operator order (13 Jul): purchased/cost/SV/cap tiles removed from the header.
+           Elements stay in the DOM (hidden) because recalc() writes to their ids unguarded;
+           the same figures remain in the PERIOD SUMMARY totals at the bottom. -->
+      <div class="stat-box" style="display:none"><div class="stat-label">⛽ FUEL PURCHASED</div><div class="stat-value" id="sBought" style="color:#23a55a">0 lbs</div></div>
+      <div class="stat-box" style="display:none"><div class="stat-label">⛽ FUEL COST</div><div class="stat-value" id="sCost" style="color:#f0b429">$0</div></div>
       
       
       <!-- CO2 ROW -->
       <div class="stat-input-wrap"><div class="stat-input-label">🌿 STARTING CO2 RESERVES (quotas)</div><div style="display:flex;align-items:center;gap:4px"><input class="stat-input" id="startCO2" type="number" value="" placeholder="enter CO2 reserves" step="1000000" oninput="saveTank('startCO2');recalc()" style="border-color:#2a5a2a;color:#70d070"><button class="btn-fill-full co2" onclick="fillFullCO2Reserves()" title="Fill starting CO2 reserves to full CO2 tank capacity">FILL FULL</button><button class="btn-clear-co2" onclick="clearCO2Reserve()" title="Clear CO2 reserve back to blank">✕</button></div></div>
       <div class="stat-input-wrap"><div class="stat-input-label">🌿 CO2 TANK CAPACITY (quotas)</div><input class="stat-input" id="co2Tank" type="number" value="" placeholder="enter CO2 tank" step="1000000" oninput="saveTank('co2Tank');recalc()" style="border-color:#2a5a2a;color:#70d070"></div>
       <div class="stat-box co2-stat-box"><div class="stat-label">MIN CO2 RESERVE</div><div class="stat-value" style="color:#e07b39">15,000,000</div></div>
-      <div class="stat-box co2-stat-box"><div class="stat-label">🌿 CO2 PURCHASED</div><div class="stat-value" id="sCO2Bought" style="color:#70d070">0</div></div>
-      <div class="stat-box co2-stat-box"><div class="stat-label">🌿 CO2 COST</div><div class="stat-value" id="sCO2Cost" style="color:#90c060">$0</div></div>
+      <div class="stat-box co2-stat-box" style="display:none"><div class="stat-label">🌿 CO2 PURCHASED</div><div class="stat-value" id="sCO2Bought" style="color:#70d070">0</div></div>
+      <div class="stat-box co2-stat-box" style="display:none"><div class="stat-label">🌿 CO2 COST</div><div class="stat-value" id="sCO2Cost" style="color:#90c060">$0</div></div>
       
       
     </div>
-    <div class="stats-right">
+    <div class="stats-right" style="display:none">
       <div class="stat-box" style="border-color:#4a2a0a;min-width:80px;padding:5px 8px"><div class="stat-label">📊 TOTAL SV</div><div class="stat-value" id="sTotalSV" style="color:#f5a623;font-size:13px">0.00</div></div>
       <div class="stat-box" style="border-color:#1a5a3a;min-width:80px;padding:5px 8px" id="cap900Box"><div class="stat-label">$900 CAP</div><div class="stat-value" id="sCap900" style="color:#7a9090;font-size:11px">—</div><div class="stat-sub" style="max-width:90px">≤$900 scenario<br>vs your avg +/-$</div></div>
     </div>
@@ -349,6 +357,9 @@ input.finput{text-align:center;color:#8aa0b8;font-family:monospace}
         <input class="dep-eta-input" id="co2BurnDep" type="number" placeholder="quotas" style="width:84px" oninput="saveTank('co2BurnDep');recalc()" title="CO2 quotas burned per aircraft per departure event">
       </div>
       <div class="dep-status" id="depStatus" style="min-width:160px">Add a box · set its flight time + aircraft · tap DEP when you launch in-game</div>
+      <!-- Per-fleet DEP flight-time countdowns (in addition to the ETA field in each card) —
+           chips rebuilt by buildFleetCards(), values ticked by updateETACountdowns(). -->
+      <div class="fleet-cds" id="fleetCountdowns"></div>
       <div class="terms-bar"><span class="terms-lbl">◆ GUIDE</span><button class="term-btn" onclick="showHelp('schedule')">SCHEDULE</button><button class="term-btn" onclick="showHelp('dep')">DEP</button><button class="term-btn" onclick="showHelp('eta')">ETA</button><button class="term-btn" onclick="showHelp('fleetcolours')">FLEET COLOURS</button><button class="term-btn" onclick="showHelp('pricecolours')">PRICE COLOURS</button><button class="term-btn" onclick="showHelp('rescolours')">RESERVE COLOURS</button><button class="term-btn" onclick="showHelp('sugbuy')">SUGGESTED BUY</button><button class="term-btn" onclick="showHelp('burnac')">BURN &amp; CO2/AC</button></div>
     </div>
   </div>
@@ -770,6 +781,9 @@ function buildFleetCards(){
     </div>`;
   }
   wrap.innerHTML=html;
+  // Header countdown chips — one per fleet box, mirroring each card's DEP/ETA countdown.
+  const fcds=document.getElementById('fleetCountdowns');
+  if(fcds) fcds.innerHTML=BOXES.map((b,i)=>`<span class="fleet-cd-chip">FLEET ${i+1} · ${b.dur}h<span class="hdr-cd" id="hdrcd_${b.key}">00:00</span></span>`).join('');
   applyDepartClasses();
   if(typeof updateETACountdowns==="function") updateETACountdowns();
   if(typeof updateFleetBurnDisplays==="function") updateFleetBurnDisplays();
@@ -834,6 +848,9 @@ function updateETACountdowns(){
       el.textContent='00:00';
       el.className='eta-countdown';
     }
+    // Mirror this box's countdown into its header chip (FLEET n · dur h).
+    const hc=document.getElementById('hdrcd_'+b.key);
+    if(hc){ hc.textContent=el.textContent; hc.className='hdr-cd'+(el.className.indexOf('overdue')>=0?' overdue':el.className.indexOf('green-active')>=0?' green-active':''); }
   }
 }
 function toggleDepart(key){
