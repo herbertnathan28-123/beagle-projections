@@ -1367,9 +1367,35 @@ function recalc(){
   const cPlan=monthPathway(startCO2,co2Tank,MIN_CO2,CO2B,1,co2Purchased);
   const today=fPlan.today, daysInMonth=fPlan.daysInMonth;
   pushFuelPlan(fPlan.today, fPlan.sugAll, cPlan.sugAll, PRICES.slice(), CO2P.slice());   // keep the server's 15-min buy-alert plan in sync
-  // Month-optimizer status: Y when neither pathway goes negative before month end.
+  // ── MONTH-OPTIMIZER INTEGRITY CHECK (operator spec) ──────────────────────
+  // Y only when the whole pipeline is sound: fleet configured, price schedule
+  // present, burns scheduled, slot A/C never exceeds the real fleet (the
+  // phantom-count failure class), plan figures finite (no corrupt data), and
+  // BOTH pathways stay above water to month end. Any failure → red N with the
+  // reasons in the tooltip.
   const _mob=document.getElementById('monthOptBadge');
-  if(_mob){ const _ok=!fPlan.firstNeg&&!cPlan.firstNeg; _mob.textContent='SCHEDULE OPTIMIZED FOR MONTH: '+(_ok?'Y ✓':'N ✗'); _mob.className='month-opt '+(_ok?'ok':'bad'); }
+  if(_mob){
+    const _why=[];
+    try{
+      let _act=0; for(const b of BOXES) _act+=activeCount(b);
+      const _ft=parseFloat(gv('fuelTank'))||0, _ct=parseFloat(gv('co2Tank'))||0;
+      const _sr=parseFloat(gv('startRes'))||0, _sc=parseFloat(gv('startCO2'))||0;
+      if(_act<=0) _why.push('no fleet configured');
+      if(!(_ft>0)||!(_ct>0)) _why.push('tank capacity missing');
+      if(_sr>_ft||_sc>_ct) _why.push('reserves exceed tank capacity');
+      if(!S||!S[String(getGameDay())]) _why.push('no price schedule for today');
+      const _mx=Math.max.apply(null,DEP_AC);
+      if(_act>0&&_mx>_act) _why.push('slot A/C exceeds fleet ('+_mx+' > '+_act+') — schedule misfiring');
+      if(_act>0&&!BURNS.some(v=>v>0)) _why.push('no burns scheduled — schedule incomplete');
+      if(!isFinite(fPlan.endRes)||!isFinite(cPlan.endRes)) _why.push('corrupt plan figures');
+      if(fPlan.firstNeg) _why.push('fuel pathway goes negative at '+fPlan.firstNeg);
+      if(cPlan.firstNeg) _why.push('CO2 pathway goes negative at '+cPlan.firstNeg);
+    }catch(_e){ _why.push('integrity check failed: '+_e.message); }
+    const _ok=_why.length===0;
+    _mob.textContent='SCHEDULE OPTIMIZED FOR MONTH: '+(_ok?'Y ✓':'N ✗');
+    _mob.className='month-opt '+(_ok?'ok':'bad');
+    _mob.title=_ok?'All integrity checks passed — pathway optimized to month end.':('INTEGRITY FAILURES:\n• '+_why.join('\n• '));
+  }
   const vDay=Math.max(today,Math.min(today+(VIEW_OFFSET||0),daysInMonth));
   VIEW_OFFSET=vDay-today;                        // clamp offset into range
   const isToday=(vDay===today), offset=(vDay-today)*48;
