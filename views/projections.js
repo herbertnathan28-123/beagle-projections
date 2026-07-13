@@ -572,7 +572,7 @@ function App(){
       {(()=>{const d=rkTip.tx;const s=d<60?Math.round(d)+'d':Math.round(d/30.4)+'MO';const dt=new Date(Date.now()+d*86400000);const ds=dt.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});return s+' from now · ~'+ds;})()}
     </div>
   </div>)}
-</div>):(<svg ref={svgRef} className={'svg-chart'+(zoomed?' zoomed':'')} viewBox={'0 0 '+W+' '+H} style={{width:'100%',maxHeight:'38vh',display:'block',touchAction:'none'}} onMouseDown={onMouseDown} onDoubleClick={onDblClick}>
+</div>):(<svg ref={svgRef} className={'svg-chart'+(zoomed?' zoomed':'')} viewBox={'0 0 '+W+' '+H} style={{width:'100%',maxHeight:showR?'38vh':'82vh',display:'block',transition:'max-height 0.3s ease',touchAction:'none'}} onMouseDown={onMouseDown} onDoubleClick={onDblClick}>
         <defs><filter id="fg"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="fl"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><clipPath id="cc"><rect x={ml} y={mt} width={cw} height={ch}/></clipPath><style>{'@keyframes pu{0%,100%{r:5;opacity:1}50%{r:9;opacity:0.4}} .pd{animation:pu 1.8s ease-in-out infinite}'}</style></defs>
         <rect x={ml} y={mt} width={cw} height={ch} fill="#030810" rx="2"/>
         {mode==='SV'&&yTks.map(v=>(<g key={v}><line x1={ml} x2={ml+cw} y1={ys(v)} y2={ys(v)} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/><text x={ml-6} y={ys(v)+4} textAnchor="end" fill="#5A8AAB" fontSize="14">{fmtAxis(v)}</text></g>))}
