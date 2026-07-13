@@ -659,10 +659,12 @@ function activeCount(b){ return Math.max(0, boxCount(b)-(b.maint||0)); }
 // Effective speed multiplier: Control 1 (game time mode 1/4/24) × Control 2 (4× boost).
 // Independent controls; both apply. cycle = flight duration ÷ this multiplier.
 function speedMult(){
-  const mode=parseFloat(gv('gameMode'))||4;
+  // 4× SPEED button is independent of game time mode (per button title).
+  // ON → all flight durations ÷4 (standard AM4 speed boost).
+  // OFF → durations used as entered (real-time, no boost).
   const b=document.getElementById('fourxBtn');
   const fourx=b?b.classList.contains('on'):true;   // default ON
-  return mode*(fourx?4:1);
+  return fourx ? 4 : 1;
 }
 // Build DEP_AC from the strategy boxes: each box departs every (flight time ÷ multiplier)
 // hours; each departure adds the box's active A/C to that slot and its per-type burn.
