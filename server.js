@@ -1049,10 +1049,10 @@ function runFuelAlertPass(now) {
     if (_firedAlertKeys.has(key)) continue;   // already fired this (player, day, slot)
     _firedAlertKeys.add(key);
     storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK, a.message, 'fuel-alert');
-    const _sPrice = a.price && a.price > 0 ? ' · ' + a.price + '/1k' : '';
+    const _sPrice = a.price && a.price > 0 ? ' @ $' + Number(a.price).toLocaleString('en-US') + '/1k' : '';
     sendPushAlert(a.discordId,
       (a.type === 'fuel' ? '⛽ FUEL' : '🌿 CO2') + ' buy in 5 min · ' + a.label + _sPrice,
-      'Buy ' + fuelAlerts.fmt(a.qty) + (a.type === 'fuel' ? ' Lbs' : ' quotas'));
+      'Buy ' + fuelAlerts.fmt(a.qty) + (a.type === 'fuel' ? ' Lbs' : ' quotas') + _sPrice);
     console.log('[FUEL-ALERT] ' + a.discordId + ' @ ' + a.label + ' ' + a.type + '=' + a.qty);
   }
   if (_firedAlertKeys.size > 5000) _firedAlertKeys.clear();   // bound the dedup set (rolls over daily anyway)
@@ -1072,10 +1072,10 @@ function fireImminentAlerts(did, plan, now) {
     _firedAlertKeys.add(key);
     const lead = t.minsLeft <= 0 ? 'NOW — window open' : 'in ' + t.minsLeft + ' min';
     storage.postDiscord(cfg.FUEL_ALERT_WEBHOOK, fuelAlerts.buildAlertMessage(did, t.label, t.type, t.qty, lead), 'fuel-alert-imminent');
-    const _iPrice = t.price && t.price > 0 ? ' · ' + t.price + '/1k' : '';
+    const _iPrice = t.price && t.price > 0 ? ' @ $' + Number(t.price).toLocaleString('en-US') + '/1k' : '';
     sendPushAlert(did,
       (t.type === 'fuel' ? '⛽ FUEL' : '🌿 CO2') + ' buy ' + lead + ' · ' + t.label + _iPrice,
-      'Buy ' + fuelAlerts.fmt(t.qty) + (t.type === 'fuel' ? ' Lbs' : ' quotas'));
+      'Buy ' + fuelAlerts.fmt(t.qty) + (t.type === 'fuel' ? ' Lbs' : ' quotas') + _iPrice);
     console.log('[FUEL-ALERT] Imminent ' + did + ' @ ' + t.label + ' (' + lead + ') ' + t.type + '=' + t.qty);
   }
 }
