@@ -496,7 +496,25 @@ function mkType(){ return {type:'',count:'',fuel:null,co2:null}; }   // fuel/co2
 function mkBox(dur){ return {key:'b'+(++BOX_SEQ), dur:(dur!=null?dur:DEFAULT_DUR), eta:'', etaSetTime:null, maint:0, departed:false, depSetTime:null, recalledAt:null, types:[mkType()]}; }
 let BOXES=[mkBox()];
 function boxByKey(k){ return BOXES.find(b=>b.key===k); }
-function optsFor(v){ return '<option value="">— Select —</option>'+AIRCRAFT_TYPES.map(t=>`<option${t===v?' selected':''}>${t}</option>`).join(''); }
+// Canonicalise a stored aircraft-type string against the dropdown list —
+// profiles saved via Discord/registration can carry "a380f" / "A380-F" etc.
+// Exact-match-only rendering silently deselected those, and the next input
+// event synced '' back into the model and SAVED it: type gone, count kept
+// (WhiteDevil bug, 17/7). Case/punctuation-insensitive match fixes the
+// round trip; a type we still don't recognise is kept as its own option so
+// it can never vanish from the UI.
+function canonType(v){
+  if(v==null) return '';
+  const raw=String(v).trim(); if(!raw) return '';
+  const n=raw.toUpperCase().replace(/[^A-Z0-9]/g,'');
+  const hit=AIRCRAFT_TYPES.find(t=>t.toUpperCase().replace(/[^A-Z0-9]/g,'')===n);
+  return hit||raw;
+}
+function optsFor(v){
+  v=canonType(v);
+  const custom=(v&&!AIRCRAFT_TYPES.includes(v))?`<option selected>${v}</option>`:'';
+  return '<option value="">— Select —</option>'+custom+AIRCRAFT_TYPES.map(t=>`<option${t===v?' selected':''}>${t}</option>`).join('');
+}
 // DOM → model sync: pull the editable fields (flight time, per-type type+count) back into
 // BOXES before any save/recalc. maint/departed live only in the model (button-driven).
 function syncBoxesFromDOM(){
@@ -636,7 +654,18 @@ function burnBlockFor(did,type,hours){
   const P=BURN_PROFILE[String(did==null?'':did)]; if(!P) return null;   // player not measured → no override
   if(type==null||hours==null||hours==='') return null;
   const h=parseFloat(hours); if(isNaN(h)) return null;
-  return P[type+'|'+(Math.round(h*100)/100)]||null;   // 14 / 14.0 / "14" → "14"; 3.5 stays "3.5"
+  const hk=String(Math.round(h*100)/100);   // 14 / 14.0 / "14" → "14"; 3.5 stays "3.5"
+  const direct=P[type+'|'+hk]; if(direct) return direct;
+  // Measured blocks may be keyed with the profile's original spelling
+  // ("a380f") while the model now holds the canonical type ("A380F") —
+  // fall back to a case/punctuation-insensitive match so canonicalising
+  // the display never disconnects a player from their measured burns.
+  const want=String(type).toUpperCase().replace(/[^A-Z0-9]/g,'')+'|'+hk;
+  for(const k in P){
+    const bar=k.lastIndexOf('|'); if(bar<0) continue;
+    if(k.slice(0,bar).toUpperCase().replace(/[^A-Z0-9]/g,'')+'|'+k.slice(bar+1)===want) return P[k];
+  }
+  return null;
 }
 let SCHEDULE_LOCKED=false;          // false = planning (anchor 00:00), true = live (anchor nowH)
 let FLEET_LOCK={};
@@ -984,7 +1013,7 @@ function restoreCards(){
         depSetTime:(typeof x.depSetTime==='number')?x.depSetTime:null,
         recalledAt:(typeof x.recalledAt==='number')?x.recalledAt:null,
         types:(Array.isArray(x.types)&&x.types.length?x.types:[mkType()]).slice(0,MAX_TYPES)
-          .map(t=>({type:t.type||'',count:(t.count!=null?t.count:''),fuel:(t.fuel!=null?t.fuel:null),co2:(t.co2!=null?t.co2:null)}))
+          .map(t=>({type:canonType(t.type||''),count:(t.count!=null?t.count:''),fuel:(t.fuel!=null?t.fuel:null),co2:(t.co2!=null?t.co2:null)}))
       }));
       buildFleetCards();
     } else if(d.cards){
@@ -1071,7 +1100,7 @@ function populateFromProfile(p){
       const key=String(Math.round(hrs*100)/100);
       if(!groups.has(key)) groups.set(key,{dur:hrs,types:[]});
       const fpa=parseFloat(f.fuel_per_ac), cpa=parseFloat(f.co2_per_ac);
-      groups.get(key).types.push({type:f.type||'',count:cnt,fuel:isNaN(fpa)?null:fpa,co2:isNaN(cpa)?null:cpa});
+      groups.get(key).types.push({type:canonType(f.type||''),count:cnt,fuel:isNaN(fpa)?null:fpa,co2:isNaN(cpa)?null:cpa});
       if(!isNaN(fpa)){ gF+=cnt*fpa; gFn+=cnt; }
       if(!isNaN(cpa)){ gC+=cnt*cpa; gCn+=cnt; }
     });
