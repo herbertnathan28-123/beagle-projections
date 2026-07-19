@@ -54,7 +54,7 @@ function App(){
   const[apiData,setApiData]=useState(null);const[loading,setLoading]=useState(true);const[pk,setPk]=useState('6MO');const[mode,setMode]=useState('SV');const[act,setAct]=useState(new Set());
   const[,forceLayout]=useState(0);
   useEffect(()=>{const d=document.getElementById('diag');if(d)d.style.display='none';},[]);
-  useEffect(()=>{let t;const onResize=()=>{clearTimeout(t);t=setTimeout(()=>forceLayout(n=>n+1),200);};window.addEventListener('resize',onResize);window.addEventListener('orientationchange',onResize);return()=>{clearTimeout(t);window.removeEventListener('resize',onResize);window.removeEventListener('orientationchange',onResize);};},[]);
+  useEffect(()=>{let t;const onResize=()=>{clearTimeout(t);t=setTimeout(()=>{forceLayout(n=>n+1);[svChart,gapChart,rkChart].forEach(r=>r.current?.resize());},200);};window.addEventListener('resize',onResize);window.addEventListener('orientationchange',onResize);return()=>{clearTimeout(t);window.removeEventListener('resize',onResize);window.removeEventListener('orientationchange',onResize);};},[]);
   const[focus,setFocus]=useState(null);const[full,setFull]=useState(true);const[showR,setShowR]=useState(true);const[yZ,setYZ]=useState(1);const[yP,setYP]=useState(0);const[xZ,setXZ]=useState(1);const[xP,setXP]=useState(0);
   const[rkTip,setRkTip]=useState(null);const rkDots=useRef([]);
   const svgRef=useRef(null);const pinchDist=useRef(null);const drag=useRef({active:false,x:0,y:0,yp:0,xp:0});const lv=useRef({yP:0,xP:0,days:182.6,yRZ:0,xZ:1});const gapCvs=useRef(null);const gapChart=useRef(null);const gapZI=useRef(null);const gapZO=useRef(null);const gapRZ=useRef(null);const gapPL=useRef(null);const gapPR=useRef(null);const gapPU=useRef(null);const gapPD=useRef(null);const svCvs=useRef(null);const svChart=useRef(null);const svZI=useRef(null);const svZO=useRef(null);const svRZ=useRef(null);const svPL=useRef(null);const svPR=useRef(null);const svPU=useRef(null);const svPD=useRef(null);const rkCvs=useRef(null);const rkChart=useRef(null);const rkZI=useRef(null);const rkZO=useRef(null);const rkRZ=useRef(null);const rkPL=useRef(null);const rkPR=useRef(null);const rkPU=useRef(null);const rkPD=useRef(null);
@@ -219,9 +219,17 @@ function App(){
     const rgba2=(h,a)=>{const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return'rgba('+r+','+g+','+b+','+a+')';};
     const getC=a=>{if(a.isBeagle)return'#E8B84B';if(a.passed)return'#E74C3C';if(!a.catchable)return'#3A6090';if(a.daysTo<100)return'#00E676';if(a.daysTo<400)return'#69F0AE';if(a.daysTo<800)return'#F9A825';return'#F57F17';};
     const svPool=(full?[...all]:[...all].filter(a=>a.isBeagle||a.passed||a.gap<800)).sort((a,b)=>b.sv-a.sv);
-    const allSVEnd=svPool.map(a=>a.sv+(a.pace||0)*days);
-    const maxY=allSVEnd.length?Math.max(...allSVEnd)*1.06:5000;
-    const minY=svPool.length?Math.min(...svPool.map(a=>a.sv||0))*0.93:1000;
+    const svVals=svPool.flatMap(a=>{
+      const sv=a.sv;
+      if(sv==null)return[];
+      const end=sv+(a.pace||0)*days;
+      return [sv,end];
+    });
+    let minY=svVals.length?Math.min(...svVals):1000;
+    let maxY=svVals.length?Math.max(...svVals):5000;
+    if(minY===maxY){minY-=1;maxY+=1;}
+    const pad=(maxY-minY)*0.01;
+    minY=Math.max(0,minY-pad); maxY=maxY+pad;
     let selS=null;
     const SDS=svPool.map(a=>{
       const c=getC(a),isAct=act.has(a.name),dim=hasAct&&!isAct&&!a.isBeagle;
@@ -310,9 +318,16 @@ function App(){
   },[mode,all,BS,BP,beagle,days,act,hasAct,full]);
 
   useEffect(()=>{
-    if(svChart.current){svChart.current.options.layout.padding.right=showR?80:0;svChart.current.update('none');}
-    if(gapChart.current){gapChart.current.options.layout.padding.right=showR?20:0;gapChart.current.update('none');}
-    if(rkChart.current){rkChart.current.options.layout.padding.right=showR?155:0;rkChart.current.update('none');}
+    const apply=()=>{
+      [svChart,gapChart,rkChart].forEach((ref,i)=>{
+        const c=ref.current;if(!c)return;
+        const right=i===0?(showR?80:0):i===1?(showR?20:0):(showR?155:0);
+        c.options.layout.padding.right=right;
+        c.resize();
+        c.update('none');
+      });
+    };
+    requestAnimationFrame(()=>requestAnimationFrame(apply));
   },[showR]);
 
   useEffect(()=>{
