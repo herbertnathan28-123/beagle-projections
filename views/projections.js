@@ -170,7 +170,7 @@ function App(){
             ticks:{color:'#7AAAC8',font:{family:FF2,size:11,weight:'300'},
               callback:v=>v===0?'':v<0?'▼$'+Math.abs(v).toFixed(0)+'M':'$'+v.toFixed(0)+'M'}}
         },
-        layout:{padding:{left:158,right:20,top:20,bottom:8}},
+        layout:{padding:{left:120,right:showR?20:0,top:20,bottom:8}},
         onClick(e){
           const ca=gapChart.current.chartArea,xs=gapChart.current.scales.x,ys=gapChart.current.scales.y;
           const mx=e.native.offsetX,my=e.native.offsetY;
@@ -257,9 +257,9 @@ function App(){
           const svStr='$'+(svEnd>=1000?(svEnd/1000).toFixed(2)+'B':svEnd.toFixed(1)+'M');
           ctx.fillStyle=a.isBeagle?'#E8B84B':c;
           ctx.font=(a.isBeagle||isSel?'700':'500')+' 12px '+FF2;
-          ctx.textAlign='left';
-          ctx.fillText(svStr,pxR+8,adjYR[i]+4);
-          ctx.fillStyle=c;ctx.beginPath();ctx.arc(pxR+3,rawYR[i],isSel?3.5:2,0,Math.PI*2);ctx.fill();
+          ctx.textAlign='right';
+          ctx.fillText(svStr,pxR-8,adjYR[i]+4);
+          ctx.fillStyle=c;ctx.beginPath();ctx.arc(pxR-3,rawYR[i],isSel?3.5:2,0,Math.PI*2);ctx.fill();
         }
       });
       ctx.globalAlpha=1;ctx.restore();
@@ -273,7 +273,7 @@ function App(){
           y:{min:minY,max:maxY,grid:{color:'#0F1E2E',lineWidth:.6},border:{color:'#1A324A'},
             ticks:{color:'#7AAAC8',font:{family:FF2,size:11},callback:v=>'$'+v.toFixed(0)+'M'}}
         },
-        layout:{padding:{left:158,right:80,top:20,bottom:8}},
+        layout:{padding:{left:120,right:showR?80:0,top:20,bottom:8}},
         onClick(e){
           if(!svChart.current)return;
           const ca=svChart.current.chartArea,xs=svChart.current.scales.x,ys=svChart.current.scales.y;
@@ -308,6 +308,12 @@ function App(){
     cvs.addEventListener('touchstart',onTS,{passive:false});cvs.addEventListener('touchmove',onTM,{passive:false});cvs.addEventListener('touchend',onTE);cvs.addEventListener('wheel',onWH,{passive:false});
     return()=>{cvs.removeEventListener('touchstart',onTS);cvs.removeEventListener('touchmove',onTM);cvs.removeEventListener('touchend',onTE);cvs.removeEventListener('wheel',onWH);if(svChart.current){svChart.current.destroy();svChart.current=null;}};
   },[mode,all,BS,BP,beagle,days,act,hasAct,full]);
+
+  useEffect(()=>{
+    if(svChart.current){svChart.current.options.layout.padding.right=showR?80:0;svChart.current.update('none');}
+    if(gapChart.current){gapChart.current.options.layout.padding.right=showR?20:0;gapChart.current.update('none');}
+    if(rkChart.current){rkChart.current.options.layout.padding.right=showR?155:0;rkChart.current.update('none');}
+  },[showR]);
 
   useEffect(()=>{
     if(mode!=='RANK'){if(rkChart.current){rkChart.current.destroy();rkChart.current=null;}return;}
@@ -402,7 +408,7 @@ function App(){
             ticks:{color:'#7AAAC8',font:{family:FF2,size:11},callback:v=>v===0?'NOW':v<60?Math.round(v)+'d':Math.round(v/30.4)+'MO'}},
           y:{min:1,max:20,reverse:true,grid:{color:'#0F1E2E',lineWidth:.6},border:{color:'#1A324A'},ticks:{display:false}}
         },
-        layout:{padding:{left:40,right:155,top:20,bottom:8}},
+        layout:{padding:{left:40,right:showR?155:0,top:20,bottom:8}},
         onClick(e){
           if(!rkChart.current)return;
           const ca=rkChart.current.chartArea,xs=rkChart.current.scales.x,ys=rkChart.current.scales.y;
@@ -550,10 +556,10 @@ function App(){
         {[['#E8B84B','Beagle'],['#00E676','<100d'],['#69F0AE','catching'],['#3A6090','away'],['#E74C3C','passed']].map(([c,l])=>(<span key={l} style={{display:'flex',alignItems:'center',gap:4,whiteSpace:'nowrap'}}><span style={{width:l==='Beagle'?20:15,height:l==='Beagle'?3:2,background:c,display:'inline-block',borderRadius:2}}/><span style={{fontSize:12,color:'#8AAABB'}}>{l}</span></span>))}
       </div>
     </div>
-    <div style={{padding:'2px 4px 4px',flexShrink:0,touchAction:'auto'}}>
+    <div style={{padding:'2px 4px 4px',display:'flex',flexDirection:'column',flex:showR?'0 0 auto':'1 1 0%',minHeight:0,touchAction:'auto'}}>
       {portrait&&(<div style={{background:'#0A1520',border:'1px solid #1A3A5A',borderRadius:4,padding:'6px 12px',marginBottom:6,display:'flex',alignItems:'center',gap:8,fontSize:12,color:'#5A8AAB',letterSpacing:'.05em'}}><span style={{fontSize:16}}>&#8635;</span><span>ROTATE DEVICE FOR BEST EXPERIENCE</span></div>)}
-      {mode==='GAP'?(<div style={{width:'100%',height:portrait?'44vh':'38vh',background:'#000000',borderRadius:2}}><canvas ref={gapCvs} style={{width:'100%',height:'100%',display:'block'}}/></div>):mode==='SV'?(<div style={{width:'100%',height:portrait?'44vh':'38vh',background:'#000000',borderRadius:2}}><canvas ref={svCvs} style={{width:'100%',height:'100%',display:'block'}}/></div>):mode==='RANK'?(<div style={{width:'100%',height:portrait?'44vh':'38vh',background:'#000000',borderRadius:2,position:'relative'}}>
-  <canvas ref={rkCvs} style={{width:'100%',height:'100%',display:'block'}} onClick={()=>{}}/>
+      {mode==='GAP'?(<div style={{position:'relative',width:'100%',flex:showR?'0 0 auto':'1 1 0%',height:showR?(portrait?'44vh':'38vh'):'100%',minHeight:0,background:'#000000',borderRadius:2}}><canvas ref={gapCvs} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',display:'block'}}/></div>):mode==='SV'?(<div style={{position:'relative',width:'100%',flex:showR?'0 0 auto':'1 1 0%',height:showR?(portrait?'44vh':'38vh'):'100%',minHeight:0,background:'#000000',borderRadius:2}}><canvas ref={svCvs} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',display:'block'}}/></div>):mode==='RANK'?(<div style={{position:'relative',width:'100%',flex:showR?'0 0 auto':'1 1 0%',height:showR?(portrait?'44vh':'38vh'):'100%',minHeight:0,background:'#000000',borderRadius:2}}>
+  <canvas ref={rkCvs} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',display:'block'}} onClick={()=>{}}/>
   {rkTip&&(<div onClick={()=>setRkTip(null)} style={{position:'fixed',left:Math.min(rkTip.tipX+12,window.innerWidth-280),top:Math.max(rkTip.tipY-110,8),zIndex:999,background:'#0A1520',border:'1px solid #1A3A5A',borderRadius:6,padding:'10px 14px',minWidth:240,maxWidth:280,boxShadow:'0 4px 20px rgba(0,0,0,0.7)',cursor:'pointer'}}>
     <div style={{fontSize:10,color:'#5A8AAB',letterSpacing:'.1em',marginBottom:6}}>RANK CROSSOVER · TAP TO CLOSE</div>
     <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
