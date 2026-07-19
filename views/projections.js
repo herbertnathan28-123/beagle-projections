@@ -228,8 +228,7 @@ function App(){
     let minY=svVals.length?Math.min(...svVals):1000;
     let maxY=svVals.length?Math.max(...svVals):5000;
     if(minY===maxY){minY-=1;maxY+=1;}
-    const pad=(maxY-minY)*0.01;
-    minY=Math.max(0,minY-pad); maxY=maxY+pad;
+    minY=Math.max(0,minY);
     let selS=null;
     const SDS=svPool.map(a=>{
       const c=getC(a),isAct=act.has(a.name),dim=hasAct&&!isAct&&!a.isBeagle;
