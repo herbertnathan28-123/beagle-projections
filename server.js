@@ -323,6 +323,84 @@ app.get('/api/visitors', (req, res) => {
 
 app.get('/api/data', (req, res) => res.json(liveData));
 
+// ── Daily top-10 alliance pace history ───────────────────────────────────────
+const PACE_COLORS = ['#00E676','#69F0AE','#F9A825','#F57F17','#29B6F6','#AB47BC','#EF5350','#26A69A','#EC407A','#AA00FF','#00B0FF','#76FF03'];
+function utcDate(iso) { try { return new Date(iso).toISOString().slice(0,10); } catch (_){ return null; } }
+function addUtcDays(iso, n) { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0,10); }
+function fmtUtcLabel(iso) { const d = new Date(iso + 'T00:00:00Z'); return d.toLocaleDateString('en-AU', { day:'numeric', month:'short', timeZone:'UTC' }); }
+function buildPacePoints(snapshots, start, end) {
+  const byDate = {};
+  for (const s of snapshots) {
+    const d = utcDate(s.timestamp);
+    if (!d) continue;
+    if (!byDate[d] || s.timestamp > byDate[d].timestamp) byDate[d] = s;
+  }
+  const sortedDates = Object.keys(byDate).sort();
+  if (!sortedDates.length) return [];
+  let lastRealIdx = -1;
+  for (let i = sortedDates.length - 1; i >= 0; i--) { if (sortedDates[i] < start) { lastRealIdx = i; break; } }
+  const points = [];
+  let cur = start;
+  while (cur <= end) {
+    const idx = sortedDates.indexOf(cur);
+    let y = null, actual = null, interpolated = true;
+    if (idx !== -1) {
+      if (lastRealIdx !== -1) {
+        const prev = sortedDates[lastRealIdx];
+        const dayDiff = (Date.parse(cur + 'T00:00:00Z') - Date.parse(prev + 'T00:00:00Z')) / 86400000;
+        if (dayDiff > 0) {
+          actual = (byDate[cur].sv - byDate[prev].sv) / dayDiff;
+          y = actual;
+          interpolated = false;
+        }
+      }
+      lastRealIdx = idx;
+    } else {
+      const nextIdx = sortedDates.findIndex(d => d > cur);
+      if (lastRealIdx !== -1 && nextIdx !== -1) {
+        const prev = sortedDates[lastRealIdx];
+        const next = sortedDates[nextIdx];
+        const dayDiff = (Date.parse(next + 'T00:00:00Z') - Date.parse(prev + 'T00:00:00Z')) / 86400000;
+        if (dayDiff > 0) y = (byDate[next].sv - byDate[prev].sv) / dayDiff;
+      }
+    }
+    points.push({ date: cur, x: fmtUtcLabel(cur), y: y != null ? Math.round(y * 1000) / 1000 : null, actual: actual != null ? Math.round(actual * 1000) / 1000 : null, interpolated, pct: null });
+    cur = addUtcDays(cur, 1);
+  }
+  for (let i = 0; i < points.length; i++) {
+    if (i > 0 && points[i].y != null && points[i - 1].y != null && points[i - 1].y !== 0) {
+      points[i].pct = Math.round(((points[i].y - points[i - 1].y) / Math.abs(points[i - 1].y)) * 1000) / 10;
+    }
+  }
+  return points;
+}
+app.get('/api/pace-history', (req, res) => {
+  const requestedDays = Math.min(parseInt(req.query.days) || 30, 90);
+  const others = (liveData.alliances || [])
+    .filter(a => a.pace != null && !isNaN(a.pace))
+    .sort((a, b) => b.pace - a.pace)
+    .slice(0, 9)
+    .map((a, i) => {
+      const key = normAllianceName(a.name);
+      const snaps = (allianceHistory[key] && allianceHistory[key].snapshots) || [];
+      return { name: a.name, color: PACE_COLORS[i % PACE_COLORS.length], snapshots: snaps };
+    });
+  const teams = [{ name: 'Beagle Global', color: '#E8B84B', snapshots: svHistory.snapshots || [] }, ...others];
+  let latest = null;
+  for (const t of teams) {
+    for (const s of t.snapshots) {
+      const d = utcDate(s.timestamp);
+      if (d && (!latest || d > latest)) latest = d;
+    }
+  }
+  if (!latest) return res.json({ labels: [], teams: [] });
+  const end = latest;
+  const start = addUtcDays(end, -(requestedDays - 1));
+  const series = teams.map(t => ({ name: t.name, color: t.color, points: buildPacePoints(t.snapshots, start, end) }));
+  const labels = series[0]?.points.map(p => p.x) || [];
+  res.json({ days: requestedDays, start, end, labels, teams: series });
+});
+
 app.post('/api/update', (req, res) => {
   const { token, timestamp, uploader, beagleSV, beagleRank, beaglePace, alliances, force } = req.body;
   if (token !== SECRET && token !== N8N_TOKEN) return res.status(401).json({ error: 'Unauthorized' });

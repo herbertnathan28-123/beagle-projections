@@ -641,6 +641,130 @@ function App(){
 }
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
+<div id="pace-root" style="padding:0 8px 16px;background:#030B17"></div>
+<script type="text/babel">
+(function(){
+const {useState,useEffect,useRef,useMemo}=React;
+const PACE_COLORS=['#E8B84B','#00E676','#69F0AE','#F9A825','#F57F17','#29B6F6','#AB47BC','#EF5350','#26A69A','#EC407A','#AA00FF','#00B0FF'];
+function fmtPct(n){if(n==null)return '—';return (n>0?'+':'')+n.toFixed(1)+'%';}
+function PaceTrendApp(){
+  const [data,setData]=useState(null);
+  const [sel,setSel]=useState(null);
+  const [loading,setLoading]=useState(true);
+  const cvs=useRef(null),chart=useRef(null);
+  useEffect(()=>{fetch('/api/pace-history?days=30').then(r=>r.json()).then(d=>{setData(d);setSel(d.labels.length?d.labels.length-1:null);setLoading(false);}).catch(e=>{console.error(e);setLoading(false);});},[]);
+  useEffect(()=>{
+    if(!data||!cvs.current||typeof Chart==='undefined')return;
+    if(chart.current){chart.current.destroy();chart.current=null;}
+    const datasets=data.teams.map(t=>({
+      label:t.name,
+      data:t.points,
+      borderColor:t.color,
+      backgroundColor:t.color,
+      borderWidth:2,
+      pointRadius:0,
+      pointHoverRadius:5,
+      tension:0.35,
+      fill:false,
+      segment:{borderDash:ctx=>{
+        const p0=ctx.p0.raw,p1=ctx.p1.raw;
+        if((p0&&p0.interpolated)||(p1&&p1.interpolated))return[6,6];
+      }}
+    }));
+    chart.current=new Chart(cvs.current.getContext('2d'),{
+      type:'line',
+      data:{labels:data.labels,datasets},
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        onHover:(e,els)=>{if(els&&els.length){const i=els[0].index;if(i!=null)setSel(i);}},
+        onClick:(e,els)=>{if(els&&els.length){const i=els[0].index;if(i!=null)setSel(i);}},
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            backgroundColor:'#0A1520',
+            titleColor:'#E8B84B',
+            bodyColor:'#E2EAF4',
+            borderColor:'#1A3A5A',
+            borderWidth:1,
+            callbacks:{
+              title:items=>data.labels[items[0].dataIndex],
+              label:item=>{
+                const p=item.raw;
+                const v=p.y!=null?p.y.toFixed(3):'NA';
+                return item.dataset.label+': $'+v+'/day'+(p.interpolated?' (interpolated)':'');
+              }
+            }
+          }
+        },
+        scales:{
+          x:{grid:{color:'#162030'},ticks:{color:'#5A8AAB',maxRotation:45,minRotation:30}},
+          y:{grid:{color:'#162030'},ticks:{color:'#5A8AAB',callback:v=>'$'+v},title:{display:true,text:'PACE ($ / day)',color:'#8AAABB'}}
+        }
+      }
+    });
+    return()=>{if(chart.current){chart.current.destroy();chart.current=null;}};
+  },[data]);
+  const selected=useMemo(()=>{
+    if(sel==null||!data)return null;
+    const date=data.labels[sel];
+    const rows=data.teams.map(t=>({...t,point:t.points[sel]})).filter(r=>r.point&&r.point.y!=null).sort((a,b)=>b.point.y-a.point.y);
+    const withPct=rows.filter(r=>r.point&&r.point.pct!=null);
+    const top=withPct.length?withPct.reduce((a,b)=>b.point.pct>a.point.pct?b:a):null;
+    const bottom=withPct.length?withPct.reduce((a,b)=>b.point.pct<a.point.pct?b:a):null;
+    return {date,rows,top,bottom};
+  },[sel,data]);
+  if(loading)return <div style={{padding:16,color:'#5A8ABB'}}>Loading pace history...</div>;
+  if(!data||!data.teams.length)return <div style={{padding:16,color:'#5A8ABB'}}>No pace history available.</div>;
+  return (
+    <div style={{padding:'0 8px 16px',background:'#030B17'}}>
+      <div style={{background:'#040C18',border:'1px solid #0A1E30',borderTop:'2px solid #C4920A',borderRadius:6,padding:14}}>
+        <div style={{fontSize:15,color:'#E8B84B',fontWeight:700,letterSpacing:1,marginBottom:10}}>TOP 10 PACE TEAMS · DAILY TREND</div>
+        {selected&&(
+          <div style={{background:'#0A1520',border:'1px solid #1A3A5A',borderRadius:6,padding:'10px 14px',marginBottom:12}}>
+            <div style={{fontSize:16,fontWeight:700,color:'#E8B84B',marginBottom:8}}>{selected.date}</div>
+            {selected.top&&<div style={{fontSize:13,color:'#00E676',marginBottom:4}}>&#9650; Top performer: {selected.top.name} {fmtPct(selected.top.point.pct)} {'($'+selected.top.point.y.toFixed(3)+'/day)'}</div>}
+            {selected.bottom&&<div style={{fontSize:13,color:'#E74C3C',marginBottom:8}}>&#9660; Bottom performer: {selected.bottom.name} {fmtPct(selected.bottom.point.pct)} {'($'+selected.bottom.point.y.toFixed(3)+'/day)'}</div>}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:8}}>
+              {selected.rows.map((r,i)=>{
+                const pct=r.point.pct;
+                const pctColor=pct>0?'#00E676':pct<0?'#E74C3C':'#8AAABB';
+                return (
+                  <div key={i} style={{display:'flex',alignItems:'center',gap:8,background:'#030B17',borderRadius:4,padding:'6px 8px'}}>
+                    <span style={{width:10,height:10,borderRadius:'50%',background:r.color,display:'inline-block'}}/>
+                    <span style={{fontSize:12,fontWeight:600,color:'#E2EAF4',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.name}</span>
+                    <span style={{fontSize:12,fontWeight:700,color:'#E8B84B'}}>{'$'+r.point.y.toFixed(3)+'/d'}</span>
+                    <span style={{fontSize:11,fontWeight:600,color:pctColor}}>{fmtPct(pct)}</span>
+                    {r.point.interpolated&&<span style={{fontSize:10,color:'#5A8AAB',marginLeft:2}}>*</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        <div style={{height:320,position:'relative'}}>
+          <canvas ref={cvs} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%'}}/>
+        </div>
+        <div style={{display:'flex',flexWrap:'wrap',gap:'8px 14px',marginTop:10}}>
+          {data.teams.map(t=>{
+            const last=t.points[t.points.length-1];
+            return (
+              <span key={t.name} style={{display:'flex',alignItems:'center',gap:5,fontSize:12,color:'#8AAABB'}}>
+                <span style={{width:10,height:10,borderRadius:'50%',background:t.color,display:'inline-block'}}/>
+                {t.name} {last&&last.y!=null?'$'+last.y.toFixed(3):''}
+              </span>
+            );
+          })}
+        </div>
+        <div style={{fontSize:11,color:'#5A8AAB',marginTop:8}}>* dotted line = missing-day interpolation · touch chart to see each day</div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('pace-root')).render(<PaceTrendApp/>);
+})();
+</script>
 </body>
 </html>`;
 
