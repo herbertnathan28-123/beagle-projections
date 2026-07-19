@@ -41,7 +41,7 @@ const { analyseAllPlayers, calcMostImproved, _nk } = engine;
 const { parsePaceUpload } = parse;
 const { _calc } = calculator;
 const getFuelPath = fuel.getFuelPath;
-const { saveState, saveHqState, saveManualOverrides, calcPaceFromBaseline, calcPaceFromHistory, loadSVHistory, addSVSnapshot, loadAllianceSVHistory, addAllianceSVSnapshot, calcAlliancePaceFromHistory, recalcAlliancePaces } = storage;
+const { saveState, saveHqState, saveManualOverrides, calcPaceFromBaseline, calcPaceFromHistory, loadSVHistory, addSVSnapshot, loadAllianceSVHistory, addAllianceSVSnapshot, calcAlliancePaceFromHistory, recalcAlliancePaces, normAllianceName } = storage;
 
 // ── Discord notifications (single POST helper under the hood) ───────────────
 const notifyDiscord     = msg => storage.postDiscord(cfg.ALLIANCE_UPLOAD_WEBHOOK, msg, 'notify');
@@ -329,17 +329,17 @@ app.post('/api/update', (req, res) => {
   const newSV = beagleSV ?? liveData.beagleSV;
   const newTs = timestamp || liveData.timestamp;
   const merged = (alliances || []).map(a => {
-    const existing = liveData.alliances.find(e =>
-      e.name.toLowerCase().trim() === a.name.toLowerCase().trim());
+    const key = normAllianceName(a.name);
+    const existing = liveData.alliances.find(e => normAllianceName(e.name) === key);
     const incomingPace = (a.pace != null && !isNaN(a.pace)) ? a.pace : null;
     const recentPace = calcAlliancePaceFromHistory(allianceHistory, a.name, a.sv, newTs, 2);
     const pace = recentPace ?? incomingPace ?? existing?.pace ?? null;
     return { rank: a.rank, name: a.name, sv: a.sv, pace };
   });
-  // Deduplicate alliances by name — prevents double rows from repeat uploads
+  // Deduplicate alliances by normalized name — prevents double rows from repeat uploads
   const _seenAlliances = new Set();
   const dedupedMerged = merged.filter(a => {
-    const k = (a.name || '').toLowerCase().trim();
+    const k = normAllianceName(a.name);
     if (_seenAlliances.has(k)) return false;
     _seenAlliances.add(k);
     return true;
