@@ -41,7 +41,7 @@ const { analyseAllPlayers, calcMostImproved, _nk } = engine;
 const { parsePaceUpload } = parse;
 const { _calc } = calculator;
 const getFuelPath = fuel.getFuelPath;
-const { saveState, saveHqState, saveManualOverrides, calcPaceFromBaseline, calcPaceFromHistory, loadSVHistory, addSVSnapshot } = storage;
+const { saveState, saveHqState, saveManualOverrides, calcPaceFromBaseline, calcPaceFromHistory, loadSVHistory, addSVSnapshot, loadAllianceSVHistory, addAllianceSVSnapshot, calcAlliancePaceFromHistory, recalcAlliancePaces } = storage;
 
 // ── Discord notifications (single POST helper under the hood) ───────────────
 const notifyDiscord     = msg => storage.postDiscord(cfg.ALLIANCE_UPLOAD_WEBHOOK, msg, 'notify');
@@ -59,6 +59,7 @@ function awstStamp(iso) {
 // ── In-memory + persisted state ─────────────────────────────────────────────
 let liveData        = storage.loadState();
 let svHistory       = storage.loadSVHistory();
+let allianceHistory = storage.loadAllianceSVHistory();
 let hqData          = storage.loadHqState();
 let snapshotHistory = storage.loadSnapshotHistory();
 let manualOverrides = storage.loadManualOverrides();
@@ -325,11 +326,15 @@ app.get('/api/data', (req, res) => res.json(liveData));
 app.post('/api/update', (req, res) => {
   const { token, timestamp, uploader, beagleSV, beagleRank, beaglePace, alliances } = req.body;
   if (token !== SECRET && token !== N8N_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
+  const newSV = beagleSV ?? liveData.beagleSV;
+  const newTs = timestamp || liveData.timestamp;
   const merged = (alliances || []).map(a => {
     const existing = liveData.alliances.find(e =>
       e.name.toLowerCase().trim() === a.name.toLowerCase().trim());
     const incomingPace = (a.pace != null && !isNaN(a.pace)) ? a.pace : null;
-    return { rank: a.rank, name: a.name, sv: a.sv, pace: incomingPace ?? existing?.pace ?? null };
+    const recentPace = calcAlliancePaceFromHistory(allianceHistory, a.name, a.sv, newTs, 2);
+    const pace = recentPace ?? incomingPace ?? existing?.pace ?? null;
+    return { rank: a.rank, name: a.name, sv: a.sv, pace };
   });
   // Deduplicate alliances by name — prevents double rows from repeat uploads
   const _seenAlliances = new Set();
@@ -339,23 +344,26 @@ app.post('/api/update', (req, res) => {
     _seenAlliances.add(k);
     return true;
   });
-  const newSV = beagleSV ?? liveData.beagleSV;
-  const newTs = timestamp || liveData.timestamp;
   const serverPace = calcPaceFromBaseline(newSV, newTs);
-  const recentPace = calcPaceFromHistory(svHistory, newSV, newTs, 2);
+  const recentBeaglePace = calcPaceFromHistory(svHistory, newSV, newTs, 2);
   // Prefer an actual recent SV delta over an n8n-supplied or baseline-averaged pace.
-  let finalPace = recentPace;
+  let finalPace = recentBeaglePace;
   if (finalPace == null && beaglePace != null && !isNaN(beaglePace) && beaglePace >= 1.0) finalPace = beaglePace;
   if (finalPace == null) finalPace = serverPace;
-  console.log('[PACE] n8n=' + beaglePace + ' baseline=' + serverPace + ' recent=' + recentPace + ' final=' + finalPace);
+  console.log('[PACE] n8n=' + beaglePace + ' baseline=' + serverPace + ' recent=' + recentBeaglePace + ' final=' + finalPace);
   liveData = {
-    timestamp, uploader,
+    timestamp: newTs,
+    uploader: uploader || liveData.uploader,
     beagleSV:   newSV,
     beaglePace: finalPace,
     beagleRank: beagleRank ?? liveData.beagleRank,
     alliances:  dedupedMerged.length ? dedupedMerged : liveData.alliances,
   };
   addSVSnapshot(svHistory, newSV, newTs);
+  if (dedupedMerged.length) {
+    for (const a of dedupedMerged) addAllianceSVSnapshot(allianceHistory, a.name, a.sv, newTs);
+  }
+  recalcAlliancePaces(liveData, allianceHistory);
   console.log(`[${new Date().toISOString()}] Updated by ${uploader}`);
   saveState(liveData);
   notifyDiscord(
