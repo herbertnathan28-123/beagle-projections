@@ -346,11 +346,13 @@ app.post('/api/update', (req, res) => {
   });
   const serverPace = calcPaceFromBaseline(newSV, newTs);
   const recentBeaglePace = calcPaceFromHistory(svHistory, newSV, newTs, 2);
-  // Prefer an actual recent SV delta over an n8n-supplied or baseline-averaged pace.
+  // Prefer an actual recent SV delta, then an explicit n8n value, then the current stored pace.
+  // The stale June baseline is only a last-resort seed for a brand-new state.
   let finalPace = recentBeaglePace;
   if (finalPace == null && beaglePace != null && !isNaN(beaglePace) && beaglePace >= 1.0) finalPace = beaglePace;
+  if (finalPace == null && liveData.beaglePace != null && !isNaN(liveData.beaglePace) && liveData.beaglePace >= 1.0) finalPace = liveData.beaglePace;
   if (finalPace == null) finalPace = serverPace;
-  console.log('[PACE] n8n=' + beaglePace + ' baseline=' + serverPace + ' recent=' + recentBeaglePace + ' final=' + finalPace);
+  console.log('[PACE] n8n=' + beaglePace + ' baseline=' + serverPace + ' recent=' + recentBeaglePace + ' stored=' + liveData.beaglePace + ' final=' + finalPace);
   liveData = {
     timestamp: newTs,
     uploader: uploader || liveData.uploader,
