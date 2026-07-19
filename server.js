@@ -41,7 +41,7 @@ const { analyseAllPlayers, calcMostImproved, _nk } = engine;
 const { parsePaceUpload } = parse;
 const { _calc } = calculator;
 const getFuelPath = fuel.getFuelPath;
-const { saveState, saveHqState, saveManualOverrides, calcPaceFromBaseline } = storage;
+const { saveState, saveHqState, saveManualOverrides, calcPaceFromBaseline, calcPaceFromHistory, loadSVHistory, addSVSnapshot } = storage;
 
 // ── Discord notifications (single POST helper under the hood) ───────────────
 const notifyDiscord     = msg => storage.postDiscord(cfg.ALLIANCE_UPLOAD_WEBHOOK, msg, 'notify');
@@ -58,6 +58,7 @@ function awstStamp(iso) {
 
 // ── In-memory + persisted state ─────────────────────────────────────────────
 let liveData        = storage.loadState();
+let svHistory       = storage.loadSVHistory();
 let hqData          = storage.loadHqState();
 let snapshotHistory = storage.loadSnapshotHistory();
 let manualOverrides = storage.loadManualOverrides();
@@ -341,8 +342,12 @@ app.post('/api/update', (req, res) => {
   const newSV = beagleSV ?? liveData.beagleSV;
   const newTs = timestamp || liveData.timestamp;
   const serverPace = calcPaceFromBaseline(newSV, newTs);
-  const finalPace = (beaglePace != null && !isNaN(beaglePace) && beaglePace >= 1.0) ? beaglePace : serverPace;
-  console.log('[PACE] n8n=' + beaglePace + ' server=' + serverPace + ' final=' + finalPace);
+  const recentPace = calcPaceFromHistory(svHistory, newSV, newTs, 2);
+  // Prefer an actual recent SV delta over an n8n-supplied or baseline-averaged pace.
+  let finalPace = recentPace;
+  if (finalPace == null && beaglePace != null && !isNaN(beaglePace) && beaglePace >= 1.0) finalPace = beaglePace;
+  if (finalPace == null) finalPace = serverPace;
+  console.log('[PACE] n8n=' + beaglePace + ' baseline=' + serverPace + ' recent=' + recentPace + ' final=' + finalPace);
   liveData = {
     timestamp, uploader,
     beagleSV:   newSV,
@@ -350,6 +355,7 @@ app.post('/api/update', (req, res) => {
     beagleRank: beagleRank ?? liveData.beagleRank,
     alliances:  dedupedMerged.length ? dedupedMerged : liveData.alliances,
   };
+  addSVSnapshot(svHistory, newSV, newTs);
   console.log(`[${new Date().toISOString()}] Updated by ${uploader}`);
   saveState(liveData);
   notifyDiscord(
