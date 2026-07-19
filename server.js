@@ -324,7 +324,7 @@ app.get('/api/visitors', (req, res) => {
 app.get('/api/data', (req, res) => res.json(liveData));
 
 app.post('/api/update', (req, res) => {
-  const { token, timestamp, uploader, beagleSV, beagleRank, beaglePace, alliances } = req.body;
+  const { token, timestamp, uploader, beagleSV, beagleRank, beaglePace, alliances, force } = req.body;
   if (token !== SECRET && token !== N8N_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
   const newSV = beagleSV ?? liveData.beagleSV;
   const newTs = timestamp || liveData.timestamp;
@@ -335,7 +335,8 @@ app.post('/api/update', (req, res) => {
     const recentPace = calcAlliancePaceFromHistory(allianceHistory, a.name, a.sv, newTs, 2);
     // Prefer the incoming n8n pace (most recent game-derived value), then a 24h SV delta,
     // then the verified stored pace. Sparse history can be noisy, so n8n wins when present.
-    const pace = incomingPace ?? recentPace ?? existing?.pace ?? null;
+    // An explicit `force: true` lets a trusted caller override the stored value.
+    const pace = force ? incomingPace : (incomingPace ?? recentPace ?? existing?.pace ?? null);
     return { rank: a.rank, name: a.name, sv: a.sv, pace };
   });
   // Deduplicate alliances by normalized name — prevents double rows from repeat uploads
@@ -350,8 +351,10 @@ app.post('/api/update', (req, res) => {
   const recentBeaglePace = calcPaceFromHistory(svHistory, newSV, newTs, 2);
   // Preserve a verified stored pace first, then an explicit n8n value, then a 24h SV delta.
   // The stale June baseline is only a last-resort seed for a brand-new state.
+  // An explicit `force: true` lets a trusted caller override the stored value.
   let finalPace = null;
-  if (liveData.beaglePace != null && !isNaN(liveData.beaglePace) && liveData.beaglePace >= 1.0) finalPace = liveData.beaglePace;
+  if (force && beaglePace != null && !isNaN(beaglePace) && beaglePace >= 1.0) finalPace = beaglePace;
+  else if (liveData.beaglePace != null && !isNaN(liveData.beaglePace) && liveData.beaglePace >= 1.0) finalPace = liveData.beaglePace;
   else if (beaglePace != null && !isNaN(beaglePace) && beaglePace >= 1.0) finalPace = beaglePace;
   else if (recentBeaglePace != null) finalPace = recentBeaglePace;
   if (finalPace == null) finalPace = serverPace;
