@@ -333,8 +333,9 @@ app.post('/api/update', (req, res) => {
     const existing = liveData.alliances.find(e => normAllianceName(e.name) === key);
     const incomingPace = (a.pace != null && !isNaN(a.pace)) ? a.pace : null;
     const recentPace = calcAlliancePaceFromHistory(allianceHistory, a.name, a.sv, newTs, 2);
-    // Prefer an actual 24h SV delta, then a verified stored pace, then the n8n baseline.
-    const pace = recentPace ?? existing?.pace ?? incomingPace ?? null;
+    // Prefer the incoming n8n pace (most recent game-derived value), then a 24h SV delta,
+    // then the verified stored pace. Sparse history can be noisy, so n8n wins when present.
+    const pace = incomingPace ?? recentPace ?? existing?.pace ?? null;
     return { rank: a.rank, name: a.name, sv: a.sv, pace };
   });
   // Deduplicate alliances by normalized name — prevents double rows from repeat uploads
