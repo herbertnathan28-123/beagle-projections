@@ -347,7 +347,7 @@ function buildPacePoints(snapshots, start, end) {
     if (idx !== -1) {
       if (lastRealIdx !== -1) {
         const prev = sortedDates[lastRealIdx];
-        const dayDiff = (Date.parse(cur + 'T00:00:00Z') - Date.parse(prev + 'T00:00:00Z')) / 86400000;
+        const dayDiff = (Date.parse(byDate[cur].timestamp) - Date.parse(byDate[prev].timestamp)) / 86400000;
         if (dayDiff > 0) {
           actual = (byDate[cur].sv - byDate[prev].sv) / dayDiff;
           y = actual;
@@ -360,7 +360,7 @@ function buildPacePoints(snapshots, start, end) {
       if (lastRealIdx !== -1 && nextIdx !== -1) {
         const prev = sortedDates[lastRealIdx];
         const next = sortedDates[nextIdx];
-        const dayDiff = (Date.parse(next + 'T00:00:00Z') - Date.parse(prev + 'T00:00:00Z')) / 86400000;
+        const dayDiff = (Date.parse(byDate[next].timestamp) - Date.parse(byDate[prev].timestamp)) / 86400000;
         if (dayDiff > 0) y = (byDate[next].sv - byDate[prev].sv) / dayDiff;
       }
     }
