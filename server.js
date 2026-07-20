@@ -255,7 +255,6 @@ app.post('/api/hq-update', (req, res) => {
     addSnapshot(players, hqData.timestamp);
     console.log('[HQ] updated — ' + players.length + ' players, pace ' + hqData.alliancePace + ' · snapshot #' + snapshotHistory.snapshots.length);
     const paceStr = hqData.alliancePace ? '$' + parseFloat(hqData.alliancePace).toFixed(2) + '/day' : 'not available';
-    notifyDiscord('✅ **HQ DATA RECEIVED & LOGGED** — Alliance Pace: **' + paceStr + '** · ' + players.length + ' players · as of ' + awstStamp(hqData.timestamp) + ' AWST · uploaded by ' + hqData.uploader);
     // Post full player statistics to player stats channel
     try {
       const header = '📊 **BEAGLE ALLIANCE — PLAYER STATISTICS**\n' +
