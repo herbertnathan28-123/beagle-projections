@@ -37,7 +37,7 @@ const app  = express();
 const PORT = process.env.PORT || 10000;
 
 // ── Engine / view aliases (keep route bodies unchanged) ────────────────────
-const { analyseAllPlayers, calcMostImproved, _nk } = engine;
+const { analyseAllPlayers, calcMostImproved, calcTeamRatingHistory, _nk } = engine;
 const { parsePaceUpload } = parse;
 const { _calc } = calculator;
 const getFuelPath = fuel.getFuelPath;
@@ -1047,6 +1047,17 @@ app.get('/api/fuel-notifications', (req, res) => {
 
 // ── PLAYER STATISTICS API ─────────────────────────────────────────────────
 
+// 7-day team rating re-runs the full merit engine once per day of history, so
+// memoise until a new snapshot arrives (the HQ page polls this every 30s).
+let _teamRatingCache = { key: null, value: null };
+function getTeamRating(snapshots) {
+  const key = snapshots.length + '|' + (snapshots[snapshots.length - 1]?.timestamp || '');
+  if (_teamRatingCache.key !== key) {
+    _teamRatingCache = { key, value: calcTeamRatingHistory(snapshots, 7) };
+  }
+  return _teamRatingCache.value;
+}
+
 app.get('/api/player-stats', (req, res) => {
   try {
     const hunterNames = getHunterTrackedNames();
@@ -1074,6 +1085,7 @@ app.get('/api/player-stats', (req, res) => {
       alliancePace: hqData.alliancePace,
       airlines: hqData.airlines,
       snapshotCount: snapshots.length,
+      teamRating: getTeamRating(snapshots),
       players: analysed,
     });
   } catch (e) {
