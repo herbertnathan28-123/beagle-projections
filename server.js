@@ -1058,6 +1058,17 @@ function getTeamRating(snapshots) {
   return _teamRatingCache.value;
 }
 
+// Lightweight endpoint for pages that only need the 7-day team rating banner
+// (e.g. the main projections page) without the full player-stats payload.
+app.get('/api/team-rating', (req, res) => {
+  try {
+    res.json(getTeamRating(snapshotHistory.snapshots || []));
+  } catch (e) {
+    console.error('[TEAM-RATING] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/player-stats', (req, res) => {
   try {
     const hunterNames = getHunterTrackedNames();

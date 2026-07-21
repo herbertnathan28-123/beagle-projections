@@ -63,6 +63,8 @@ function App(){
   const svgRef=useRef(null);const pinchDist=useRef(null);const drag=useRef({active:false,x:0,y:0,yp:0,xp:0});const lv=useRef({yP:0,xP:0,days:182.6,yRZ:0,xZ:1});const gapCvs=useRef(null);const gapChart=useRef(null);const gapZI=useRef(null);const gapZO=useRef(null);const gapRZ=useRef(null);const gapPL=useRef(null);const gapPR=useRef(null);const gapPU=useRef(null);const gapPD=useRef(null);const svCvs=useRef(null);const svChart=useRef(null);const svZI=useRef(null);const svZO=useRef(null);const svRZ=useRef(null);const svPL=useRef(null);const svPR=useRef(null);const svPU=useRef(null);const svPD=useRef(null);const rkCvs=useRef(null);const rkChart=useRef(null);const rkZI=useRef(null);const rkZO=useRef(null);const rkRZ=useRef(null);const rkPL=useRef(null);const rkPR=useRef(null);const rkPU=useRef(null);const rkPD=useRef(null);
   const toggle=useCallback(name=>{setAct(prev=>{const n=new Set(prev);if(n.has(name)){n.delete(name);setFocus(f=>f===name?([...n].pop()||null):f);}else{n.add(name);setFocus(name);}return n;});},[]);
   useEffect(()=>{fetch('/api/data').then(r=>r.json()).then(d=>{setApiData(d);setLoading(false);}).catch(()=>setLoading(false));},[]);
+  const[teamRating,setTeamRating]=useState(null);
+  useEffect(()=>{fetch('/api/team-rating').then(r=>r.json()).then(d=>{if(d&&d.overall!=null)setTeamRating(d);}).catch(()=>{});},[]);
   const{all,beagle,BS,BP}=useMemo(()=>{if(!apiData)return{all:[],beagle:{sv:0,pace:0,rank:19},BS:0,BP:0};return build(apiData);},[apiData]);
   const maxCD=all.filter(a=>!a.isBeagle&&a.catchable&&a.daysTo).reduce((m,a)=>Math.max(m,a.daysTo),365);
   const hasAct=act.size>0;
@@ -540,6 +542,12 @@ function App(){
     return(<g>{gridR.map(g=>(<g key={g.r}><line x1={ml} x2={ml+cw} y1={g.y} y2={g.y} stroke="#1E3A5F" strokeWidth="0.6" strokeDasharray="4,6"/><text x={ml-6} y={g.y+4} textAnchor="end" fill="#5A8AAB" fontSize="13">#{g.r}</text></g>))}<g clipPath="url(#cc)">{lines.map(d=>(<g key={d.name} onClick={()=>!d.isB&&toggle(d.name)} style={{cursor:d.isB?'default':'pointer'}}><path d={d.pd} stroke="transparent" strokeWidth="18" fill="none"/><path d={d.pd} stroke={d.c} strokeWidth={d.isB?3.5:d.isAct?2.5:1.2} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={d.dim?0.08:d.isB?1:0.85} filter={d.isB?'url(#fg)':undefined}/>{d.showLbl&&<text x={xs(days)+8} y={d.epy+5} fill={d.c} fontSize="14" fontWeight="700">{d.isB?'Beagle':nameTag(d.name)}</text>}</g>))}</g></g>);
   };
   return(<div style={{background:'#030B17',height:'100%',minHeight:'100vh',display:'flex',flexDirection:'column'}}>
+    {teamRating&&(
+      <div style={{background:'#C4920A',color:'#030B17',padding:'7px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:6,fontWeight:700,letterSpacing:1,fontSize:12}}>
+        <span>PREVIOUS 7 DAYS TEAM RANKING \xb7 {teamRating.history.map(h=>h.rating==null?'—':h.rating).join(', ')}</span>
+        <span>OVERALL {teamRating.overall}</span>
+      </div>
+    )}
     <div style={{background:'linear-gradient(90deg,#04101E,#0A1C32)',borderBottom:'2px solid #C4920A',padding:'10px 16px',display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:4}}>
       <div><div style={{fontSize:sz(22,38,0.020),fontWeight:700,color:'#E8B84B',letterSpacing:2}}>&#9672; BEAGLE GLOBAL \u2014 ALLIANCE PROJECTIONS</div><div style={{fontSize:sz(13,20,0.011),color:'#8AAABB',marginTop:3,letterSpacing:1}}>10-MO RECENT PACE \xb7 RANK #{beagle.rank}{ts2&&<span style={{marginLeft:12,color:'#5A8AAB'}}>UPDATED {fmtAWST(ts2)}{upl?' \xb7 '+upl:''}</span>}{!ts2&&<span style={{marginLeft:12,color:'#5A8AAB'}}>DEFAULT DATA \xb7 UPLOAD TO REFRESH</span>}</div></div>
       <div style={{textAlign:'right'}}><div style={{fontSize:sz(22,42,0.022),fontWeight:700,color:'#E8B84B'}}>{'$'+BS.toLocaleString('en',{minimumFractionDigits:2})+'M'}</div><div style={{fontSize:sz(13,20,0.011),color:'#8AAABB',letterSpacing:1}}>{BP.toFixed(3)}/DAY</div></div>
