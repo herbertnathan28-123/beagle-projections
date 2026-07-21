@@ -1058,6 +1058,17 @@ function getTeamRating(snapshots) {
   return _teamRatingCache.value;
 }
 
+// Lightweight endpoint for the main projections page banner — returns only the
+// 7-day team rating history (served from the same cache as /api/player-stats).
+app.get('/api/team-rating', (req, res) => {
+  try {
+    res.json(getTeamRating(snapshotHistory.snapshots || []));
+  } catch (e) {
+    console.error('[TEAM-RATING] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/player-stats', (req, res) => {
   try {
     const hunterNames = getHunterTrackedNames();
