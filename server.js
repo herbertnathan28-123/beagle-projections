@@ -1058,6 +1058,15 @@ function getTeamRating(snapshots) {
   return _teamRatingCache.value;
 }
 
+app.get('/api/team-rating', (req, res) => {
+  try {
+    res.json(getTeamRating(snapshotHistory.snapshots || []));
+  } catch (e) {
+    console.error('[TEAM-RATING] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/player-stats', (req, res) => {
   try {
     const hunterNames = getHunterTrackedNames();
