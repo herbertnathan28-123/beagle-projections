@@ -218,7 +218,16 @@ function App(){
   const avgMerit=players.length?Math.round(players.reduce((s,p)=>s+p.meritScore,0)/players.length*10)/10:0;
   const ts=data.timestamp?new Date(data.timestamp).toUTCString().replace(/.*?(\\d+:\\d+:\\d+).*/,'$1')+' UTC':'—';
 
+  const tr=stats&&stats.teamRating;
+  const trVals=tr&&tr.history?tr.history.map(h=>h.rating==null?'—':h.rating).join(', '):null;
+
   return(<div style={{background:'#060610',minHeight:'100vh',display:'flex',flexDirection:'column'}}>
+    {tr&&tr.overall!=null&&(
+      <div style={{background:'#C4920A',color:'#060610',padding:'7px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:6,fontWeight:700,letterSpacing:1,fontSize:12}}>
+        <span>PREVIOUS 7 DAYS TEAM RANKING · {trVals}</span>
+        <span>OVERALL {tr.overall}</span>
+      </div>
+    )}
     <div style={{background:'linear-gradient(90deg,#08081A,#0E0E28)',borderBottom:'2px solid #C4920A',padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
       <div>
         <div style={{fontSize:22,fontWeight:700,color:'#C4920A',letterSpacing:2}}>◈ BEAGLE HQ</div>
