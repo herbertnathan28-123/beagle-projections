@@ -1094,6 +1094,17 @@ app.get('/api/player-stats', (req, res) => {
   }
 });
 
+// Lightweight team-rating endpoint for the main projections page banner —
+// serves the memoised 7-day history without the full per-player stats payload.
+app.get('/api/team-rating', (req, res) => {
+  try {
+    res.json(getTeamRating(snapshotHistory.snapshots || []));
+  } catch (e) {
+    console.error('[TEAM-RATING] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/most-improved', (req, res) => {
   try {
     const snapshots = snapshotHistory.snapshots || [];
