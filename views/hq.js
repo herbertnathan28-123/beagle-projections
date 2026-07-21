@@ -220,12 +220,23 @@ function App(){
 
   const tr=stats&&stats.teamRating;
   const trVals=tr&&tr.history?tr.history.map(h=>h.rating==null?'—':h.rating).join(', '):null;
+  const bw=tr&&tr.bottomWatch?tr.bottomWatch:[];
+  const worst=bw.length?bw[0]:null;
 
   return(<div style={{background:'#060610',minHeight:'100vh',display:'flex',flexDirection:'column'}}>
     {tr&&tr.overall!=null&&(
       <div style={{background:'#C4920A',color:'#060610',padding:'7px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:6,fontWeight:700,letterSpacing:1,fontSize:12}}>
         <span>PREVIOUS 7 DAYS TEAM RANKING · {trVals}</span>
         <span>OVERALL {tr.overall}</span>
+      </div>
+    )}
+    {worst&&(
+      <div style={{background:'#1A0808',borderBottom:'1px solid #5A1515',padding:'6px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:6,fontSize:11,letterSpacing:0.5}}>
+        <span style={{color:'#C08080'}}>
+          <span style={{color:'#FF3030',fontWeight:700,letterSpacing:1}}>🔻 BOTTOM 5 WATCH ({tr.daysWithData}D)</span>
+          {'  '}{bw.slice(0,5).map(p=>p.name+' '+p.daysInBottom+'/'+p.daysTracked).join(' · ')}
+        </span>
+        <span style={{color:'#FF3030',fontWeight:700}}>WORST: {worst.name} (#{worst.currentRank} of {worst.totalPlayers} · rating {Math.round(worst.currentRating)})</span>
       </div>
     )}
     <div style={{background:'linear-gradient(90deg,#08081A,#0E0E28)',borderBottom:'2px solid #C4920A',padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
