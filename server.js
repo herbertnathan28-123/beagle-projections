@@ -247,10 +247,19 @@ app.post('/api/hq-update', (req, res) => {
     }
     hqData.timestamp = body.timestamp || new Date().toISOString();
     hqData.uploader = body.uploader || 'unknown';
-    hqData.alliancePace = body.alliancePace || null;
+    // Alliance pace the way the team actually measures it: straight sum of every
+    // member's C/D ÷ $1M. Overrides any relayed value — capture-time guesswork
+    // never enters this number.
+    const cdPace = players.reduce((t, p) => t + (p.lastContrib || 0), 0) / 1e6;
+    hqData.alliancePace = cdPace >= 0.5 ? Math.round(cdPace * 100) / 100 : (body.alliancePace || null);
     hqData.airlines = body.airlines || players.length;
     hqData.players = players.sort((a, b) => b.lastContrib - a.lastContrib);
     saveHqState(hqData);
+    // Keep the projections page's Beagle pace on the same C/D-derived number.
+    if (cdPace >= 1.0) {
+      liveData.beaglePace = Math.round(cdPace * 1000) / 1000;
+      saveState(liveData);
+    }
     // Record snapshot for trend analysis (momentum, consistency, most improved)
     addSnapshot(players, hqData.timestamp);
     console.log('[HQ] updated — ' + players.length + ' players, pace ' + hqData.alliancePace + ' · snapshot #' + snapshotHistory.snapshots.length);
@@ -373,6 +382,51 @@ function buildPacePoints(snapshots, start, end) {
   }
   return points;
 }
+
+// Beagle's daily pace on the trend tile uses the alliance's true metric — the
+// sum of member C/D from each day's final player snapshot ÷ $1M. SV-table
+// deltas depend on unknowable capture times and mis-state the daily rate.
+function buildCdPacePoints(snapshots, start, end) {
+  const byDate = {};
+  for (const s of snapshots) {
+    const d = utcDate(s.timestamp);
+    if (!d) continue;
+    if (!byDate[d] || s.timestamp > byDate[d].timestamp) byDate[d] = s;
+  }
+  const val = (d) => {
+    const snap = byDate[d];
+    if (!snap || !Array.isArray(snap.players)) return null;
+    return snap.players.reduce((t, p) => t + (p.lastContrib || 0), 0) / 1e6;
+  };
+  const dates = Object.keys(byDate).sort();
+  const points = [];
+  let cur = start;
+  while (cur <= end) {
+    let y = val(cur), actual = null, interpolated = true;
+    if (y != null) { actual = y; interpolated = false; }
+    else {
+      const prev = [...dates].reverse().find(d => d < cur);
+      const next = dates.find(d => d > cur);
+      if (prev && next) {
+        const pv = val(prev), nv = val(next);
+        if (pv != null && nv != null) {
+          const span = Date.parse(next + 'T00:00:00Z') - Date.parse(prev + 'T00:00:00Z');
+          const frac = (Date.parse(cur + 'T00:00:00Z') - Date.parse(prev + 'T00:00:00Z')) / span;
+          y = pv + (nv - pv) * frac;
+        }
+      }
+    }
+    points.push({ date: cur, x: fmtUtcLabel(cur), y: y != null ? Math.round(y * 1000) / 1000 : null, actual: actual != null ? Math.round(actual * 1000) / 1000 : null, interpolated, pct: null });
+    cur = addUtcDays(cur, 1);
+  }
+  for (let i = 1; i < points.length; i++) {
+    if (points[i].y != null && points[i - 1].y != null && points[i - 1].y !== 0) {
+      points[i].pct = Math.round(((points[i].y - points[i - 1].y) / Math.abs(points[i - 1].y)) * 1000) / 10;
+    }
+  }
+  return points;
+}
+
 app.get('/api/pace-history', (req, res) => {
   const requestedDays = Math.min(parseInt(req.query.days) || 30, 90);
   const others = (liveData.alliances || [])
@@ -384,9 +438,9 @@ app.get('/api/pace-history', (req, res) => {
       const snaps = (allianceHistory[key] && allianceHistory[key].snapshots) || [];
       return { name: a.name, color: PACE_COLORS[i % PACE_COLORS.length], snapshots: snaps };
     });
-  const teams = [{ name: 'Beagle Global', color: '#E8B84B', snapshots: svHistory.snapshots || [] }, ...others];
+  const beagleSnaps = snapshotHistory.snapshots || [];
   let latest = null;
-  for (const t of teams) {
+  for (const t of [{ snapshots: beagleSnaps }, ...others]) {
     for (const s of t.snapshots) {
       const d = utcDate(s.timestamp);
       if (d && (!latest || d > latest)) latest = d;
@@ -395,7 +449,10 @@ app.get('/api/pace-history', (req, res) => {
   if (!latest) return res.json({ labels: [], teams: [] });
   const end = latest;
   const start = addUtcDays(end, -(requestedDays - 1));
-  const series = teams.map(t => ({ name: t.name, color: t.color, points: buildPacePoints(t.snapshots, start, end) }));
+  const series = [
+    { name: 'Beagle Global', color: '#E8B84B', points: buildCdPacePoints(beagleSnaps, start, end) },
+    ...others.map(t => ({ name: t.name, color: t.color, points: buildPacePoints(t.snapshots, start, end) })),
+  ];
   const labels = series[0]?.points.map(p => p.x) || [];
   res.json({ days: requestedDays, start, end, labels, teams: series });
 });
