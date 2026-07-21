@@ -1094,6 +1094,15 @@ app.get('/api/player-stats', (req, res) => {
   }
 });
 
+app.get('/api/team-rating', (req, res) => {
+  try {
+    res.json(getTeamRating(snapshotHistory.snapshots || []));
+  } catch (e) {
+    console.error('[TEAM-RATING] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/most-improved', (req, res) => {
   try {
     const snapshots = snapshotHistory.snapshots || [];
