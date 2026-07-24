@@ -995,6 +995,64 @@ function saveCards(){
       mode:gv('gameMode'), fourx:b?b.classList.contains('on'):true
     }));
   }catch(e){}
+  queueFleetSave();   // localStorage is this browser only — also persist to the profile
+}
+// ── FLEET AUTO-SAVE → server profile ───────────────────────────────────────
+// A fleet correction typed here (flight time, type, count) must outlive this
+// browser: without this it lived in localStorage only, so the registered value
+// came back on any other device. Debounced so a burst of keystrokes is one
+// write; silent no-op for an unregistered/anonymous page.
+let FLEET_SAVE_TIMER=null;
+function fleetRowsForSave(){
+  const rows=[];
+  for(const b of BOXES){
+    const dur=parseFloat(b.dur);
+    if(!(dur>0)) continue;
+    for(const t of b.types){
+      const type=(t.type||'').trim();
+      const count=parseInt(t.count,10);
+      if(!type||!(count>0)) continue;
+      const row={type:type,count:count,duration:dur};
+      const f=parseFloat(t.fuel), c=parseFloat(t.co2);
+      if(isFinite(f)&&f>0) row.fuel_per_ac=f;
+      if(isFinite(c)&&c>0) row.co2_per_ac=c;
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+function queueFleetSave(){
+  const p=window.__FUEL_PROFILE__, tok=window.__FUEL_PLAN_TOKEN__;
+  if(!p||!p.discord_id||!tok) return;              // anonymous page — nothing to persist to
+  if(FLEET_SAVE_TIMER) clearTimeout(FLEET_SAVE_TIMER);
+  FLEET_SAVE_TIMER=setTimeout(function(){
+    const rows=fleetRowsForSave();
+    if(!rows.length) return;                        // never wipe a profile to empty
+    fetch('/api/fuel-fleet',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({discord_id:p.discord_id,plan_token:tok,fleet:rows})})
+      .then(function(r){return r.json();})
+      .then(function(d){ showFleetSaved(d&&d.ok); })
+      .catch(function(){ showFleetSaved(false); });
+  },1200);
+}
+// Truthful indicator: only says SAVED when the server confirmed the write.
+function showFleetSaved(ok){
+  let el=document.getElementById('fleetSavedTag');
+  if(!el){
+    el=document.createElement('div');
+    el.id='fleetSavedTag';
+    el.style.cssText='position:fixed;right:12px;bottom:12px;z-index:9999;padding:6px 12px;'+
+      'border-radius:4px;font:600 12px/1 monospace;letter-spacing:1px;pointer-events:none;'+
+      'transition:opacity .3s;opacity:0';
+    document.body.appendChild(el);
+  }
+  el.textContent=ok?'FLEET SAVED':'FLEET SAVE FAILED';
+  el.style.background=ok?'#0d2818':'#2a0a0a';
+  el.style.color=ok?'#23a55a':'#ff6b6b';
+  el.style.border='1px solid '+(ok?'#23a55a':'#ff6b6b');
+  el.style.opacity='1';
+  clearTimeout(el._t);
+  el._t=setTimeout(function(){ el.style.opacity='0'; }, ok?1800:5000);
 }
 function restoreCards(){
   try{

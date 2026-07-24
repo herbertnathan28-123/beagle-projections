@@ -861,6 +861,51 @@ app.post('/api/fuel-plan', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── FLEET AUTO-SAVE (operator directive 2026-07-24) ────────────────────────
+// A fleet edit made on the calculator (flight time, aircraft type, count) used
+// to live in that browser's localStorage only: the server profile kept the
+// registered value, so the edit vanished on another device, a new browser or a
+// cache clear — and a wrong registered figure (e.g. an 111.67h block entered at
+// setup) reappeared as if it were the player's real fleet. The player's own
+// page now writes corrections straight back to their profile, authorised by the
+// same per-player HMAC the plan push uses, so a typed correction is permanent
+// and travels with them.
+app.post('/api/fuel-fleet', (req, res) => {
+  const { discord_id, plan_token, fleet } = req.body || {};
+  const did = String(discord_id || '').replace(/[^0-9]/g, '');
+  if (!(/^\d{17,20}$/).test(did)) return res.status(400).json({ ok: false, error: 'Invalid Discord ID' });
+  if (!fuelProfiles[did]) return res.status(403).json({ ok: false, error: 'Not a registered fuel profile' });
+  // Only the player's own injected page holds this token — a fleet is never
+  // rewritten on someone else's behalf.
+  if (!fuelPlanTokenValid(did, plan_token)) return res.status(403).json({ ok: false, error: 'Invalid plan token' });
+  if (!Array.isArray(fleet)) return res.status(400).json({ ok: false, error: 'fleet must be an array' });
+  if (fleet.length > 64) return res.status(400).json({ ok: false, error: 'fleet too long' });
+
+  // Sanitise: only rows with a real type, a positive count and a positive
+  // flight time are stored. Per-aircraft burn figures are optional and kept
+  // only when finite — a missing burn falls back to the shared table rather
+  // than being stored as a fabricated number.
+  const clean = [];
+  for (const row of fleet) {
+    if (!row || typeof row !== 'object') continue;
+    const type = String(row.type || '').trim().slice(0, 40);
+    const count = parseInt(row.count, 10);
+    const duration = Number(row.duration);
+    if (!type || !(count > 0) || !(duration > 0) || duration > 240) continue;
+    const entry = { type, count, duration: Math.round(duration * 100) / 100 };
+    const fpa = Number(row.fuel_per_ac), cpa = Number(row.co2_per_ac);
+    if (Number.isFinite(fpa) && fpa > 0) entry.fuel_per_ac = fpa;
+    if (Number.isFinite(cpa) && cpa > 0) entry.co2_per_ac = cpa;
+    clean.push(entry);
+  }
+  if (!clean.length) return res.status(400).json({ ok: false, error: 'no valid fleet rows' });
+
+  fuelProfiles[did] = { ...fuelProfiles[did], fleet: clean, fleet_updated: new Date().toISOString() };
+  saveFuelProfiles();
+  console.log('[FUEL-FLEET] saved did=' + did + ' rows=' + clean.length);
+  res.json({ ok: true, rows: clean.length });
+});
+
 // ── WEB-PUSH SUBSCRIBE (on-screen alerts with the calculator closed) ────────
 app.get('/api/fuel-push-key', (req, res) => res.json({ key: VAPID ? VAPID.publicKey : null }));
 app.post('/api/fuel-push-subscribe', (req, res) => {
