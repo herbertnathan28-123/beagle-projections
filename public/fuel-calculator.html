@@ -544,11 +544,11 @@ function syncBoxesFromDOM(){
   }
 }
 function boxCount(b){ let s=0; for(const t of b.types) s+=parseInt(t.count)||0; return s; }   // total A/C entered in a box
-function onBoxInput(){ syncBoxesFromDOM(); saveCards(); recalc(); }
+function onBoxInput(){ syncBoxesFromDOM(); saveCards(); queueFleetSave(); recalc(); }
 function onTypeChange(key,i){ const b=boxByKey(key); if(b&&b.types[i]){ const ts=document.getElementById('type_'+b.key+'_'+i); const d=document.getElementById('dur_'+b.key); const did=(window.__FUEL_PROFILE__&&window.__FUEL_PROFILE__.discord_id)||''; const bp=burnBlockFor(did, ts?ts.value:b.types[i].type, d?d.value:b.dur); b.types[i].fuel=(bp&&bp.fuel!=null)?bp.fuel:null; b.types[i].co2=(bp&&bp.co2!=null)?bp.co2:null; } onBoxInput(); }   // manual type change → this player's measured block burn if known, else global fallback
-function addBox(){ if(BOXES.length>=16)return; pushUndo(); syncBoxesFromDOM(); BOXES.push(mkBox()); buildFleetCards(); saveCards(); recalc(); }
-function removeBox(){ if(BOXES.length<=1)return; pushUndo(); syncBoxesFromDOM(); BOXES.pop(); buildFleetCards(); saveCards(); recalc(); }
-function removeBoxKey(k){ pushUndo(); syncBoxesFromDOM(); BOXES=BOXES.filter(b=>b.key!==k); if(!BOXES.length)BOXES=[mkBox()]; buildFleetCards(); saveCards(); recalc(); }
+function addBox(){ if(BOXES.length>=16)return; pushUndo(); syncBoxesFromDOM(); BOXES.push(mkBox()); buildFleetCards(); saveCards(); queueFleetSave(); recalc(); }
+function removeBox(){ if(BOXES.length<=1)return; pushUndo(); syncBoxesFromDOM(); BOXES.pop(); buildFleetCards(); saveCards(); queueFleetSave(); recalc(); }
+function removeBoxKey(k){ pushUndo(); syncBoxesFromDOM(); BOXES=BOXES.filter(b=>b.key!==k); if(!BOXES.length)BOXES=[mkBox()]; buildFleetCards(); saveCards(); queueFleetSave(); recalc(); }
 // Aircraft types — mirrors config.AIRCRAFT_BURN_HOUR keys (static page can't require()
 // server config, so kept in sync manually).
 const AIRCRAFT_TYPES=['A380-800','A380F','A330-900neo','A330-800neo','A330-300','A330-200','A340-200','B747-8','B747-8F','B747SP','B787-10','B787-9','B787-8','A350-900ULR','DC-10','MC-21-400','Concorde','A320neo','B737 MAX 8','Spacejet M100','A320-VIP','Cessna Citation X-VIP','Bombardier Challenger 605-VIP'];
@@ -995,7 +995,10 @@ function saveCards(){
       mode:gv('gameMode'), fourx:b?b.classList.contains('on'):true
     }));
   }catch(e){}
-  queueFleetSave();   // localStorage is this browser only — also persist to the profile
+  // NOTE: no server write here. saveCards() also runs on page load, seed load,
+  // ETA/DEP button presses and count-lock restores — posting from here would
+  // let merely OPENING the page overwrite the stored profile. The server write
+  // is triggered only from the explicit fleet-edit entry points below.
 }
 // ── FLEET AUTO-SAVE → server profile ───────────────────────────────────────
 // A fleet correction typed here (flight time, type, count) must outlive this
@@ -1003,6 +1006,10 @@ function saveCards(){
 // came back on any other device. Debounced so a burst of keystrokes is one
 // write; silent no-op for an unregistered/anonymous page.
 let FLEET_SAVE_TIMER=null;
+// Set when the loaded profile had more aircraft types in one duration group
+// than the UI can display: the folded model is lossy, so it must never be
+// written back as the authoritative fleet.
+let FLEET_FOLDED=false;
 function fleetRowsForSave(){
   const rows=[];
   for(const b of BOXES){
@@ -1024,6 +1031,7 @@ function fleetRowsForSave(){
 function queueFleetSave(){
   const p=window.__FUEL_PROFILE__, tok=window.__FUEL_PLAN_TOKEN__;
   if(!p||!p.discord_id||!tok) return;              // anonymous page — nothing to persist to
+  if(FLEET_FOLDED){ showFleetSaved(false,'FLEET TOO LARGE TO AUTO-SAVE'); return; }
   if(FLEET_SAVE_TIMER) clearTimeout(FLEET_SAVE_TIMER);
   FLEET_SAVE_TIMER=setTimeout(function(){
     const rows=fleetRowsForSave();
@@ -1036,7 +1044,7 @@ function queueFleetSave(){
   },1200);
 }
 // Truthful indicator: only says SAVED when the server confirmed the write.
-function showFleetSaved(ok){
+function showFleetSaved(ok,msg){
   let el=document.getElementById('fleetSavedTag');
   if(!el){
     el=document.createElement('div');
@@ -1046,7 +1054,7 @@ function showFleetSaved(ok){
       'transition:opacity .3s;opacity:0';
     document.body.appendChild(el);
   }
-  el.textContent=ok?'FLEET SAVED':'FLEET SAVE FAILED';
+  el.textContent=msg||(ok?'FLEET SAVED':'FLEET SAVE FAILED');
   el.style.background=ok?'#0d2818':'#2a0a0a';
   el.style.color=ok?'#23a55a':'#ff6b6b';
   el.style.border='1px solid '+(ok?'#23a55a':'#ff6b6b');
@@ -1172,6 +1180,11 @@ function populateFromProfile(p){
       if(g.types.length>MAX_TYPES){   // >4 types → fold the surplus counts into the 4th row
         const extra=g.types.slice(MAX_TYPES).reduce((s,t)=>s+t.count,0);
         types[MAX_TYPES-1]={...types[MAX_TYPES-1], count:types[MAX_TYPES-1].count+extra};
+        // The display can only show MAX_TYPES rows per duration, so the surplus
+        // types' NAMES are lost in the fold (their counts merge into the 4th
+        // row). Writing this display model back would permanently truncate the
+        // stored fleet, so the server write is locked off for this session.
+        FLEET_FOLDED=true;
       }
       BOXES.push({key:'b'+(++BOX_SEQ),dur:g.dur,eta:'',maint:0,departed:false,
         types:types.map(t=>{ const bp=burnBlockFor(p&&p.discord_id,t.type,g.dur);   // THIS player's measured block overrides their profile's per-AC figure (per-field; null keeps profile)
