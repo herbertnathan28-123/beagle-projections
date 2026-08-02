@@ -336,6 +336,20 @@ const PACE_COLORS = ['#00E676','#69F0AE','#F9A825','#F57F17','#29B6F6','#AB47BC'
 function utcDate(iso) { try { return new Date(iso).toISOString().slice(0,10); } catch (_){ return null; } }
 function addUtcDays(iso, n) { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0,10); }
 function fmtUtcLabel(iso) { const d = new Date(iso + 'T00:00:00Z'); return d.toLocaleDateString('en-AU', { day:'numeric', month:'short', timeZone:'UTC' }); }
+// One pace derivation for every surface.
+//
+// Each day's value is the pace as of that day's final snapshot, computed by
+// the SAME function the projected-ranking rows use: SV delta over the TRUE
+// elapsed minutes since a snapshot ~24h earlier, scaled by 1440. No daily
+// bucketing of the divisor, and no averaging across a gap — when there is no
+// snapshot 20-48h before the day, the point is null rather than a smoothed
+// value. The last point on this chart is therefore the same number the table
+// prints, by construction.
+//
+// The previous implementation divided the SV delta by the days between two
+// last-of-day snapshots and, when a day was missing, reached further back
+// without advancing its cursor — returning the average across the quiet
+// period rather than the current rate, which read roughly half.
 function buildPacePoints(snapshots, start, end) {
   const byDate = {};
   for (const s of snapshots) {
@@ -343,34 +357,15 @@ function buildPacePoints(snapshots, start, end) {
     if (!d) continue;
     if (!byDate[d] || s.timestamp > byDate[d].timestamp) byDate[d] = s;
   }
-  const sortedDates = Object.keys(byDate).sort();
-  if (!sortedDates.length) return [];
-  let lastRealIdx = -1;
-  for (let i = sortedDates.length - 1; i >= 0; i--) { if (sortedDates[i] < start) { lastRealIdx = i; break; } }
+  const store = { snapshots };
   const points = [];
   let cur = start;
   while (cur <= end) {
-    const idx = sortedDates.indexOf(cur);
+    const snap = byDate[cur];
     let y = null, actual = null, interpolated = true;
-    if (idx !== -1) {
-      if (lastRealIdx !== -1) {
-        const prev = sortedDates[lastRealIdx];
-        const dayDiff = (Date.parse(byDate[cur].timestamp) - Date.parse(byDate[prev].timestamp)) / 86400000;
-        if (dayDiff > 0) {
-          actual = (byDate[cur].sv - byDate[prev].sv) / dayDiff;
-          y = actual;
-          interpolated = false;
-        }
-      }
-      lastRealIdx = idx;
-    } else {
-      const nextIdx = sortedDates.findIndex(d => d > cur);
-      if (lastRealIdx !== -1 && nextIdx !== -1) {
-        const prev = sortedDates[lastRealIdx];
-        const next = sortedDates[nextIdx];
-        const dayDiff = (Date.parse(byDate[next].timestamp) - Date.parse(byDate[prev].timestamp)) / 86400000;
-        if (dayDiff > 0) y = (byDate[next].sv - byDate[prev].sv) / dayDiff;
-      }
+    if (snap) {
+      const p = storage.calcPaceFromHistory(store, snap.sv, snap.timestamp, 2);
+      if (p != null) { actual = p; y = p; interpolated = false; }
     }
     points.push({ date: cur, x: fmtUtcLabel(cur), y: y != null ? Math.round(y * 1000) / 1000 : null, actual: actual != null ? Math.round(actual * 1000) / 1000 : null, interpolated, pct: null });
     cur = addUtcDays(cur, 1);
@@ -438,7 +433,7 @@ app.get('/api/pace-history', (req, res) => {
       const snaps = (allianceHistory[key] && allianceHistory[key].snapshots) || [];
       return { name: a.name, color: PACE_COLORS[i % PACE_COLORS.length], snapshots: snaps };
     });
-  const beagleSnaps = snapshotHistory.snapshots || [];
+  const beagleSnaps = svHistory.snapshots || [];
   let latest = null;
   for (const t of [{ snapshots: beagleSnaps }, ...others]) {
     for (const s of t.snapshots) {
@@ -449,10 +444,43 @@ app.get('/api/pace-history', (req, res) => {
   if (!latest) return res.json({ labels: [], teams: [] });
   const end = latest;
   const start = addUtcDays(end, -(requestedDays - 1));
+  // Beagle uses the same derivation and the same store as every other
+  // alliance. It previously read from snapshotHistory and summed member
+  // lastContrib, a different quantity from a different file — which is why
+  // the tile showed $0.213 while the table showed $7.68.
   const series = [
-    { name: 'Beagle Global', color: '#E8B84B', points: buildCdPacePoints(beagleSnaps, start, end) },
+    { name: 'Beagle Global', color: '#E8B84B', points: buildPacePoints(svHistory.snapshots || [], start, end) },
     ...others.map(t => ({ name: t.name, color: t.color, points: buildPacePoints(t.snapshots, start, end) })),
   ];
+  // The two panels must not disagree about today. Historical points are
+  // reconstructed from SV history, but the live pace is whatever the latest
+  // upload carried — which is what the projected-ranking rows print. Pin the
+  // final point to that value so the end of every line equals the table.
+  const liveByName = new Map();
+  if (liveData.beaglePace != null) liveByName.set('Beagle Global', liveData.beaglePace);
+  for (const a of liveData.alliances || []) {
+    if (a.pace != null && !isNaN(a.pace)) liveByName.set(a.name, a.pace);
+  }
+  const latestDate = utcDate(liveData.timestamp);
+  for (const t of series) {
+    const live = liveByName.get(t.name);
+    if (live == null) continue;
+    const last = t.points[t.points.length - 1];
+    if (last && last.date === latestDate) {
+      last.y = Math.round(live * 1000) / 1000;
+      last.actual = last.y;
+      last.interpolated = false;
+    }
+  }
+  for (const t of series) {
+    for (let i = 1; i < t.points.length; i++) {
+      const cur = t.points[i], prev = t.points[i - 1];
+      cur.pct = (cur.y != null && prev.y != null && prev.y !== 0)
+        ? Math.round(((cur.y - prev.y) / Math.abs(prev.y)) * 1000) / 10
+        : null;
+    }
+  }
+
   const labels = series[0]?.points.map(p => p.x) || [];
   res.json({ days: requestedDays, start, end, labels, teams: series });
 });
@@ -483,14 +511,19 @@ app.post('/api/update', (req, res) => {
   });
   const serverPace = calcPaceFromBaseline(newSV, newTs);
   const recentBeaglePace = calcPaceFromHistory(svHistory, newSV, newTs, 2);
-  // Preserve a verified stored pace first, then an explicit n8n value, then a 24h SV delta.
-  // The stale June baseline is only a last-resort seed for a brand-new state.
-  // An explicit `force: true` lets a trusted caller override the stored value.
+  // Same precedence the alliance rows use: the incoming upload is the current
+  // pace and wins, then a 24h SV delta, then the stored value, then the
+  // baseline seed.
+  //
+  // This previously preferred the STORED value over the incoming one, so once
+  // any pace >= 1.0 had been written it was never replaced except by an
+  // explicit force. Beagle's figure froze at a months-old number ($7.68)
+  // while every other alliance updated normally — the displayed pace has to
+  // be the latest upload's, not a preserved one.
   let finalPace = null;
-  if (force && beaglePace != null && !isNaN(beaglePace) && beaglePace >= 1.0) finalPace = beaglePace;
-  else if (liveData.beaglePace != null && !isNaN(liveData.beaglePace) && liveData.beaglePace >= 1.0) finalPace = liveData.beaglePace;
-  else if (beaglePace != null && !isNaN(beaglePace) && beaglePace >= 1.0) finalPace = beaglePace;
+  if (beaglePace != null && !isNaN(beaglePace) && beaglePace >= 1.0) finalPace = beaglePace;
   else if (recentBeaglePace != null) finalPace = recentBeaglePace;
+  else if (liveData.beaglePace != null && !isNaN(liveData.beaglePace) && liveData.beaglePace >= 1.0) finalPace = liveData.beaglePace;
   if (finalPace == null) finalPace = serverPace;
   console.log('[PACE] n8n=' + beaglePace + ' baseline=' + serverPace + ' recent=' + recentBeaglePace + ' stored=' + liveData.beaglePace + ' final=' + finalPace);
   liveData = {
