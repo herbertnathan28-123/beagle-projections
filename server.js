@@ -332,7 +332,13 @@ app.get('/api/visitors', (req, res) => {
 app.get('/api/data', (req, res) => res.json(liveData));
 
 // ── Daily top-10 alliance pace history ───────────────────────────────────────
-const PACE_COLORS = ['#00E676','#69F0AE','#F9A825','#F57F17','#29B6F6','#AB47BC','#EF5350','#26A69A','#EC407A','#AA00FF','#00B0FF','#76FF03'];
+// 19 distinct line colours for the non-Beagle alliances, in pace order, taken
+// from the approved trend-panel design. Beagle is always amber and is added
+// separately, so it is not in this list.
+const PACE_COLORS = [
+  '#00E36B','#19D9C6','#FFD028','#FF6B18','#3B93FF','#FF3D63','#A855F7','#00C9A7','#FF4D9D','#F43F8E',
+  '#C084FC','#4ADE80','#818CF8','#38BDF8','#FCD34D','#67E8F9','#FB923C','#F87171','#94A3B8',
+];
 function utcDate(iso) { try { return new Date(iso).toISOString().slice(0,10); } catch (_){ return null; } }
 function addUtcDays(iso, n) { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0,10); }
 function fmtUtcLabel(iso) { const d = new Date(iso + 'T00:00:00Z'); return d.toLocaleDateString('en-AU', { day:'numeric', month:'short', timeZone:'UTC' }); }
@@ -424,10 +430,12 @@ function buildCdPacePoints(snapshots, start, end) {
 
 app.get('/api/pace-history', (req, res) => {
   const requestedDays = Math.min(parseInt(req.query.days) || 30, 90);
+  // Top 20 by pace (19 others + Beagle). The trend panel splits these into
+  // 1-10 and 11-20 on independent y-axes, so it needs the full field.
   const others = (liveData.alliances || [])
     .filter(a => a.pace != null && !isNaN(a.pace))
     .sort((a, b) => b.pace - a.pace)
-    .slice(0, 9)
+    .slice(0, 19)
     .map((a, i) => {
       const key = normAllianceName(a.name);
       const snaps = (allianceHistory[key] && allianceHistory[key].snapshots) || [];
