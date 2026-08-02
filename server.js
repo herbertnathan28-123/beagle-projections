@@ -507,7 +507,11 @@ app.post('/api/update', (req, res) => {
     // then the verified stored pace. Sparse history can be noisy, so n8n wins when present.
     // An explicit `force: true` lets a trusted caller override the stored value.
     const pace = force ? incomingPace : (incomingPace ?? recentPace ?? existing?.pace ?? null);
-    return { rank: a.rank, name: a.name, sv: a.sv, pace };
+    // avgPace is the long-run average since the 26 May datum. It is carried
+    // for display only and must never reach a projection — crossing times run
+    // on current pace alone.
+    const avgPace = (a.avgPace != null && !isNaN(a.avgPace)) ? a.avgPace : (existing?.avgPace ?? null);
+    return { rank: a.rank, name: a.name, sv: a.sv, pace, avgPace };
   });
   // Deduplicate alliances by normalized name — prevents double rows from repeat uploads
   const _seenAlliances = new Set();
