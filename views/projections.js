@@ -679,12 +679,133 @@ function TrendPanel(props){
   const mn=vals.length?Math.min.apply(null,vals):0;
   const mx=vals.length?Math.max.apply(null,vals):1;
   const pad=(mx-mn)*0.14||Math.max(0.5,Math.abs(mx)*0.1);
-  const y0=mn-pad,y1=mx+pad;
-  const X=function(i){return ml+(n>1?(i/(n-1))*cw:cw/2);};
+  const fy0=mn-pad,fy1=mx+pad;
+  /* Zoom/pan is expressed as the visible domain, not as an SVG transform, so
+     axes, gridlines, labels and lines are all built from the same X/Y and
+     cannot drift out of alignment. */
+  const [view,setView]=useState({xz:1,yz:1,xc:null,yc:null});
+  const zoomed=view.xz>1.001||view.yz>1.001;
+  const xSpan=(n-1)/view.xz||1;
+  const xcRaw=view.xc==null?(n-1)/2:view.xc;
+  const xStart=Math.max(0,Math.min(xcRaw-xSpan/2,Math.max(0,(n-1)-xSpan)));
+  const vFull=fy1-fy0;
+  const vSpan=vFull/view.yz;
+  const ycRaw=view.yc==null?(fy0+fy1)/2:view.yc;
+  const y0=Math.max(fy0,Math.min(ycRaw-vSpan/2,fy1-vSpan));
+  const y1=y0+vSpan;
+  const X=function(i){return ml+(n>1?((i-xStart)/xSpan)*cw:cw/2);};
   const Y=function(v){return mt+ch-((v-y0)/(y1-y0))*ch;};
+  const colW=cw/xSpan;
+  const inView=function(i){return i>=xStart-1&&i<=xStart+xSpan+1;};
   const head=(n-1)*prog;
   const ticks=[];
   for(let k=0;k<=4;k++)ticks.push(y0+(y1-y0)*k/4);
+  const svgRef=useRef(null);
+  const dragRef=useRef(null);
+  const geo=useRef({});
+  geo.current={n:n,xSpan:xSpan,xStart:xStart,vSpan:vSpan,y0:y0,y1:y1,fy0:fy0,fy1:fy1,vFull:vFull};
+  const toBox=function(cx,cy){
+    const r=svgRef.current.getBoundingClientRect();
+    return{fx:(cx-r.left)/r.width*W,fy:(cy-r.top)/r.height*H};
+  };
+  const zoomAt=function(fx,fy,f){
+    const g=geo.current;
+    const px=Math.max(0,Math.min(1,(fx-ml)/cw));
+    const py=Math.max(0,Math.min(1,(fy-mt)/ch));
+    const iAt=g.xStart+px*g.xSpan;
+    const vAt=g.y1-py*(g.y1-g.y0);
+    setView(function(v){
+      const xz=Math.max(1,Math.min(24,v.xz*f));
+      const yz=Math.max(1,Math.min(24,v.yz*f));
+      const nx=(g.n-1)/xz||1;
+      const nv=g.vFull/yz;
+      return{xz:xz,yz:yz,xc:iAt-(px-0.5)*nx,yc:vAt+(py-0.5)*nv};
+    });
+  };
+  const panBy=function(dfx,dfy){
+    const g=geo.current;
+    setView(function(v){
+      return{xz:v.xz,yz:v.yz,
+        xc:(v.xc==null?(g.n-1)/2:v.xc)-(dfx/cw)*g.xSpan,
+        yc:(v.yc==null?(g.fy0+g.fy1)/2:v.yc)+(dfy/ch)*(g.y1-g.y0)};
+    });
+  };
+  useEffect(function(){
+    const el=svgRef.current;
+    if(!el)return;
+    const onWheel=function(e){
+      e.preventDefault();
+      const b=toBox(e.clientX,e.clientY);
+      zoomAt(b.fx,b.fy,e.deltaY<0?1.18:1/1.18);
+    };
+    let pinch=null;
+    const dist=function(t){return Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);};
+    const onTouchStart=function(e){
+      if(e.touches.length===2){
+        pinch={d:dist(e.touches),cx:(e.touches[0].clientX+e.touches[1].clientX)/2,cy:(e.touches[0].clientY+e.touches[1].clientY)/2};
+      }else if(e.touches.length===1){
+        pinch=null;
+        dragRef.current={x:e.touches[0].clientX,y:e.touches[0].clientY,moved:false,touch:true};
+      }
+    };
+    const onTouchMove=function(e){
+      if(e.touches.length===2&&pinch){
+        e.preventDefault();
+        const d=dist(e.touches);
+        if(pinch.d>0&&Math.abs(d-pinch.d)>1){
+          const b=toBox(pinch.cx,pinch.cy);
+          zoomAt(b.fx,b.fy,d/pinch.d);
+          pinch.d=d;
+        }
+      }else if(e.touches.length===1&&dragRef.current&&dragRef.current.touch){
+        e.preventDefault();
+        const t=e.touches[0],d=dragRef.current;
+        const r=el.getBoundingClientRect();
+        panBy((t.clientX-d.x)/r.width*W,(t.clientY-d.y)/r.height*H);
+        if(Math.abs(t.clientX-d.x)+Math.abs(t.clientY-d.y)>6)d.moved=true;
+        d.x=t.clientX;d.y=t.clientY;
+      }
+    };
+    const onTouchEnd=function(){pinch=null;};
+    el.addEventListener('wheel',onWheel,{passive:false});
+    el.addEventListener('touchstart',onTouchStart,{passive:false});
+    el.addEventListener('touchmove',onTouchMove,{passive:false});
+    el.addEventListener('touchend',onTouchEnd);
+    return function(){
+      el.removeEventListener('wheel',onWheel);
+      el.removeEventListener('touchstart',onTouchStart);
+      el.removeEventListener('touchmove',onTouchMove);
+      el.removeEventListener('touchend',onTouchEnd);
+    };
+  },[]);
+  useEffect(function(){
+    const onMove=function(e){
+      const d=dragRef.current;
+      if(!d||d.touch)return;
+      const r=svgRef.current.getBoundingClientRect();
+      panBy((e.clientX-d.x)/r.width*W,(e.clientY-d.y)/r.height*H);
+      if(Math.abs(e.clientX-d.x)+Math.abs(e.clientY-d.y)>4)d.moved=true;
+      d.x=e.clientX;d.y=e.clientY;
+    };
+    const onUp=function(){
+      const d=dragRef.current;
+      if(d)d.up=Date.now();
+      if(d&&!d.moved)dragRef.current=null;
+    };
+    window.addEventListener('mousemove',onMove);
+    window.addEventListener('mouseup',onUp);
+    return function(){
+      window.removeEventListener('mousemove',onMove);
+      window.removeEventListener('mouseup',onUp);
+    };
+  },[]);
+  /* A drag that moved swallows the click it ends with, so panning never
+     selects a day or isolates a line. */
+  const dragged=function(){
+    const d=dragRef.current;
+    if(d&&d.moved){dragRef.current=null;return true;}
+    return false;
+  };
   /* Value shown for a day the alliance has no reading for: the position its own
      line passes through, never a number. The readout prints "nil data". */
   const bridgeY=function(t,i){
@@ -736,25 +857,32 @@ function TrendPanel(props){
       });
   }
   const clipId=props.id+'-clip';
-  const everyOther=n>18?2:1;
+  const plotId=props.id+'-plot';
+  const labelStep=Math.max(1,Math.round(xSpan/14));
   return(<div style={{background:'#040C18',border:'1px solid #0A1E30',borderTop:'2px solid #C4920A',borderRadius:6,padding:'10px 12px 12px'}}>
     <div style={{display:'flex',alignItems:'baseline',gap:10,marginBottom:6}}>
       <span style={{fontSize:14,color:'#E8B84B',fontWeight:700,letterSpacing:1}}>{props.title}</span>
       <span style={{fontSize:11,color:'#4A7090',letterSpacing:'.06em'}}>OWN Y-AXIS \u00b7 $ PER DAY</span>
+      <span style={{fontSize:10,color:'#3E6280',letterSpacing:'.06em'}}>WHEEL OR PINCH TO ZOOM \u00b7 DRAG TO PAN</span>
+      {zoomed&&<button onClick={function(){setView({xz:1,yz:1,xc:null,yc:null});}} style={{marginLeft:'auto',background:'#12233A',border:'1px solid #2C4A6E',color:'#E8B84B',borderRadius:3,padding:'3px 10px',fontSize:11,fontWeight:700,letterSpacing:1,cursor:'pointer'}}>RESET {(view.xz).toFixed(1)}x</button>}
     </div>
-    <svg viewBox={'0 0 '+W+' '+H} style={{width:'100%',height:'auto',maxHeight:'44vh',display:'block',userSelect:'none'}}>
-      <defs><clipPath id={clipId}><rect x={ml-1} y={mt-14} width={Math.max(0,X(head)-ml+2)} height={ch+28}/></clipPath></defs>
+    <svg ref={svgRef} viewBox={'0 0 '+W+' '+H} onMouseDown={function(e){dragRef.current={x:e.clientX,y:e.clientY,moved:false};}} style={{width:'100%',height:'auto',maxHeight:'44vh',display:'block',userSelect:'none',touchAction:'none',cursor:'grab'}}>
+      <defs>
+        <clipPath id={clipId}><rect x={ml-1} y={mt-14} width={Math.max(0,X(head)-ml+2)} height={ch+28}/></clipPath>
+        <clipPath id={plotId}><rect x={ml} y={mt} width={cw} height={ch}/></clipPath>
+      </defs>
       <rect x={ml} y={mt} width={cw} height={ch} fill="#030810" rx="2"/>
-      {nilDays.map(function(i){return(<g key={'nil'+i}>
-        <rect x={X(i)-(cw/(n-1))/2} y={mt} width={cw/(n-1)} height={ch} fill="#0E1726" opacity="0.85"/>
+      {nilDays.filter(inView).map(function(i){return(<g key={'nil'+i}>
+        <rect x={Math.max(ml,X(i)-colW/2)} y={mt} width={Math.min(colW,ml+cw-Math.max(ml,X(i)-colW/2))} height={ch} fill="#0E1726" opacity="0.85"/>
         <text x={X(i)} y={mt+ch+34} textAnchor="middle" fill="#5A7A96" fontSize="10" fontStyle="italic">{NIL}</text>
       </g>);})}
       {ticks.map(function(v,k){return(<g key={'t'+k}>
         <line x1={ml} x2={ml+cw} y1={Y(v)} y2={Y(v)} stroke="#16283C" strokeWidth="0.7" strokeDasharray="4,6"/>
         <text x={ml-8} y={Y(v)+4} textAnchor="end" fill="#5A8AAB" fontSize="12">{'$'+v.toFixed(2)}</text>
       </g>);})}
-      {labels.map(function(l,i){return i%everyOther===0?(<text key={'x'+i} x={X(i)} y={mt+ch+18} textAnchor="middle" fill="#5A8AAB" fontSize="11">{l}</text>):null;})}
-      {labels.map(function(l,i){return(<rect key={'hit'+i} x={X(i)-(cw/(n-1))/2} y={mt} width={cw/(n-1)} height={ch} fill="transparent" style={{cursor:'pointer'}} onClick={function(){props.onSelDay(selDay===i?null:i);}}/>);})}
+      {labels.map(function(l,i){return(i%labelStep===0&&inView(i))?(<text key={'x'+i} x={X(i)} y={mt+ch+18} textAnchor="middle" fill="#5A8AAB" fontSize="11">{l}</text>):null;})}
+      {labels.map(function(l,i){return inView(i)?(<rect key={'hit'+i} x={Math.max(ml,X(i)-colW/2)} y={mt} width={Math.max(0,Math.min(colW,ml+cw-Math.max(ml,X(i)-colW/2)))} height={ch} fill="transparent" onClick={function(){if(dragged())return;props.onSelDay(selDay===i?null:i);}}/>):null;})}
+      <g clipPath={'url(#'+plotId+')'}>
       <g clipPath={'url(#'+clipId+')'}>
         {vis.map(function(t){
           const ri=realIdx(t.points);
@@ -762,18 +890,19 @@ function TrendPanel(props){
           const d=ri.map(function(i,k){return(k?'L':'M')+X(i).toFixed(1)+','+Y(t.points[i].y).toFixed(1);}).join(' ');
           const dim=iso&&iso!==t.name;
           return(<g key={t.name}>
-            <path d={d} stroke="transparent" strokeWidth="16" fill="none" style={{cursor:'pointer'}} onClick={function(){props.onIso(iso===t.name?null:t.name);}}/>
+            <path d={d} stroke="transparent" strokeWidth="16" fill="none" onClick={function(){if(dragged())return;props.onIso(iso===t.name?null:t.name);}}/>
             <path d={d} stroke={t.color} strokeWidth={iso===t.name?3.2:1.8} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={dim?0.09:0.92}/>
             {ri.map(function(i){return(<circle key={i} cx={X(i)} cy={Y(t.points[i].y)} r={iso===t.name?3:1.9} fill={t.color} opacity={dim?0.09:0.9}/>);})}
           </g>);
         })}
+      </g>
       </g>
       {ends.map(function(e){
         const dim=iso&&iso!==e.name;
         return(<text key={e.name} x={Math.min(e.x,ml+cw)+9} y={e.y+4} fill={e.color} fontSize="12" fontWeight="700" opacity={dim?0.15:1}>{shortName(e.name)}</text>);
       })}
       {prog<1&&<line x1={X(head)} x2={X(head)} y1={mt} y2={mt+ch} stroke="#E8B84B" strokeWidth="1.4" opacity="0.75"/>}
-      {selDay!=null&&(<g>
+      {selDay!=null&&inView(selDay)&&(<g clipPath={'url(#'+plotId+')'}>
         <line x1={X(selDay)} x2={X(selDay)} y1={mt} y2={mt+ch} stroke="#E8B84B" strokeWidth="1" strokeDasharray="3,4" opacity="0.9"/>
         {readouts.map(function(r){
           const dim=iso&&iso!==r.name;
