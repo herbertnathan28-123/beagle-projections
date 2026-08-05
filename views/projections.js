@@ -684,7 +684,16 @@ function TrendPanel(props){
     return{xz:n>DEF_DAYS?(n-1)/(DEF_DAYS-1):1,yz:1,xc:(n-1)-(DEF_DAYS-1)/2,yc:null};
   };
   const [view,setView]=useState(defView);
-  const [pin,setPin]=useState(null);
+  const [pins,setPins]=useState({});
+  const pinKey=function(name,i){return name+'@'+i;};
+  const togglePin=function(name,i){
+    setPins(function(p){
+      const k=pinKey(name,i),o={};
+      for(const q in p)if(p[q]&&q!==k)o[q]=true;
+      if(!p[k])o[k]=true;
+      return o;
+    });
+  };
   const zoomed=view.xz>1.001||view.yz>1.001;
   const xSpan=(n-1)/view.xz||1;
   const xcRaw=view.xc==null?(n-1)/2:view.xc;
@@ -831,20 +840,28 @@ function TrendPanel(props){
     const ya=t.points[a].y,yb=t.points[b].y;
     return Y(ya+(yb-ya)*((i-a)/(b-a)));
   };
-  const headPt=function(t){
+  const valAt=function(t,i){
     const ri=realIdx(t.points);
     if(!ri.length)return null;
-    if(head<=ri[0])return{x:X(ri[0]),y:Y(t.points[ri[0]].y)};
+    if(i<=ri[0])return t.points[ri[0]].y;
+    if(i>=ri[ri.length-1])return t.points[ri[ri.length-1]].y;
     let a=ri[0],b=null;
-    for(let k=0;k<ri.length;k++){if(ri[k]<=head)a=ri[k];else if(b==null)b=ri[k];}
-    if(b==null)return{x:X(a),y:Y(t.points[a].y)};
+    for(let k=0;k<ri.length;k++){if(ri[k]<=i)a=ri[k];else if(b==null)b=ri[k];}
+    if(b==null)return t.points[a].y;
     const ya=t.points[a].y,yb=t.points[b].y;
-    return{x:X(head),y:Y(ya+(yb-ya)*((head-a)/(b-a)))};
+    return ya+(yb-ya)*((i-a)/(b-a));
   };
+  /* Names sit where their own line leaves the visible window, so panning and
+     zooming keep each name against its line; a line pushed out of the panel
+     vertically takes its name with it. */
+  const edge=Math.max(xStart,Math.min(head,xStart+xSpan));
   const ends=[];
   vis.forEach(function(t){
-    const hp=headPt(t);
-    if(hp)ends.push({name:t.name,color:t.color,x:hp.x,y:hp.y,raw:hp.y});
+    const v=valAt(t,edge);
+    if(v==null)return;
+    const ty=Y(v);
+    if(ty<mt-1||ty>mt+ch+1)return;
+    ends.push({name:t.name,color:t.color,x:X(edge),y:ty,anchor:ty});
   });
   ends.sort(function(a,b){return a.y-b.y;});
   for(let i=1;i<ends.length;i++){if(ends[i].y-ends[i-1].y<14)ends[i].y=ends[i-1].y+14;}
@@ -875,7 +892,8 @@ function TrendPanel(props){
       <span style={{fontSize:14,color:'#E8B84B',fontWeight:700,letterSpacing:1}}>{props.title}</span>
       <span style={{fontSize:11,color:'#4A7090',letterSpacing:'.06em'}}>OWN Y-AXIS \u00b7 $ PER DAY</span>
       <span style={{fontSize:10,color:'#3E6280',letterSpacing:'.06em'}}>WHEEL OR PINCH TO ZOOM \u00b7 DRAG TO PAN \u00b7 TAP A DOT FOR ITS PRICE</span>
-      <button onClick={function(){setPin(null);setView(zoomed?{xz:1,yz:1,xc:null,yc:null}:defView());}} style={{marginLeft:'auto',background:'#12233A',border:'1px solid #2C4A6E',color:'#E8B84B',borderRadius:3,padding:'3px 10px',fontSize:11,fontWeight:700,letterSpacing:1,cursor:'pointer'}}>{zoomed?'FULL MONTH':'LAST '+DEF_DAYS+' DAYS'}</button>
+      {Object.keys(pins).length>0&&<button onClick={function(){setPins({});}} style={{marginLeft:'auto',background:'transparent',border:'1px solid #2C4A6E',color:'#7FAACC',borderRadius:3,padding:'3px 10px',fontSize:11,fontWeight:700,letterSpacing:1,cursor:'pointer'}}>CLEAR {Object.keys(pins).length} PRICE{Object.keys(pins).length>1?'S':''}</button>}
+      <button onClick={function(){setView(zoomed?{xz:1,yz:1,xc:null,yc:null}:defView());}} style={{marginLeft:'auto',background:'#12233A',border:'1px solid #2C4A6E',color:'#E8B84B',borderRadius:3,padding:'3px 10px',fontSize:11,fontWeight:700,letterSpacing:1,cursor:'pointer'}}>{zoomed?'FULL MONTH':'LAST '+DEF_DAYS+' DAYS'}</button>
     </div>
     <svg ref={svgRef} viewBox={'0 0 '+W+' '+H} onMouseDown={function(e){dragRef.current={x:e.clientX,y:e.clientY,moved:false};}} style={{width:'100%',height:'auto',maxHeight:'44vh',display:'block',userSelect:'none',touchAction:'none',cursor:'grab'}}>
       <defs>
@@ -904,10 +922,10 @@ function TrendPanel(props){
             <path d={d} stroke="transparent" strokeWidth="16" fill="none" onClick={function(){if(dragged())return;props.onIso(iso===t.name?null:t.name);}}/>
             <path d={d} stroke={t.color} strokeWidth={iso===t.name?3.2:1.8} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={dim?0.09:0.92}/>
             {ri.filter(inView).map(function(i){
-              const on=pin&&pin.name===t.name&&pin.i===i;
+              const on=!!pins[pinKey(t.name,i)];
               return(<g key={i}>
                 <circle cx={X(i)} cy={Y(t.points[i].y)} r={on?4.4:(iso===t.name?3:2.1)} fill={t.color} stroke={on?'#FFFFFF':'none'} strokeWidth={on?1.2:0} opacity={dim?0.09:0.95}/>
-                <circle cx={X(i)} cy={Y(t.points[i].y)} r="10" fill="transparent" style={{cursor:'pointer'}} onClick={function(e){if(dragged())return;e.stopPropagation();setPin(on?null:{name:t.name,i:i});}}/>
+                <circle cx={X(i)} cy={Y(t.points[i].y)} r="10" fill="transparent" style={{cursor:'pointer'}} onClick={function(e){if(dragged())return;e.stopPropagation();togglePin(t.name,i);}}/>
               </g>);
             })}
           </g>);
@@ -916,23 +934,38 @@ function TrendPanel(props){
       </g>
       {ends.map(function(e){
         const dim=iso&&iso!==e.name;
-        return(<text key={e.name} x={Math.min(e.x,ml+cw)+9} y={e.y+4} fill={e.color} fontSize="12" fontWeight="700" opacity={dim?0.15:1}>{shortName(e.name)}</text>);
+        const lx=Math.min(e.x,ml+cw)+9;
+        return(<g key={e.name} opacity={dim?0.15:1}>
+          {Math.abs(e.y-e.anchor)>2&&<line x1={Math.min(e.x,ml+cw)+1} y1={e.anchor} x2={lx-2} y2={e.y} stroke={e.color} strokeWidth="0.8" opacity="0.5"/>}
+          <text x={lx} y={e.y+4} fill={e.color} fontSize="12" fontWeight="700">{shortName(e.name)}</text>
+        </g>);
       })}
       {prog<1&&<line x1={X(head)} x2={X(head)} y1={mt} y2={mt+ch} stroke="#E8B84B" strokeWidth="1.4" opacity="0.75"/>}
-      {/* Tap a dot: that alliance's reading for that day, printed at the dot. */}
+      {/* Tap a dot to toggle its price box; any number can stay open at once. */}
       {(function(){
-        if(!pin)return null;
-        const t=vis.filter(function(q){return q.name===pin.name;})[0];
-        if(!t||t.points[pin.i]==null||t.points[pin.i].y==null||!inView(pin.i))return null;
-        const p=t.points[pin.i];
-        const txt=shortName(t.name)+'  '+labels[pin.i]+'  '+fmtV(p.y);
-        const bw=txt.length*6.6+18,bh=24;
-        const bx=Math.max(ml+2,Math.min(X(pin.i)-bw/2,ml+cw-bw-2));
-        const by=Math.max(mt+2,Y(p.y)-bh-12);
-        return(<g style={{pointerEvents:'none'}}>
-          <rect x={bx} y={by} width={bw} height={bh} rx="4" fill="#071322" stroke={t.color} strokeWidth="1.2" opacity="0.97"/>
-          <text x={bx+bw/2} y={by+16} textAnchor="middle" fill={t.color} fontSize="12.5" fontWeight="700">{txt}</text>
-        </g>);
+        const boxes=[];
+        vis.forEach(function(t){
+          t.points.forEach(function(p,i){
+            if(p.y==null||!pins[pinKey(t.name,i)]||!inView(i))return;
+            const py=Y(p.y);
+            if(py<mt||py>mt+ch)return;
+            const txt=shortName(t.name)+'  '+labels[i]+'  '+fmtV(p.y);
+            boxes.push({key:t.name+i,color:t.color,txt:txt,bw:txt.length*6.6+18,px:X(i),py:Y(p.y)});
+          });
+        });
+        const bh=24;
+        boxes.sort(function(a,b){return a.py-b.py;});
+        boxes.forEach(function(b,k){
+          b.by=Math.max(mt+2,b.py-bh-12);
+          if(k&&b.by<boxes[k-1].by+bh+3)b.by=boxes[k-1].by+bh+3;
+          b.by=Math.min(b.by,mt+ch-bh-2);
+          b.bx=Math.max(ml+2,Math.min(b.px-b.bw/2,ml+cw-b.bw-2));
+        });
+        return boxes.map(function(b){return(<g key={b.key} style={{pointerEvents:'none'}}>
+          <line x1={b.px} y1={b.py} x2={b.bx+b.bw/2} y2={b.by+bh} stroke={b.color} strokeWidth="0.8" opacity="0.55"/>
+          <rect x={b.bx} y={b.by} width={b.bw} height={bh} rx="4" fill="#071322" stroke={b.color} strokeWidth="1.2" opacity="0.97"/>
+          <text x={b.bx+b.bw/2} y={b.by+16} textAnchor="middle" fill={b.color} fontSize="12.5" fontWeight="700">{b.txt}</text>
+        </g>);});
       })()}
       {selDay!=null&&inView(selDay)&&(<g clipPath={'url(#'+plotId+')'}>
         <line x1={X(selDay)} x2={X(selDay)} y1={mt} y2={mt+ch} stroke="#E8B84B" strokeWidth="1" strokeDasharray="3,4" opacity="0.9"/>
