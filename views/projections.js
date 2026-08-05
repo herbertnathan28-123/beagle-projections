@@ -26,6 +26,7 @@ select optgroup{background:#030B17;color:#4A7090}
 </head>
 <body>
 <div id="diag" style="position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#E8B84B;color:#000;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:700;z-index:9999;letter-spacing:.05em;">LOADING...</div>
+<div id="tabs-root"></div>
 <div id="root"></div>
 <script>
 window.onerror=function(m,s,l,c,e){
@@ -653,127 +654,314 @@ function App(){
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 <div id="pace-root" style="padding:0 8px 16px;background:#030B17"></div>
+<div id="cards-root" style="display:none;background:#030B17"></div>
 <script type="text/babel">
+/* PACE_TREND_ANIM_v1_OK — animated split-axis daily pace trend + alliance cards */
 (function(){
-const {useState,useEffect,useRef,useMemo}=React;
-const PACE_COLORS=['#E8B84B','#00E676','#69F0AE','#F9A825','#F57F17','#29B6F6','#AB47BC','#EF5350','#26A69A','#EC407A','#AA00FF','#00B0FF'];
-function fmtPct(n){if(n==null)return '—';return (n>0?'+':'')+n.toFixed(1)+'%';}
-function PaceTrendApp(){
+const {useState,useEffect,useRef,useMemo,useCallback}=React;
+const NIL='nil data';
+const ANIM_MS=5200;
+window.__PACE_TREND_BUILD='PACE_TREND_ANIM_v1_OK';
+function realIdx(pts){const o=[];for(let i=0;i<pts.length;i++){if(pts[i].y!=null)o.push(i);}return o;}
+function fmtV(v){return '$'+v.toFixed(3);}
+function lastReal(pts){for(let i=pts.length-1;i>=0;i--){if(pts[i].y!=null)return pts[i];}return null;}
+function prevReal(pts){let seen=0;for(let i=pts.length-1;i>=0;i--){if(pts[i].y!=null){seen++;if(seen===2)return pts[i];}}return null;}
+function shortName(s){return s&&s.length>17?s.slice(0,16)+'\u2026':s;}
+
+/* One panel = one independent y-axis. Alliances 1-10 and 11-20 never share a scale. */
+function TrendPanel(props){
+  const teams=props.teams,labels=props.labels,nilDays=props.nilDays,prog=props.prog;
+  const selDay=props.selDay,iso=props.iso,hidden=props.hidden;
+  const W=1400,H=340,ml=74,mr=210,mt=26,mb=62;
+  const cw=W-ml-mr,ch=H-mt-mb;
+  const n=labels.length||1;
+  const vis=teams.filter(t=>!hidden[t.name]);
+  const vals=[];
+  vis.forEach(function(t){t.points.forEach(function(p){if(p.y!=null)vals.push(p.y);});});
+  const mn=vals.length?Math.min.apply(null,vals):0;
+  const mx=vals.length?Math.max.apply(null,vals):1;
+  const pad=(mx-mn)*0.14||Math.max(0.5,Math.abs(mx)*0.1);
+  const y0=mn-pad,y1=mx+pad;
+  const X=function(i){return ml+(n>1?(i/(n-1))*cw:cw/2);};
+  const Y=function(v){return mt+ch-((v-y0)/(y1-y0))*ch;};
+  const head=(n-1)*prog;
+  const ticks=[];
+  for(let k=0;k<=4;k++)ticks.push(y0+(y1-y0)*k/4);
+  /* Value shown for a day the alliance has no reading for: the position its own
+     line passes through, never a number. The readout prints "nil data". */
+  const bridgeY=function(t,i){
+    const ri=realIdx(t.points);
+    if(!ri.length)return null;
+    if(t.points[i].y!=null)return Y(t.points[i].y);
+    let a=null,b=null;
+    for(let k=0;k<ri.length;k++){if(ri[k]<i)a=ri[k];if(ri[k]>i&&b==null)b=ri[k];}
+    if(a==null&&b==null)return null;
+    if(a==null)return Y(t.points[b].y);
+    if(b==null)return Y(t.points[a].y);
+    const ya=t.points[a].y,yb=t.points[b].y;
+    return Y(ya+(yb-ya)*((i-a)/(b-a)));
+  };
+  const headPt=function(t){
+    const ri=realIdx(t.points);
+    if(!ri.length)return null;
+    if(head<=ri[0])return{x:X(ri[0]),y:Y(t.points[ri[0]].y)};
+    let a=ri[0],b=null;
+    for(let k=0;k<ri.length;k++){if(ri[k]<=head)a=ri[k];else if(b==null)b=ri[k];}
+    if(b==null)return{x:X(a),y:Y(t.points[a].y)};
+    const ya=t.points[a].y,yb=t.points[b].y;
+    return{x:X(head),y:Y(ya+(yb-ya)*((head-a)/(b-a)))};
+  };
+  const ends=[];
+  vis.forEach(function(t){
+    const hp=headPt(t);
+    if(hp)ends.push({name:t.name,color:t.color,x:hp.x,y:hp.y,raw:hp.y});
+  });
+  ends.sort(function(a,b){return a.y-b.y;});
+  for(let i=1;i<ends.length;i++){if(ends[i].y-ends[i-1].y<15)ends[i].y=ends[i-1].y+15;}
+  const clipId=props.id+'-clip';
+  const everyOther=n>18?2:1;
+  return(<div style={{flex:1,minWidth:0,background:'#040C18',border:'1px solid #0A1E30',borderTop:'2px solid #C4920A',borderRadius:6,padding:'10px 12px 12px'}}>
+    <div style={{display:'flex',alignItems:'baseline',gap:10,marginBottom:6}}>
+      <span style={{fontSize:14,color:'#E8B84B',fontWeight:700,letterSpacing:1}}>{props.title}</span>
+      <span style={{fontSize:11,color:'#4A7090',letterSpacing:'.06em'}}>OWN Y-AXIS \u00b7 $ PER DAY</span>
+    </div>
+    <svg viewBox={'0 0 '+W+' '+H} style={{width:'100%',display:'block',userSelect:'none'}}>
+      <defs><clipPath id={clipId}><rect x={ml-1} y={mt-14} width={Math.max(0,X(head)-ml+2)} height={ch+28}/></clipPath></defs>
+      <rect x={ml} y={mt} width={cw} height={ch} fill="#030810" rx="2"/>
+      {nilDays.map(function(i){return(<g key={'nil'+i}>
+        <rect x={X(i)-(cw/(n-1))/2} y={mt} width={cw/(n-1)} height={ch} fill="#0E1726" opacity="0.85"/>
+        <text x={X(i)} y={mt+ch+34} textAnchor="middle" fill="#5A7A96" fontSize="10" fontStyle="italic">{NIL}</text>
+      </g>);})}
+      {ticks.map(function(v,k){return(<g key={'t'+k}>
+        <line x1={ml} x2={ml+cw} y1={Y(v)} y2={Y(v)} stroke="#16283C" strokeWidth="0.7" strokeDasharray="4,6"/>
+        <text x={ml-8} y={Y(v)+4} textAnchor="end" fill="#5A8AAB" fontSize="12">{'$'+v.toFixed(2)}</text>
+      </g>);})}
+      {labels.map(function(l,i){return i%everyOther===0?(<text key={'x'+i} x={X(i)} y={mt+ch+18} textAnchor="middle" fill="#5A8AAB" fontSize="11">{l}</text>):null;})}
+      {labels.map(function(l,i){return(<rect key={'hit'+i} x={X(i)-(cw/(n-1))/2} y={mt} width={cw/(n-1)} height={ch} fill="transparent" style={{cursor:'pointer'}} onClick={function(){props.onSelDay(selDay===i?null:i);}}/>);})}
+      <g clipPath={'url(#'+clipId+')'}>
+        {vis.map(function(t){
+          const ri=realIdx(t.points);
+          if(!ri.length)return null;
+          const d=ri.map(function(i,k){return(k?'L':'M')+X(i).toFixed(1)+','+Y(t.points[i].y).toFixed(1);}).join(' ');
+          const dim=iso&&iso!==t.name;
+          return(<g key={t.name}>
+            <path d={d} stroke="transparent" strokeWidth="16" fill="none" style={{cursor:'pointer'}} onClick={function(){props.onIso(iso===t.name?null:t.name);}}/>
+            <path d={d} stroke={t.color} strokeWidth={iso===t.name?3.2:1.8} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={dim?0.09:0.92}/>
+            {ri.map(function(i){return(<circle key={i} cx={X(i)} cy={Y(t.points[i].y)} r={iso===t.name?3:1.9} fill={t.color} opacity={dim?0.09:0.9}/>);})}
+          </g>);
+        })}
+      </g>
+      {ends.map(function(e){
+        const dim=iso&&iso!==e.name;
+        return(<text key={e.name} x={Math.min(e.x,ml+cw)+9} y={e.y+4} fill={e.color} fontSize="12" fontWeight="700" opacity={dim?0.15:1}>{shortName(e.name)}</text>);
+      })}
+      {prog<1&&<line x1={X(head)} x2={X(head)} y1={mt} y2={mt+ch} stroke="#E8B84B" strokeWidth="1.4" opacity="0.75"/>}
+      {selDay!=null&&(<g>
+        <line x1={X(selDay)} x2={X(selDay)} y1={mt} y2={mt+ch} stroke="#E8B84B" strokeWidth="1" strokeDasharray="3,4" opacity="0.9"/>
+        {vis.map(function(t){
+          const by=bridgeY(t,selDay);
+          if(by==null)return null;
+          const p=t.points[selDay];
+          const txt=p.y!=null?fmtV(p.y):NIL;
+          const dim=iso&&iso!==t.name;
+          return(<text key={'v'+t.name} x={X(selDay)+12} y={by} fill={p.y!=null?t.color:'#5A7A96'} fontSize="11" fontWeight={p.y!=null?'700':'400'} opacity={dim?0.15:1} transform={'rotate(-90,'+(X(selDay)+12)+','+by+')'} textAnchor="start">{txt}</text>);
+        })}
+      </g>)}
+      <line x1={ml} y1={mt} x2={ml} y2={mt+ch} stroke="#2C4A6E" strokeWidth="1"/>
+      <line x1={ml} y1={mt+ch} x2={ml+cw} y2={mt+ch} stroke="#2C4A6E" strokeWidth="1"/>
+    </svg>
+    <div style={{display:'flex',flexWrap:'wrap',gap:'6px 12px',marginTop:8}}>
+      {teams.map(function(t){
+        const off=!!hidden[t.name];
+        const lr=lastReal(t.points);
+        return(<span key={t.name} onClick={function(){props.onLegend(t.name);}} style={{display:'flex',alignItems:'center',gap:5,fontSize:12,color:off?'#3A5570':'#8AAABB',cursor:'pointer',textDecoration:off?'line-through':'none'}}>
+          <span style={{width:10,height:10,borderRadius:'50%',background:off?'#24384C':t.color,display:'inline-block'}}/>
+          {t.name}{lr?' '+fmtV(lr.y):''}
+        </span>);
+      })}
+    </div>
+  </div>);
+}
+
+function PaceDailyTrend(){
   const [data,setData]=useState(null);
-  const [sel,setSel]=useState(null);
   const [loading,setLoading]=useState(true);
-  const cvs=useRef(null),chart=useRef(null);
-  useEffect(()=>{fetch('/api/pace-history?days=30').then(r=>r.json()).then(d=>{setData(d);setSel(d.labels.length?d.labels.length-1:null);setLoading(false);}).catch(e=>{console.error(e);setLoading(false);});},[]);
-  useEffect(()=>{
-    if(!data||!cvs.current||typeof Chart==='undefined')return;
-    if(chart.current){chart.current.destroy();chart.current=null;}
-    const datasets=data.teams.map(t=>({
-      label:t.name,
-      data:t.points,
-      borderColor:t.color,
-      backgroundColor:t.color,
-      borderWidth:2,
-      pointRadius:0,
-      pointHoverRadius:5,
-      tension:0.35,
-      fill:false,
-      segment:{borderDash:ctx=>{
-        const p0=ctx.p0.raw,p1=ctx.p1.raw;
-        if((p0&&p0.interpolated)||(p1&&p1.interpolated))return[6,6];
-      }}
-    }));
-    chart.current=new Chart(cvs.current.getContext('2d'),{
-      type:'line',
-      data:{labels:data.labels,datasets},
-      options:{
-        responsive:true,
-        maintainAspectRatio:false,
-        interaction:{mode:'index',intersect:false},
-        onHover:(e,els)=>{if(els&&els.length){const i=els[0].index;if(i!=null)setSel(i);}},
-        onClick:(e,els)=>{if(els&&els.length){const i=els[0].index;if(i!=null)setSel(i);}},
-        plugins:{
-          legend:{display:false},
-          tooltip:{
-            backgroundColor:'#0A1520',
-            titleColor:'#E8B84B',
-            bodyColor:'#E2EAF4',
-            borderColor:'#1A3A5A',
-            borderWidth:1,
-            callbacks:{
-              title:items=>data.labels[items[0].dataIndex],
-              label:item=>{
-                const p=item.raw;
-                const v=p.y!=null?p.y.toFixed(3):'NA';
-                return item.dataset.label+': $'+v+'/day'+(p.interpolated?' (interpolated)':'');
-              }
-            }
-          }
-        },
-        scales:{
-          x:{grid:{color:'#162030'},ticks:{color:'#5A8AAB',maxRotation:45,minRotation:30}},
-          y:{grid:{color:'#162030'},ticks:{color:'#5A8AAB',callback:v=>'$'+v},title:{display:true,text:'PACE ($ / day)',color:'#8AAABB'}}
-        }
-      }
+  const [err,setErr]=useState(null);
+  const [prog,setProg]=useState(0);
+  const [selDay,setSelDay]=useState(null);
+  const [iso,setIso]=useState(null);
+  const [hidden,setHidden]=useState({});
+  const raf=useRef(null);
+  useEffect(function(){
+    fetch('/api/pace-history?days=30').then(function(r){return r.json();}).then(function(d){setData(d);setLoading(false);}).catch(function(e){setErr(String(e&&e.message||e));setLoading(false);});
+  },[]);
+  const play=useCallback(function(){
+    if(raf.current)cancelAnimationFrame(raf.current);
+    const t0=Date.now();
+    const step=function(){
+      const p=Math.min(1,(Date.now()-t0)/ANIM_MS);
+      setProg(p);
+      if(p<1)raf.current=requestAnimationFrame(step);
+    };
+    setProg(0);
+    raf.current=requestAnimationFrame(step);
+  },[]);
+  useEffect(function(){if(data&&data.teams&&data.teams.length)play();return function(){if(raf.current)cancelAnimationFrame(raf.current);};},[data,play]);
+  const groups=useMemo(function(){
+    if(!data||!data.teams)return{a:[],b:[]};
+    const ranked=data.teams.slice().sort(function(x,y){
+      const lx=lastReal(x.points),ly=lastReal(y.points);
+      return((ly?ly.y:-Infinity)-(lx?lx.y:-Infinity));
     });
-    return()=>{if(chart.current){chart.current.destroy();chart.current=null;}};
+    return{a:ranked.slice(0,10),b:ranked.slice(10,20)};
   },[data]);
-  const selected=useMemo(()=>{
-    if(sel==null||!data)return null;
-    const date=data.labels[sel];
-    const rows=data.teams.map(t=>({...t,point:t.points[sel]})).filter(r=>r.point&&r.point.y!=null).sort((a,b)=>b.point.y-a.point.y);
-    const withPct=rows.filter(r=>r.point&&r.point.pct!=null);
-    const top=withPct.length?withPct.reduce((a,b)=>b.point.pct>a.point.pct?b:a):null;
-    const bottom=withPct.length?withPct.reduce((a,b)=>b.point.pct<a.point.pct?b:a):null;
-    return {date,rows,top,bottom};
-  },[sel,data]);
-  if(loading)return <div style={{padding:16,color:'#5A8ABB'}}>Loading pace history...</div>;
-  if(!data||!data.teams.length)return <div style={{padding:16,color:'#5A8ABB'}}>No pace history available.</div>;
-  return (
-    <div style={{padding:'0 8px 16px',background:'#030B17'}}>
-      <div style={{background:'#040C18',border:'1px solid #0A1E30',borderTop:'2px solid #C4920A',borderRadius:6,padding:14}}>
-        <div style={{fontSize:15,color:'#E8B84B',fontWeight:700,letterSpacing:1,marginBottom:10}}>TOP 10 PACE TEAMS · DAILY TREND</div>
-        {selected&&(
-          <div style={{background:'#0A1520',border:'1px solid #1A3A5A',borderRadius:6,padding:'10px 14px',marginBottom:12}}>
-            <div style={{fontSize:16,fontWeight:700,color:'#E8B84B',marginBottom:8}}>{selected.date}</div>
-            {selected.top&&<div style={{fontSize:13,color:'#00E676',marginBottom:4}}>&#9650; Top performer: {selected.top.name} {fmtPct(selected.top.point.pct)} {'($'+selected.top.point.y.toFixed(3)+'/day)'}</div>}
-            {selected.bottom&&<div style={{fontSize:13,color:'#E74C3C',marginBottom:8}}>&#9660; Bottom performer: {selected.bottom.name} {fmtPct(selected.bottom.point.pct)} {'($'+selected.bottom.point.y.toFixed(3)+'/day)'}</div>}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:8}}>
-              {selected.rows.map((r,i)=>{
-                const pct=r.point.pct;
-                const pctColor=pct>0?'#00E676':pct<0?'#E74C3C':'#8AAABB';
-                return (
-                  <div key={i} style={{display:'flex',alignItems:'center',gap:8,background:'#030B17',borderRadius:4,padding:'6px 8px'}}>
-                    <span style={{width:10,height:10,borderRadius:'50%',background:r.color,display:'inline-block'}}/>
-                    <span style={{fontSize:12,fontWeight:600,color:'#E2EAF4',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.name}</span>
-                    <span style={{fontSize:12,fontWeight:700,color:'#E8B84B'}}>{'$'+r.point.y.toFixed(3)+'/d'}</span>
-                    <span style={{fontSize:11,fontWeight:600,color:pctColor}}>{fmtPct(pct)}</span>
-                    {r.point.interpolated&&<span style={{fontSize:10,color:'#5A8AAB',marginLeft:2}}>*</span>}
-                  </div>
-                );
-              })}
+  const nilDays=useMemo(function(){
+    if(!data||!data.teams||!data.teams.length)return[];
+    const out=[];
+    for(let i=0;i<data.labels.length;i++){
+      let any=false;
+      data.teams.forEach(function(t){if(t.points[i]&&t.points[i].y!=null)any=true;});
+      if(!any)out.push(i);
+    }
+    return out;
+  },[data]);
+  const onLegend=useCallback(function(name){
+    setHidden(function(h){const nh=Object.assign({},h);if(nh[name])delete nh[name];else nh[name]=true;return nh;});
+  },[]);
+  if(loading)return <div style={{padding:16,color:'#5A8ABB'}}>Loading pace history\u2026</div>;
+  if(err)return <div style={{padding:16,color:'#E74C3C'}}>Pace history unavailable: {err}</div>;
+  if(!data||!data.teams||!data.teams.length)return <div style={{padding:16,color:'#5A8ABB'}}>No pace history available.</div>;
+  const dayLabel=selDay!=null?data.labels[selDay]:null;
+  return(<div style={{padding:'0 8px 16px',background:'#030B17'}}>
+    <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',margin:'4px 0 8px'}}>
+      <span style={{fontSize:15,color:'#E8B84B',fontWeight:700,letterSpacing:1}}>ALLIANCE PACE \u00b7 DAILY TREND</span>
+      <span style={{fontSize:11,color:'#4A7090'}}>{data.start+' \u2192 '+data.end+' \u00b7 tap a day for every alliance\u2019s pace \u00b7 tap a line to isolate \u00b7 tap a legend name to hide'}</span>
+      <button onClick={play} style={{marginLeft:'auto',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',borderRadius:3,padding:'4px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>REPLAY</button>
+      {iso&&<button onClick={function(){setIso(null);}} style={{background:'#1A0A00',border:'1px solid #C4920A60',color:'#E8B84B',borderRadius:3,padding:'4px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>SHOW ALL LINES</button>}
+      {selDay!=null&&<button onClick={function(){setSelDay(null);}} style={{background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',borderRadius:3,padding:'4px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>{'CLEAR '+dayLabel}</button>}
+    </div>
+    <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+      <TrendPanel id="p1" title="ALLIANCES 1 \u2014 10" teams={groups.a} labels={data.labels} nilDays={nilDays} prog={prog} selDay={selDay} onSelDay={setSelDay} iso={iso} onIso={setIso} hidden={hidden} onLegend={onLegend}/>
+      <TrendPanel id="p2" title="ALLIANCES 11 \u2014 20" teams={groups.b} labels={data.labels} nilDays={nilDays} prog={prog} selDay={selDay} onSelDay={setSelDay} iso={iso} onIso={setIso} hidden={hidden} onLegend={onLegend}/>
+    </div>
+    <div style={{fontSize:11,color:'#5A8AAB',marginTop:8}}>Shaded columns carry no reading for any alliance \u2014 lines bridge them in their own colour and the day prints \u201cnil data\u201d. Nothing is smoothed into a value.</div>
+  </div>);
+}
+
+/* ── Alliance cards ─────────────────────────────────────────────────────── */
+function heat(pace,mn,mx){
+  if(pace==null)return'#3A6090';
+  const f=mx>mn?(pace-mn)/(mx-mn):1;
+  if(f>=0.8)return'#00E676';
+  if(f>=0.6)return'#69F0AE';
+  if(f>=0.4)return'#E8B84B';
+  if(f>=0.2)return'#FF9E40';
+  return'#E74C3C';
+}
+function Chip(props){
+  const v=props.value;
+  const up=v>0,down=v<0;
+  const c=props.invert?(down?'#00E676':up?'#E74C3C':'#5A8AAB'):(up?'#00E676':down?'#E74C3C':'#5A8AAB');
+  const arrow=up?'\u25b2':down?'\u25bc':'\u2014';
+  return(<span style={{display:'inline-flex',alignItems:'center',gap:4,background:'#030B17',border:'1px solid '+c+'40',borderRadius:10,padding:'2px 8px',fontSize:11,color:c,fontWeight:700}}>
+    <span style={{fontSize:9,color:'#5A8AAB',fontWeight:600,letterSpacing:'.06em'}}>{props.label}</span>
+    {arrow}{props.text}
+  </span>);
+}
+function AllianceCards(){
+  const [live,setLive]=useState(null);
+  const [hist,setHist]=useState(null);
+  const [loading,setLoading]=useState(true);
+  useEffect(function(){
+    Promise.all([
+      fetch('/api/data').then(function(r){return r.json();}),
+      fetch('/api/pace-history?days=30').then(function(r){return r.json();})
+    ]).then(function(res){setLive(res[0]);setHist(res[1]);setLoading(false);}).catch(function(){setLoading(false);});
+  },[]);
+  const cards=useMemo(function(){
+    if(!live)return[];
+    const field=(live.alliances||[]).map(function(a){return{name:a.name,rank:a.rank,sv:a.sv,pace:a.pace};});
+    field.push({name:'Beagle Global',rank:live.beagleRank,sv:live.beagleSV,pace:live.beaglePace,isBeagle:true});
+    const byName={};
+    if(hist&&hist.teams)hist.teams.forEach(function(t){byName[t.name]=t;});
+    const paceOf=function(c){return c.pace!=null?c.pace:null;};
+    const nowOrder=field.slice().filter(function(c){return paceOf(c)!=null;}).sort(function(x,y){return y.pace-x.pace;});
+    const nowPos={};nowOrder.forEach(function(c,i){nowPos[c.name]=i+1;});
+    const prevVals={};
+    field.forEach(function(c){
+      const t=byName[c.name];
+      const pr=t?prevReal(t.points):null;
+      prevVals[c.name]=pr?pr.y:null;
+    });
+    const prevOrder=field.slice().filter(function(c){return prevVals[c.name]!=null;}).sort(function(x,y){return prevVals[y.name]-prevVals[x.name];});
+    const prevPos={};prevOrder.forEach(function(c,i){prevPos[c.name]=i+1;});
+    const svs=field.map(function(c){return c.sv;}).filter(function(v){return v!=null;});
+    const svMin=Math.min.apply(null,svs),svMax=Math.max.apply(null,svs);
+    const paces=field.map(paceOf).filter(function(v){return v!=null;});
+    const pMin=paces.length?Math.min.apply(null,paces):0,pMax=paces.length?Math.max.apply(null,paces):1;
+    return field.sort(function(x,y){return(x.rank||99)-(y.rank||99);}).slice(0,20).map(function(c){
+      const prev=prevVals[c.name];
+      const dPace=(c.pace!=null&&prev!=null)?c.pace-prev:null;
+      const dPos=(nowPos[c.name]&&prevPos[c.name])?prevPos[c.name]-nowPos[c.name]:null;
+      const field01=svMax>svMin?(c.sv-svMin)/(svMax-svMin):1;
+      return Object.assign({},c,{dPace:dPace,dPos:dPos,field01:field01,heat:heat(c.pace,pMin,pMax),paceRank:nowPos[c.name]||null});
+    });
+  },[live,hist]);
+  if(loading)return <div style={{padding:16,color:'#5A8ABB'}}>Loading alliance cards\u2026</div>;
+  if(!cards.length)return <div style={{padding:16,color:'#5A8ABB'}}>No alliance data available.</div>;
+  return(<div style={{padding:'10px 8px 24px',background:'#030B17'}}>
+    <div style={{fontSize:15,color:'#E8B84B',fontWeight:700,letterSpacing:1,marginBottom:10}}>ALLIANCE CARDS \u00b7 ALL 20</div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:10}}>
+      {cards.map(function(c){
+        return(<div key={c.name} style={{background:'#040C18',border:'1px solid '+(c.isBeagle?'#C4920A':'#0A1E30'),borderLeft:'4px solid '+c.heat,borderRadius:6,padding:'10px 12px'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+            <span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',minWidth:30,height:24,borderRadius:4,background:c.isBeagle?'#C4920A':'#0A1E30',color:c.isBeagle?'#030B17':'#8AAABB',fontWeight:700,fontSize:13}}>{'#'+(c.rank!=null?c.rank:'?')}</span>
+            <span style={{fontSize:14,fontWeight:700,color:c.isBeagle?'#E8B84B':'#E2EAF4',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.name}</span>
+            <span style={{marginLeft:'auto',fontSize:11,color:'#5A8AAB'}}>{c.sv!=null?'$'+c.sv.toLocaleString('en',{minimumFractionDigits:2})+'M':'\u2014'}</span>
+          </div>
+          <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:8}}>
+            <span style={{fontSize:22,fontWeight:700,color:c.heat}}>{c.pace!=null?fmtV(c.pace):NIL}</span>
+            <span style={{fontSize:11,color:'#5A8AAB',letterSpacing:'.06em'}}>PER DAY{c.paceRank?' \u00b7 PACE #'+c.paceRank:''}</span>
+          </div>
+          <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
+            <Chip label="PACE" value={c.dPace==null?0:c.dPace} text={c.dPace==null?NIL:'$'+Math.abs(c.dPace).toFixed(3)}/>
+            <Chip label="POS" value={c.dPos==null?0:c.dPos} text={c.dPos==null?NIL:String(Math.abs(c.dPos))}/>
+          </div>
+          <div>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#4A7090',letterSpacing:'.06em',marginBottom:3}}><span>FIELD POSITION</span><span>{Math.round(c.field01*100)+'%'}</span></div>
+            <div style={{position:'relative',height:6,borderRadius:3,background:'#0A1E30'}}>
+              <div style={{position:'absolute',left:0,top:0,bottom:0,width:(c.field01*100)+'%',background:c.heat,borderRadius:3,opacity:0.75}}/>
+              <div style={{position:'absolute',left:'calc('+(c.field01*100)+'% - 1px)',top:-3,width:2,height:12,background:'#E2EAF4'}}/>
             </div>
           </div>
-        )}
-        <div style={{height:320,position:'relative'}}>
-          <canvas ref={cvs} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%'}}/>
-        </div>
-        <div style={{display:'flex',flexWrap:'wrap',gap:'8px 14px',marginTop:10}}>
-          {data.teams.map(t=>{
-            const last=t.points[t.points.length-1];
-            return (
-              <span key={t.name} style={{display:'flex',alignItems:'center',gap:5,fontSize:12,color:'#8AAABB'}}>
-                <span style={{width:10,height:10,borderRadius:'50%',background:t.color,display:'inline-block'}}/>
-                {t.name} {last&&last.y!=null?'$'+last.y.toFixed(3):''}
-              </span>
-            );
-          })}
-        </div>
-        <div style={{fontSize:11,color:'#5A8AAB',marginTop:8}}>* dotted line = missing-day interpolation · touch chart to see each day</div>
-      </div>
+        </div>);
+      })}
     </div>
-  );
+  </div>);
 }
-ReactDOM.createRoot(document.getElementById('pace-root')).render(<PaceTrendApp/>);
+
+/* Tabs: PROJECTIONS keeps the existing dashboard untouched; CARDS is additive. */
+function Tabs(){
+  const [tab,setTab]=useState('projections');
+  useEffect(function(){
+    const main=document.getElementById('root');
+    const pace=document.getElementById('pace-root');
+    const cards=document.getElementById('cards-root');
+    const showMain=tab==='projections';
+    if(main)main.style.display=showMain?'':'none';
+    if(pace)pace.style.display=showMain?'':'none';
+    if(cards)cards.style.display=showMain?'none':'';
+  },[tab]);
+  const btn=function(active){return{background:active?'#1A3050':'transparent',border:'1px solid '+(active?'#4A80B0':'#162030'),color:active?'#E8B84B':'#6A9AB5',borderRadius:3,padding:'6px 16px',fontSize:13,fontWeight:700,letterSpacing:1,cursor:'pointer'};};
+  return(<div style={{display:'flex',gap:6,padding:'8px 12px',background:'#040C18',borderBottom:'1px solid #0A1E30'}}>
+    <button style={btn(tab==='projections')} onClick={function(){setTab('projections');}}>PROJECTIONS</button>
+    <button style={btn(tab==='cards')} onClick={function(){setTab('cards');}}>ALLIANCE CARDS</button>
+  </div>);
+}
+
+ReactDOM.createRoot(document.getElementById('pace-root')).render(<PaceDailyTrend/>);
+ReactDOM.createRoot(document.getElementById('cards-root')).render(<AllianceCards/>);
+ReactDOM.createRoot(document.getElementById('tabs-root')).render(<Tabs/>);
 })();
 </script>
 </body>
