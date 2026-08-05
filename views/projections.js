@@ -659,6 +659,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 const {useState,useEffect,useRef,useMemo,useCallback}=React;
 const NIL='nil data';
 const ANIM_MS=5200;
+const DEF_DAYS=14;
 window.__PACE_TREND_BUILD='PACE_TREND_ANIM_v1_OK';
 function realIdx(pts){const o=[];for(let i=0;i<pts.length;i++){if(pts[i].y!=null)o.push(i);}return o;}
 function fmtV(v){return '$'+v.toFixed(3);}
@@ -674,20 +675,29 @@ function TrendPanel(props){
   const cw=W-ml-mr,ch=H-mt-mb;
   const n=labels.length||1;
   const vis=teams.filter(t=>!hidden[t.name]);
-  const vals=[];
-  vis.forEach(function(t){t.points.forEach(function(p){if(p.y!=null)vals.push(p.y);});});
-  const mn=vals.length?Math.min.apply(null,vals):0;
-  const mx=vals.length?Math.max.apply(null,vals):1;
-  const pad=(mx-mn)*0.14||Math.max(0.5,Math.abs(mx)*0.1);
-  const fy0=mn-pad,fy1=mx+pad;
   /* Zoom/pan is expressed as the visible domain, not as an SVG transform, so
      axes, gridlines, labels and lines are all built from the same X/Y and
-     cannot drift out of alignment. */
-  const [view,setView]=useState({xz:1,yz:1,xc:null,yc:null});
+     cannot drift out of alignment. Opens on the most recent DEF_DAYS; zoom out
+     for the whole month. */
+  const defView=function(){
+    return{xz:n>DEF_DAYS?(n-1)/(DEF_DAYS-1):1,yz:1,xc:(n-1)-(DEF_DAYS-1)/2,yc:null};
+  };
+  const [view,setView]=useState(defView);
+  const [pin,setPin]=useState(null);
   const zoomed=view.xz>1.001||view.yz>1.001;
   const xSpan=(n-1)/view.xz||1;
   const xcRaw=view.xc==null?(n-1)/2:view.xc;
   const xStart=Math.max(0,Math.min(xcRaw-xSpan/2,Math.max(0,(n-1)-xSpan)));
+  /* The y-axis fits what is actually on screen, so narrowing the window
+     spreads the lines instead of leaving them squashed by an off-screen spike. */
+  const vals=[];
+  vis.forEach(function(t){t.points.forEach(function(p,i){
+    if(p.y!=null&&i>=xStart-0.5&&i<=xStart+xSpan+0.5)vals.push(p.y);
+  });});
+  const mn=vals.length?Math.min.apply(null,vals):0;
+  const mx=vals.length?Math.max.apply(null,vals):1;
+  const pad=(mx-mn)*0.14||Math.max(0.5,Math.abs(mx)*0.1);
+  const fy0=mn-pad,fy1=mx+pad;
   const vFull=fy1-fy0;
   const vSpan=vFull/view.yz;
   const ycRaw=view.yc==null?(fy0+fy1)/2:view.yc;
@@ -863,8 +873,8 @@ function TrendPanel(props){
     <div style={{display:'flex',alignItems:'baseline',gap:10,marginBottom:6}}>
       <span style={{fontSize:14,color:'#E8B84B',fontWeight:700,letterSpacing:1}}>{props.title}</span>
       <span style={{fontSize:11,color:'#4A7090',letterSpacing:'.06em'}}>OWN Y-AXIS \u00b7 $ PER DAY</span>
-      <span style={{fontSize:10,color:'#3E6280',letterSpacing:'.06em'}}>WHEEL OR PINCH TO ZOOM \u00b7 DRAG TO PAN</span>
-      {zoomed&&<button onClick={function(){setView({xz:1,yz:1,xc:null,yc:null});}} style={{marginLeft:'auto',background:'#12233A',border:'1px solid #2C4A6E',color:'#E8B84B',borderRadius:3,padding:'3px 10px',fontSize:11,fontWeight:700,letterSpacing:1,cursor:'pointer'}}>RESET {(view.xz).toFixed(1)}x</button>}
+      <span style={{fontSize:10,color:'#3E6280',letterSpacing:'.06em'}}>WHEEL OR PINCH TO ZOOM \u00b7 DRAG TO PAN \u00b7 TAP A DOT FOR ITS PRICE</span>
+      <button onClick={function(){setPin(null);setView(zoomed?{xz:1,yz:1,xc:null,yc:null}:defView());}} style={{marginLeft:'auto',background:'#12233A',border:'1px solid #2C4A6E',color:'#E8B84B',borderRadius:3,padding:'3px 10px',fontSize:11,fontWeight:700,letterSpacing:1,cursor:'pointer'}}>{zoomed?'FULL MONTH':'LAST '+DEF_DAYS+' DAYS'}</button>
     </div>
     <svg ref={svgRef} viewBox={'0 0 '+W+' '+H} onMouseDown={function(e){dragRef.current={x:e.clientX,y:e.clientY,moved:false};}} style={{width:'100%',height:'auto',maxHeight:'44vh',display:'block',userSelect:'none',touchAction:'none',cursor:'grab'}}>
       <defs>
@@ -892,7 +902,13 @@ function TrendPanel(props){
           return(<g key={t.name}>
             <path d={d} stroke="transparent" strokeWidth="16" fill="none" onClick={function(){if(dragged())return;props.onIso(iso===t.name?null:t.name);}}/>
             <path d={d} stroke={t.color} strokeWidth={iso===t.name?3.2:1.8} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={dim?0.09:0.92}/>
-            {ri.map(function(i){return(<circle key={i} cx={X(i)} cy={Y(t.points[i].y)} r={iso===t.name?3:1.9} fill={t.color} opacity={dim?0.09:0.9}/>);})}
+            {ri.filter(inView).map(function(i){
+              const on=pin&&pin.name===t.name&&pin.i===i;
+              return(<g key={i}>
+                <circle cx={X(i)} cy={Y(t.points[i].y)} r={on?4.4:(iso===t.name?3:2.1)} fill={t.color} stroke={on?'#FFFFFF':'none'} strokeWidth={on?1.2:0} opacity={dim?0.09:0.95}/>
+                <circle cx={X(i)} cy={Y(t.points[i].y)} r="10" fill="transparent" style={{cursor:'pointer'}} onClick={function(e){if(dragged())return;e.stopPropagation();setPin(on?null:{name:t.name,i:i});}}/>
+              </g>);
+            })}
           </g>);
         })}
       </g>
@@ -902,6 +918,21 @@ function TrendPanel(props){
         return(<text key={e.name} x={Math.min(e.x,ml+cw)+9} y={e.y+4} fill={e.color} fontSize="12" fontWeight="700" opacity={dim?0.15:1}>{shortName(e.name)}</text>);
       })}
       {prog<1&&<line x1={X(head)} x2={X(head)} y1={mt} y2={mt+ch} stroke="#E8B84B" strokeWidth="1.4" opacity="0.75"/>}
+      {/* Tap a dot: that alliance's reading for that day, printed at the dot. */}
+      {(function(){
+        if(!pin)return null;
+        const t=vis.filter(function(q){return q.name===pin.name;})[0];
+        if(!t||t.points[pin.i]==null||t.points[pin.i].y==null||!inView(pin.i))return null;
+        const p=t.points[pin.i];
+        const txt=shortName(t.name)+'  '+labels[pin.i]+'  '+fmtV(p.y);
+        const bw=txt.length*6.6+18,bh=24;
+        const bx=Math.max(ml+2,Math.min(X(pin.i)-bw/2,ml+cw-bw-2));
+        const by=Math.max(mt+2,Y(p.y)-bh-12);
+        return(<g style={{pointerEvents:'none'}}>
+          <rect x={bx} y={by} width={bw} height={bh} rx="4" fill="#071322" stroke={t.color} strokeWidth="1.2" opacity="0.97"/>
+          <text x={bx+bw/2} y={by+16} textAnchor="middle" fill={t.color} fontSize="12.5" fontWeight="700">{txt}</text>
+        </g>);
+      })()}
       {selDay!=null&&inView(selDay)&&(<g clipPath={'url(#'+plotId+')'}>
         <line x1={X(selDay)} x2={X(selDay)} y1={mt} y2={mt+ch} stroke="#E8B84B" strokeWidth="1" strokeDasharray="3,4" opacity="0.9"/>
         {readouts.map(function(r){
@@ -977,7 +1008,7 @@ function PaceDailyTrend(){
   return(<div style={{padding:'0 8px 16px',background:'#030B17'}}>
     <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',margin:'4px 0 8px'}}>
       <span style={{fontSize:15,color:'#E8B84B',fontWeight:700,letterSpacing:1}}>ALLIANCE PACE \u00b7 DAILY TREND</span>
-      <span style={{fontSize:11,color:'#4A7090'}}>{data.start+' \u2192 '+data.end+' \u00b7 tap a day for every alliance\u2019s pace \u00b7 tap a line to isolate \u00b7 tap a legend name to hide'}</span>
+      <span style={{fontSize:11,color:'#4A7090'}}>{data.start+' \u2192 '+data.end+' \u00b7 tap a dot for its price \u00b7 tap a day for every alliance\u2019s pace \u00b7 tap a line to isolate \u00b7 tap a legend name to hide'}</span>
       <button onClick={play} style={{marginLeft:'auto',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',borderRadius:3,padding:'4px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>REPLAY</button>
       {iso&&<button onClick={function(){setIso(null);}} style={{background:'#1A0A00',border:'1px solid #C4920A60',color:'#E8B84B',borderRadius:3,padding:'4px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>SHOW ALL LINES</button>}
       {selDay!=null&&<button onClick={function(){setSelDay(null);}} style={{background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',borderRadius:3,padding:'4px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>{'CLEAR '+dayLabel}</button>}
