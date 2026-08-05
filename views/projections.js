@@ -653,8 +653,6 @@ function App(){
 }
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
-<div id="pace-root" style="padding:0 8px 16px;background:#030B17"></div>
-<div id="cards-root" style="display:none;background:#030B17"></div>
 <script type="text/babel">
 /* PACE_TREND_ANIM_v1_OK — animated split-axis daily pace trend + alliance cards */
 (function(){
@@ -672,7 +670,7 @@ function shortName(s){return s&&s.length>17?s.slice(0,16)+'\u2026':s;}
 function TrendPanel(props){
   const teams=props.teams,labels=props.labels,nilDays=props.nilDays,prog=props.prog;
   const selDay=props.selDay,iso=props.iso,hidden=props.hidden;
-  const W=1400,H=340,ml=74,mr=210,mt=26,mb=62;
+  const W=1600,H=470,ml=90,mr=230,mt=30,mb=76;
   const cw=W-ml-mr,ch=H-mt-mb;
   const n=labels.length||1;
   const vis=teams.filter(t=>!hidden[t.name]);
@@ -717,15 +715,34 @@ function TrendPanel(props){
     if(hp)ends.push({name:t.name,color:t.color,x:hp.x,y:hp.y,raw:hp.y});
   });
   ends.sort(function(a,b){return a.y-b.y;});
-  for(let i=1;i<ends.length;i++){if(ends[i].y-ends[i-1].y<15)ends[i].y=ends[i-1].y+15;}
+  for(let i=1;i<ends.length;i++){if(ends[i].y-ends[i-1].y<14)ends[i].y=ends[i-1].y+14;}
+  const spill=ends.length?ends[ends.length-1].y-(mt+ch):0;
+  if(spill>0)ends.forEach(function(e){e.y-=spill;});
+  /* Day readouts print upward from each alliance's own line. Lines sit close
+     together, so entries whose anchors are within a text height take the next
+     column across rather than stacking on top of one another. */
+  const readouts=[];
+  if(selDay!=null){
+    const cols=[];
+    vis.map(function(t){return{t:t,by:bridgeY(t,selDay)};})
+      .filter(function(e){return e.by!=null;})
+      .sort(function(a,b){return a.by-b.by;})
+      .forEach(function(e){
+        let col=0;
+        while(cols[col]!=null&&e.by-cols[col]<13)col++;
+        cols[col]=e.by;
+        const p=e.t.points[selDay];
+        readouts.push({name:e.t.name,color:e.t.color,real:p.y!=null,text:p.y!=null?fmtV(p.y):NIL,x:X(selDay)+10+col*17,y:e.by});
+      });
+  }
   const clipId=props.id+'-clip';
   const everyOther=n>18?2:1;
-  return(<div style={{flex:1,minWidth:0,background:'#040C18',border:'1px solid #0A1E30',borderTop:'2px solid #C4920A',borderRadius:6,padding:'10px 12px 12px'}}>
+  return(<div style={{background:'#040C18',border:'1px solid #0A1E30',borderTop:'2px solid #C4920A',borderRadius:6,padding:'10px 12px 12px'}}>
     <div style={{display:'flex',alignItems:'baseline',gap:10,marginBottom:6}}>
       <span style={{fontSize:14,color:'#E8B84B',fontWeight:700,letterSpacing:1}}>{props.title}</span>
       <span style={{fontSize:11,color:'#4A7090',letterSpacing:'.06em'}}>OWN Y-AXIS \u00b7 $ PER DAY</span>
     </div>
-    <svg viewBox={'0 0 '+W+' '+H} style={{width:'100%',display:'block',userSelect:'none'}}>
+    <svg viewBox={'0 0 '+W+' '+H} style={{width:'100%',height:'auto',maxHeight:'44vh',display:'block',userSelect:'none'}}>
       <defs><clipPath id={clipId}><rect x={ml-1} y={mt-14} width={Math.max(0,X(head)-ml+2)} height={ch+28}/></clipPath></defs>
       <rect x={ml} y={mt} width={cw} height={ch} fill="#030810" rx="2"/>
       {nilDays.map(function(i){return(<g key={'nil'+i}>
@@ -758,13 +775,9 @@ function TrendPanel(props){
       {prog<1&&<line x1={X(head)} x2={X(head)} y1={mt} y2={mt+ch} stroke="#E8B84B" strokeWidth="1.4" opacity="0.75"/>}
       {selDay!=null&&(<g>
         <line x1={X(selDay)} x2={X(selDay)} y1={mt} y2={mt+ch} stroke="#E8B84B" strokeWidth="1" strokeDasharray="3,4" opacity="0.9"/>
-        {vis.map(function(t){
-          const by=bridgeY(t,selDay);
-          if(by==null)return null;
-          const p=t.points[selDay];
-          const txt=p.y!=null?fmtV(p.y):NIL;
-          const dim=iso&&iso!==t.name;
-          return(<text key={'v'+t.name} x={X(selDay)+12} y={by} fill={p.y!=null?t.color:'#5A7A96'} fontSize="11" fontWeight={p.y!=null?'700':'400'} opacity={dim?0.15:1} transform={'rotate(-90,'+(X(selDay)+12)+','+by+')'} textAnchor="start">{txt}</text>);
+        {readouts.map(function(r){
+          const dim=iso&&iso!==r.name;
+          return(<text key={'v'+r.name} x={r.x} y={r.y} fill={r.real?r.color:'#5A7A96'} fontSize="11" fontWeight={r.real?'700':'400'} opacity={dim?0.15:1} transform={'rotate(-90,'+r.x+','+r.y+')'} textAnchor="start">{r.text}</text>);
         })}
       </g>)}
       <line x1={ml} y1={mt} x2={ml} y2={mt+ch} stroke="#2C4A6E" strokeWidth="1"/>
@@ -840,7 +853,7 @@ function PaceDailyTrend(){
       {iso&&<button onClick={function(){setIso(null);}} style={{background:'#1A0A00',border:'1px solid #C4920A60',color:'#E8B84B',borderRadius:3,padding:'4px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>SHOW ALL LINES</button>}
       {selDay!=null&&<button onClick={function(){setSelDay(null);}} style={{background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',borderRadius:3,padding:'4px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>{'CLEAR '+dayLabel}</button>}
     </div>
-    <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+    <div style={{display:'flex',flexDirection:'column',gap:10}}>
       <TrendPanel id="p1" title="ALLIANCES 1 \u2014 10" teams={groups.a} labels={data.labels} nilDays={nilDays} prog={prog} selDay={selDay} onSelDay={setSelDay} iso={iso} onIso={setIso} hidden={hidden} onLegend={onLegend}/>
       <TrendPanel id="p2" title="ALLIANCES 11 \u2014 20" teams={groups.b} labels={data.labels} nilDays={nilDays} prog={prog} selDay={selDay} onSelDay={setSelDay} iso={iso} onIso={setIso} hidden={hidden} onLegend={onLegend}/>
     </div>
@@ -940,28 +953,26 @@ function AllianceCards(){
   </div>);
 }
 
-/* Tabs: PROJECTIONS keeps the existing dashboard untouched; CARDS is additive. */
-function Tabs(){
+/* Top tabs. PROJECTIONS hands the page back to the untouched dashboard in #root;
+   the pace panes render here, above it, so they own the full width of the page. */
+function TopTabs(){
   const [tab,setTab]=useState('projections');
   useEffect(function(){
     const main=document.getElementById('root');
-    const pace=document.getElementById('pace-root');
-    const cards=document.getElementById('cards-root');
-    const showMain=tab==='projections';
-    if(main)main.style.display=showMain?'':'none';
-    if(pace)pace.style.display=showMain?'':'none';
-    if(cards)cards.style.display=showMain?'none':'';
+    if(main)main.style.display=tab==='projections'?'':'none';
   },[tab]);
   const btn=function(active){return{background:active?'#1A3050':'transparent',border:'1px solid '+(active?'#4A80B0':'#162030'),color:active?'#E8B84B':'#6A9AB5',borderRadius:3,padding:'6px 16px',fontSize:13,fontWeight:700,letterSpacing:1,cursor:'pointer'};};
-  return(<div style={{display:'flex',gap:6,padding:'8px 12px',background:'#040C18',borderBottom:'1px solid #0A1E30'}}>
-    <button style={btn(tab==='projections')} onClick={function(){setTab('projections');}}>PROJECTIONS</button>
-    <button style={btn(tab==='cards')} onClick={function(){setTab('cards');}}>ALLIANCE CARDS</button>
+  return(<div>
+    <div style={{display:'flex',gap:6,padding:'8px 12px',background:'#040C18',borderBottom:'1px solid #0A1E30'}}>
+      <button style={btn(tab==='projections')} onClick={function(){setTab('projections');}}>PROJECTIONS</button>
+      <button style={btn(tab==='trend')} onClick={function(){setTab('trend');}}>PACE TREND</button>
+      <button style={btn(tab==='cards')} onClick={function(){setTab('cards');}}>ALLIANCE CARDS</button>
+    </div>
+    {tab==='trend'?<PaceDailyTrend/>:tab==='cards'?<AllianceCards/>:null}
   </div>);
 }
 
-ReactDOM.createRoot(document.getElementById('pace-root')).render(<PaceDailyTrend/>);
-ReactDOM.createRoot(document.getElementById('cards-root')).render(<AllianceCards/>);
-ReactDOM.createRoot(document.getElementById('tabs-root')).render(<Tabs/>);
+ReactDOM.createRoot(document.getElementById('tabs-root')).render(<TopTabs/>);
 })();
 </script>
 </body>
