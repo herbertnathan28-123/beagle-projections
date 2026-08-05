@@ -567,6 +567,7 @@ function App(){
       {[['SV','SV LINES'],['GAP','OVERTAKE'],['RANK','RANK']].map(([m,l])=>{const lbl=mob?m:l;return(<button key={m} onClick={()=>setMode(m)} style={{...BB,background:mode===m?'#1A3050':'transparent',border:'1px solid '+(mode===m?'#4A80B0':'#162030'),color:mode===m?'#E8B84B':'#6A9AB5'}}>{lbl}</button>);})}
       <div style={{width:1,height:18,background:'#162030',margin:'0 3px',flexShrink:0}}/>
       <button onClick={()=>setShowR(r=>!r)} style={{...BB,background:showR?'#0D2240':'transparent',border:'1px solid #162030',color:showR?'#7FAACC':'#4A7090'}}>{showR?(mob?'HIDE':'HIDE RANKING'):(mob?'SHOW':'SHOW RANKING')}</button>
+      <button onClick={()=>window.dispatchEvent(new CustomEvent('pace-tab',{detail:'trend'}))} style={{...BB,background:'transparent',border:'1px solid #2C4A6E',color:'#E8B84B'}}>{mob?'PACE':'PACE TREND'}</button>
       <div style={{display:'flex',alignItems:'center',gap:3,marginLeft:'auto'}}>
         <button onClick={()=>{if(mode==='GAP')gapZI.current?.();else if(mode==='SV')svZI.current?.();else if(mode==='RANK')rkZI.current?.();else{setYZ(z=>Math.min(30,z*1.25));setXZ(z=>Math.min(30,z*1.25));}}} style={{...BB,padding:'4px 10px',background:'#0A1E30',border:'1px solid #2C4A6E',color:'#8AAABB',fontSize:16,fontWeight:700}} title="Zoom in">+</button>
         <span style={{fontSize:12,color:zoomed?'#E8B84B':'#3A6080',minWidth:36,textAlign:'center'}}>{zoomed?('x'+Math.max(yZ,xZ).toFixed(1)):'1x'}</span>
@@ -1121,12 +1122,18 @@ function TopTabs(){
     const main=document.getElementById('root');
     if(main)main.style.display=tab==='projections'?'':'none';
   },[tab]);
+  /* PACE TREND is opened from the projections toolbar, beside HIDE RANKING. */
+  useEffect(function(){
+    const onTab=function(e){setTab(e.detail);};
+    window.addEventListener('pace-tab',onTab);
+    return function(){window.removeEventListener('pace-tab',onTab);};
+  },[]);
   const btn=function(active){return{background:active?'#1A3050':'transparent',border:'1px solid '+(active?'#4A80B0':'#162030'),color:active?'#E8B84B':'#6A9AB5',borderRadius:3,padding:'6px 16px',fontSize:13,fontWeight:700,letterSpacing:1,cursor:'pointer'};};
   return(<div>
     <div style={{display:'flex',gap:6,padding:'8px 12px',background:'#040C18',borderBottom:'1px solid #0A1E30'}}>
       <button style={btn(tab==='projections')} onClick={function(){setTab('projections');}}>PROJECTIONS</button>
-      <button style={btn(tab==='trend')} onClick={function(){setTab('trend');}}>PACE TREND</button>
       <button style={btn(tab==='cards')} onClick={function(){setTab('cards');}}>ALLIANCE CARDS</button>
+      {tab==='trend'&&<button style={btn(true)} onClick={function(){setTab('projections');}}>PACE TREND \u00d7</button>}
     </div>
     {tab==='trend'?<PaceDailyTrend/>:tab==='cards'?<AllianceCards/>:null}
   </div>);
