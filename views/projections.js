@@ -867,21 +867,25 @@ function TrendPanel(props){
   for(let i=1;i<ends.length;i++){if(ends[i].y-ends[i-1].y<14)ends[i].y=ends[i-1].y+14;}
   const spill=ends.length?ends[ends.length-1].y-(mt+ch):0;
   if(spill>0)ends.forEach(function(e){e.y-=spill;});
-  /* Day readouts print upward from each alliance's own line. Lines sit close
-     together, so entries whose anchors are within a text height take the next
-     column across rather than stacking on top of one another. */
+  /* Day readouts are boxed beside each alliance's own line, in the same style as
+     a tapped dot. Lines sit close together, so boxes are pushed apart and keep a
+     leader line back to the point they belong to. */
+  const RBH=19;
   const readouts=[];
   if(selDay!=null){
-    const cols=[];
     vis.map(function(t){return{t:t,by:bridgeY(t,selDay)};})
-      .filter(function(e){return e.by!=null;})
+      .filter(function(e){return e.by!=null&&e.by>=mt&&e.by<=mt+ch;})
       .sort(function(a,b){return a.by-b.by;})
-      .forEach(function(e){
-        let col=0;
-        while(cols[col]!=null&&e.by-cols[col]<13)col++;
-        cols[col]=e.by;
+      .forEach(function(e,k){
         const p=e.t.points[selDay];
-        readouts.push({name:e.t.name,color:e.t.color,real:p.y!=null,text:p.y!=null?fmtV(p.y):NIL,x:X(selDay)+10+col*17,y:e.by});
+        const text=p.y!=null?fmtV(p.y):NIL;
+        let by=e.by-RBH/2;
+        if(k&&by<readouts[k-1].by+RBH+2)by=readouts[k-1].by+RBH+2;
+        by=Math.max(mt+1,Math.min(by,mt+ch-RBH-1));
+        const w=text.length*6.4+14;
+        const right=X(selDay)+9+w<=ml+cw-2;
+        readouts.push({name:e.t.name,color:e.t.color,real:p.y!=null,text:text,
+          w:w,x:right?X(selDay)+9:X(selDay)-9-w,edge:right?X(selDay)+9:X(selDay)-9,by:by,anchor:e.by});
       });
   }
   const clipId=props.id+'-clip';
@@ -971,7 +975,12 @@ function TrendPanel(props){
         <line x1={X(selDay)} x2={X(selDay)} y1={mt} y2={mt+ch} stroke="#E8B84B" strokeWidth="1" strokeDasharray="3,4" opacity="0.9"/>
         {readouts.map(function(r){
           const dim=iso&&iso!==r.name;
-          return(<text key={'v'+r.name} x={r.x} y={r.y} fill={r.real?r.color:'#5A7A96'} fontSize="11" fontWeight={r.real?'700':'400'} opacity={dim?0.15:1} transform={'rotate(-90,'+r.x+','+r.y+')'} textAnchor="start">{r.text}</text>);
+          const col=r.real?r.color:'#5A7A96';
+          return(<g key={'v'+r.name} opacity={dim?0.15:1}>
+            <line x1={X(selDay)} y1={r.anchor} x2={r.edge} y2={r.by+RBH/2} stroke={col} strokeWidth="0.8" opacity="0.55"/>
+            <rect x={r.x} y={r.by} width={r.w} height={RBH} rx="3" fill="#071322" stroke={col} strokeWidth="1.1" opacity="0.97"/>
+            <text x={r.x+r.w/2} y={r.by+13.5} textAnchor="middle" fill={col} fontSize="11.5" fontWeight={r.real?'700':'400'}>{r.text}</text>
+          </g>);
         })}
       </g>)}
       <line x1={ml} y1={mt} x2={ml} y2={mt+ch} stroke="#2C4A6E" strokeWidth="1"/>
