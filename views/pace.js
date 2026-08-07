@@ -881,9 +881,23 @@ function PaceStandings({ series = PLACEHOLDER_SERIES, datumT = DATUM_T }) {
 }
 
 /* ============================================== the two pages, with the tabs */
-function PacePages({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeholder = true }) {
+function PacePages({ series: propSeries = PLACEHOLDER_SERIES, datumT: propDatumT = DATUM_T, placeholder: propPlaceholder = true }) {
   const [tab, setTab] = useState("trend");
   const [days, setDays] = useState(7);
+  const [fetched, setFetched] = useState(null);
+
+  useEffect(() => {
+    fetch("/api/pace-readings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && Array.isArray(d.series) && d.series.some((s) => (s.readings || []).length >= 2)) setFetched(d);
+      })
+      .catch(() => {});
+  }, []);
+
+  const series = fetched ? fetched.series : propSeries;
+  const datumT = fetched ? fetched.datumT : propDatumT;
+  const placeholder = fetched ? false : propPlaceholder;
 
   const windowPresets = [
     { label: "2D", days: 2 },
@@ -905,9 +919,17 @@ function PacePages({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeholder 
     }
     if (!isFinite(latest)) return series;
     const cutoff = latest - days * DAY_MS;
-    const filtered = series.map((s) => ({ ...s, readings: (s.readings || []).filter((r) => ms(r.t) >= cutoff) }));
-    const withEnough = filtered.filter((s) => s.readings.length >= 2);
-    return withEnough.length ? withEnough : series;
+    const filtered = series.map((s) => {
+      const sorted = [...(s.readings || [])].sort((a, b) => ms(a.t) - ms(b.t));
+      const firstInside = sorted.findIndex((r) => ms(r.t) >= cutoff);
+      if (firstInside === -1) {
+        const last = sorted[sorted.length - 1];
+        return { ...s, readings: last ? [last] : [] };
+      }
+      const start = Math.max(0, firstInside - 1);
+      return { ...s, readings: sorted.slice(start) };
+    });
+    return filtered.filter((s) => s.readings.length >= 2);
   }, [series, days]);
 
   return (
@@ -921,17 +943,21 @@ function PacePages({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeholder 
             {label}
           </button>
         ))}
-        <div style={{ flex: 1, minWidth: 12 }} />
-        {windowPresets.map((p) => (
-          <button
-            key={p.label}
-            onClick={() => setDays(p.days)}
-            style={{ ...S.tab, ...(days === p.days ? S.tabOn : null) }}
-            aria-pressed={days === p.days}
-          >
-            {p.label}
-          </button>
-        ))}
+        {tab === "trend" && (
+          <>
+            <div style={{ flex: 1, minWidth: 12 }} />
+            {windowPresets.map((p) => (
+              <button
+                key={p.label}
+                onClick={() => setDays(p.days)}
+                style={{ ...S.tab, ...(days === p.days ? S.tabOn : null) }}
+                aria-pressed={days === p.days}
+              >
+                {p.label}
+              </button>
+            ))}
+          </>
+        )}
       </nav>
       {tab === "trend" ? (
         <PaceDailyTrend key={days} series={windowedSeries} datumT={datumT} placeholder={placeholder} />

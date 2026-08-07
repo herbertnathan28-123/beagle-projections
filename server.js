@@ -36,6 +36,7 @@ const {
 
 const app  = express();
 const PORT = process.env.PORT || 10000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 // ── Engine / view aliases (keep route bodies unchanged) ────────────────────
 const { analyseAllPlayers, calcMostImproved, calcTeamRatingHistory, _nk } = engine;
@@ -493,6 +494,100 @@ app.get('/api/pace-history', (req, res) => {
 
   const labels = series[0]?.points.map(p => p.x) || [];
   res.json({ days: requestedDays, start, end, labels, teams: series });
+});
+
+// ── Raw pace-readings feed for /pace (new corrected component) ───────────────
+// Returns one object per alliance in the exact shape PacePages expects:
+// { name, colour, group, us, datumSv, readings: [{ t, sv }] }.
+// Uses the live SV/alliance history stores when present, and falls back to the
+// current live snapshot if a service has no persisted history yet.
+app.get('/api/pace-readings', (req, res) => {
+  const requestedDays = Math.min(parseInt(req.query.days) || 90, 90);
+  const nowMs = Date.parse(liveData.timestamp) || Date.now();
+  const cutoff = new Date(nowMs - requestedDays * DAY_MS).toISOString();
+
+  const defaultByName = new Map();
+  for (const a of cfg.DEFAULT_DATA.alliances || []) defaultByName.set(normAllianceName(a.name), a.sv);
+
+  // Build working entries from the latest live snapshot.
+  const entries = [
+    {
+      key: 'beagle global',
+      name: 'Beagle Global',
+      sv: liveData.beagleSV ?? cfg.DEFAULT_DATA.beagleSV,
+      pace: liveData.beaglePace ?? cfg.DEFAULT_DATA.beaglePace,
+      us: true,
+    },
+    ...(liveData.alliances || []).map((a) => ({
+      key: normAllianceName(a.name),
+      name: a.name,
+      sv: a.sv,
+      pace: a.pace,
+      us: false,
+    })),
+  ];
+
+  // Drop duplicates and ensure we have a numeric SV/pace.
+  const seen = new Set();
+  const unique = [];
+  for (const e of entries) {
+    if (!e.key || seen.has(e.key) || e.sv == null || isNaN(e.sv)) continue;
+    seen.add(e.key);
+    unique.push(e);
+  }
+
+  // Sort by current pace descending. Beagle keeps its amber swatch and is
+  // inserted at the correct pace rank; everyone else takes the next PACE_COLOR.
+  unique.sort((a, b) => (b.pace || 0) - (a.pace || 0));
+  const others = unique.filter((e) => !e.us);
+  const beagle = unique.find((e) => e.us);
+  const ordered = [];
+  for (const e of others) {
+    if (beagle && !beagle._placed && (beagle.pace || 0) > (e.pace || 0)) {
+      beagle._placed = true;
+      ordered.push(beagle);
+    }
+    ordered.push(e);
+  }
+  if (beagle && !beagle._placed) {
+    beagle._placed = true;
+    ordered.push(beagle);
+  }
+
+  let colorIdx = 0;
+  const series = ordered.map((e, i) => {
+    const rawSnaps = e.us
+      ? (svHistory.snapshots || []).filter((s) => s.timestamp >= cutoff && s.timestamp <= liveData.timestamp)
+      : (allianceHistory[e.key]?.snapshots || []).filter((s) => s.timestamp >= cutoff && s.timestamp <= liveData.timestamp);
+    const snaps = rawSnaps.map((s) => ({ t: s.timestamp, sv: s.sv }));
+
+    const current = { t: liveData.timestamp, sv: e.sv };
+    const last = snaps[snaps.length - 1];
+    const combined = [...snaps, ...(last && last.t === current.t ? [] : [current])];
+
+    // Deduplicate by timestamp, keeping the last value seen.
+    const byT = new Map();
+    for (const r of combined) byT.set(r.t, r);
+    const readings = [...byT.values()].sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime());
+
+    const baseSv = e.us ? cfg.DEFAULT_DATA.beagleSV : (defaultByName.get(e.key) ?? (readings[0] && readings[0].sv) ?? e.sv);
+    if (readings.length === 1 && cfg.DEFAULT_DATA.timestamp && new Date(current.t).getTime() > new Date(cfg.DEFAULT_DATA.timestamp).getTime()) {
+      readings.unshift({ t: cfg.DEFAULT_DATA.timestamp, sv: baseSv });
+    }
+
+    const datumSv = baseSv;
+
+    return {
+      name: e.name,
+      colour: e.us ? '#E8B84B' : PACE_COLORS[colorIdx++ % PACE_COLORS.length],
+      group: i < 10 ? 1 : 2,
+      us: e.us,
+      datumSv,
+      readings: readings.sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime()),
+    };
+  });
+
+  res.json({ datumT: cfg.DEFAULT_DATA.timestamp, series });
 });
 
 app.post('/api/update', (req, res) => {
