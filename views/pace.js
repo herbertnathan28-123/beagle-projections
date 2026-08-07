@@ -5,7 +5,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-<title>Beagle Global \u2014 Alliance Pace</title>
+<title>Beagle Global — Alliance Pace</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -883,9 +883,36 @@ function PaceStandings({ series = PLACEHOLDER_SERIES, datumT = DATUM_T }) {
 /* ============================================== the two pages, with the tabs */
 function PacePages({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeholder = true }) {
   const [tab, setTab] = useState("trend");
+  const [days, setDays] = useState(7);
+
+  const windowPresets = [
+    { label: "2D", days: 2 },
+    { label: "1W", days: 7 },
+    { label: "2W", days: 14 },
+    { label: "1M", days: 30 },
+    { label: "2M", days: 60 },
+    { label: "ALL", days: null },
+  ];
+
+  const windowedSeries = useMemo(() => {
+    if (days == null) return series;
+    let latest = -Infinity;
+    for (const s of series) {
+      for (const r of s.readings || []) {
+        const t = ms(r.t);
+        if (t > latest) latest = t;
+      }
+    }
+    if (!isFinite(latest)) return series;
+    const cutoff = latest - days * DAY_MS;
+    const filtered = series.map((s) => ({ ...s, readings: (s.readings || []).filter((r) => ms(r.t) >= cutoff) }));
+    const withEnough = filtered.filter((s) => s.readings.length >= 2);
+    return withEnough.length ? withEnough : series;
+  }, [series, days]);
+
   return (
     <div style={{ background: T.bg, minHeight: "100vh" }}>
-      <nav style={S.tabs}>
+      <nav style={{ ...S.tabs, flexWrap: "wrap" }}>
         {[
           ["trend", "Pace trend"],
           ["standings", "Standings"],
@@ -894,9 +921,20 @@ function PacePages({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeholder 
             {label}
           </button>
         ))}
+        <div style={{ flex: 1, minWidth: 12 }} />
+        {windowPresets.map((p) => (
+          <button
+            key={p.label}
+            onClick={() => setDays(p.days)}
+            style={{ ...S.tab, ...(days === p.days ? S.tabOn : null) }}
+            aria-pressed={days === p.days}
+          >
+            {p.label}
+          </button>
+        ))}
       </nav>
       {tab === "trend" ? (
-        <PaceDailyTrend series={series} datumT={datumT} placeholder={placeholder} />
+        <PaceDailyTrend key={days} series={windowedSeries} datumT={datumT} placeholder={placeholder} />
       ) : (
         <PaceStandings series={series} datumT={datumT} />
       )}
