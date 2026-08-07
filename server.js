@@ -23,6 +23,7 @@ const hunter     = require('./lib/hunter');
 const { buildCalcPage }      = require('./views/calc');
 const { HQ_HTML }            = require('./views/hq');
 const { HTML_COMPILED }      = require('./views/projections');
+const { HTML_COMPILED: PACE_HTML_COMPILED } = require('./views/pace');
 const { HUNTER_HTML }        = require('./views/hunter');
 const { FUEL_SETUP_HTML }    = require('./views/fuelSetup');
 const { buildFuelDashboard } = require('./views/fuelDashboard');
@@ -208,6 +209,7 @@ app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] })
 // domain. The fuel calculator is reachable ONLY via its explicit routes (/fuel-calculator,
 // /qac, /fuel/:did, /fuel-setup) — never from the domain root.
 app.get('/', (req, res) => { logVisit(req); res.type('html').send(HTML_COMPILED); });
+app.get('/pace', (req, res) => { logVisit(req); res.type('html').send(PACE_HTML_COMPILED); });
 
 // QAC standalone: serve the calculator with the Quick Access panel auto-opened,
 // so there is one engine/page to maintain rather than a duplicate optimizer.
