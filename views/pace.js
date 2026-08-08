@@ -116,9 +116,26 @@ function fmtDayShort(t) {
   return d.getUTCDate() + " " + d.toLocaleString("en-AU", { month: "short", timeZone: "UTC" });
 }
 
+/* An interval shorter than this is not a window a daily pace can be measured
+   over — a re-stamped snapshot seconds after the one it came from, or a re-paste
+   of one capture minutes later, would divide a near-zero share-value delta by a
+   near-zero time and print either $0.000 or a wild multiple. */
+const MIN_INTERVAL_MS = 60 * 60 * 1000;
+
+/** Drop readings closer together than MIN_INTERVAL_MS, keeping the later SV. */
+function collapseShortIntervals(readings) {
+  const out = [];
+  for (const x of readings) {
+    const prev = out[out.length - 1];
+    if (prev && ms(x.t) - ms(prev.t) < MIN_INTERVAL_MS) out[out.length - 1] = x;
+    else out.push(x);
+  }
+  return out;
+}
+
 /** Every derived figure for one alliance. Nothing here is stored — all computed. */
 function derive(s, datumT) {
-  const r = s.readings.filter((x) => x.sv != null).sort((a, b) => ms(a.t) - ms(b.t));
+  const r = collapseShortIntervals(s.readings.filter((x) => x.sv != null).sort((a, b) => ms(a.t) - ms(b.t)));
   if (!r.length) return null;
 
   const last = r[r.length - 1];
@@ -129,7 +146,7 @@ function derive(s, datumT) {
   let intervalMs = null;
   if (prev) {
     intervalMs = ms(last.t) - ms(prev.t);
-    currentPace = intervalMs > 0 ? (last.sv - prev.sv) / (intervalMs / DAY_MS) : null;
+    currentPace = intervalMs >= MIN_INTERVAL_MS ? (last.sv - prev.sv) / (intervalMs / DAY_MS) : null;
   }
 
   // AVERAGE PACE — over the exact elapsed time since the datum.
@@ -141,7 +158,7 @@ function derive(s, datumT) {
   const paceSeries = [];
   for (let i = 1; i < r.length; i++) {
     const dt = ms(r[i].t) - ms(r[i - 1].t);
-    if (dt <= 0) continue;
+    if (dt < MIN_INTERVAL_MS) continue;
     paceSeries.push({
       t: ms(r[i].t),
       pace: (r[i].sv - r[i - 1].sv) / (dt / DAY_MS),
