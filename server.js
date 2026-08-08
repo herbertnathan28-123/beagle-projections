@@ -496,6 +496,28 @@ app.get('/api/pace-history', (req, res) => {
   res.json({ days: requestedDays, start, end, labels, teams: series });
 });
 
+// Two readings less than this apart do not describe an interval a daily pace can
+// be measured over. The live snapshot is appended with its own timestamp, which
+// can land seconds after the stored snapshot it came from and carry the same SV,
+// and re-pastes of one game capture arrive minutes apart: a near-zero share-value
+// delta over a near-zero window reports either $0/day or a wild multiple.
+const MIN_READING_INTERVAL_MS = 60 * 60 * 1000;
+
+// Collapse consecutive readings closer together than the minimum interval,
+// keeping the later (most current) SV. Readings are assumed sorted by time.
+function collapseShortIntervals(readings) {
+  const out = [];
+  for (const r of readings) {
+    const prev = out[out.length - 1];
+    if (prev && new Date(r.t).getTime() - new Date(prev.t).getTime() < MIN_READING_INTERVAL_MS) {
+      out[out.length - 1] = r;
+      continue;
+    }
+    out.push(r);
+  }
+  return out;
+}
+
 // ── Raw pace-readings feed for /pace (new corrected component) ───────────────
 // Returns one object per alliance in the exact shape PacePages expects:
 // { name, colour, group, us, datumSv, readings: [{ t, sv }] }.
@@ -568,7 +590,9 @@ app.get('/api/pace-readings', (req, res) => {
     // Deduplicate by timestamp, keeping the last value seen.
     const byT = new Map();
     for (const r of combined) byT.set(r.t, r);
-    const readings = [...byT.values()].sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime());
+    const readings = collapseShortIntervals(
+      [...byT.values()].sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime())
+    );
 
     const baseSv = e.us ? cfg.DEFAULT_DATA.beagleSV : (defaultByName.get(e.key) ?? (readings[0] && readings[0].sv) ?? e.sv);
     if (readings.length === 1 && cfg.DEFAULT_DATA.timestamp && new Date(current.t).getTime() > new Date(cfg.DEFAULT_DATA.timestamp).getTime()) {
