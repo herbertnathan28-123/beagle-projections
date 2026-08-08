@@ -496,12 +496,14 @@ app.get('/api/pace-history', (req, res) => {
   res.json({ days: requestedDays, start, end, labels, teams: series });
 });
 
-// Two readings less than this apart do not describe an interval a daily pace can
-// be measured over. The live snapshot is appended with its own timestamp, which
-// can land seconds after the stored snapshot it came from and carry the same SV,
-// and re-pastes of one game capture arrive minutes apart: a near-zero share-value
-// delta over a near-zero window reports either $0/day or a wild multiple.
-const MIN_READING_INTERVAL_MS = 60 * 60 * 1000;
+// Two readings less than this apart do not describe a window a daily pace can be
+// measured over. The live snapshot is appended with its own timestamp, which can
+// land seconds after the stored snapshot it came from and carry the same SV, and
+// re-pastes of one game capture arrive minutes to hours apart: a small share-value
+// delta over a short window reports either $0/day or a wild multiple.
+// 20 hours is the floor lib/storage.js already measures pace over
+// (calcPaceFromHistory minAgeHours), so the chart and the stored pace agree.
+const MIN_READING_INTERVAL_MS = 20 * 60 * 60 * 1000;
 
 // Collapse consecutive readings closer together than the minimum interval,
 // keeping the later (most current) SV. Readings are assumed sorted by time.

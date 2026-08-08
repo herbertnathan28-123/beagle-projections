@@ -118,9 +118,10 @@ function fmtDayShort(t) {
 
 /* An interval shorter than this is not a window a daily pace can be measured
    over — a re-stamped snapshot seconds after the one it came from, or a re-paste
-   of one capture minutes later, would divide a near-zero share-value delta by a
-   near-zero time and print either $0.000 or a wild multiple. */
-const MIN_INTERVAL_MS = 60 * 60 * 1000;
+   of one capture minutes to hours later, divides a small share-value delta by a
+   short window and prints either $0.000 or a wild multiple. 20 hours is the floor
+   lib/storage.js measures the stored pace over, so the two cannot disagree. */
+const MIN_INTERVAL_MS = 20 * 60 * 60 * 1000;
 
 /** Drop readings closer together than MIN_INTERVAL_MS, keeping the later SV. */
 function collapseShortIntervals(readings) {
