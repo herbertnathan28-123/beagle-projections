@@ -469,10 +469,28 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
 
   const endLabels = useMemo(() => {
     const raw = [];
+    // Standing across the whole field, computed once per render rather than
+    // per row. An alliance with no current pace cannot hold a rank, so it is
+    // left out of the ordering and its own rank resolves to 0 below.
+    const paceOrder = rows
+      .filter((r) => r.currentPace != null)
+      .sort((a, b) => b.currentPace - a.currentPace)
+      .map((r) => r.name);
     for (const r of visible) {
       const p = r.paceSeries[r.paceSeries.length - 1];
       if (!p) continue;
-      const rank = inGroup.indexOf(r) + (group === 1 ? 1 : 11);
+      // Rank is DERIVED from pace, not taken from array position.
+      //
+      // This read inGroup.indexOf(r) + (group === 1 ? 1 : 11), which is a
+      // position in the currently-displayed group, not a standing. Two things
+      // followed. Beagle showed #4 while running second on pace, because
+      // inGroup is not ordered by pace. And the 11-20 panel renumbered itself
+      // 1-10, because a member's index within its own group always starts at 0.
+      //
+      // Ranking against rows — every alliance, not the ten on screen — means
+      // the number means the same thing in both panels and does not change when
+      // you switch between them.
+      const rank = paceOrder.indexOf(r.name) + 1;
       raw.push({
         key: r.name,
         colour: r.colour,
@@ -480,12 +498,22 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
         rank,
         name: r.name,
         pace: p.pace,
+        // Where the line actually ends, under the current zoom and pan, so the
+        // leader starts at the point rather than at the plot's right edge.
+        // Clamped into the plot: a point panned out of view still gives a line
+        // from the boundary instead of one drawn outside the chart.
+        anchorX: Math.max(PAD.l, Math.min(PAD.l + iw, xFor(p.t) * view.k + view.tx)),
         anchorY: yFor(p.pace) * view.k + view.ty,
         y: yFor(p.pace) * view.k + view.ty,
       });
     }
     return decollide(raw, 28, PAD.t + 12, PAD.t + ih - 6);
-  }, [visible, inGroup, group, lo, hi, ih, view.k, view.ty]);
+    // rows drives the rank ordering; iw, t0, t1 and view.tx are what
+    // xFor closes over for the leader anchor. Omit any of them and a label
+    // keeps a stale rank or its leader detaches from the point on pan.
+    // inGroup/group are gone: rank no longer depends on which panel is open,
+    // which was the defect.
+  }, [rows, visible, lo, hi, iw, ih, t0, t1, view.k, view.tx, view.ty]);
 
   const ticks = useMemo(() => Array.from({ length: 5 }, (_, i) => lo + ((hi - lo) * i) / 4), [lo, hi]);
   const readInterval = useMemo(() => {
@@ -721,12 +749,27 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
 
           {endLabels.map((l) => (
             <g key={"e" + l.key} pointerEvents="none">
+              {/* Leader line from the series' LAST POINT to its label.
+
+                  It used to start at PAD.l + iw — the fixed right edge of the
+                  plot — while the point it names moves with the zoom
+                  transform. Zoomed in, the point can sit far left of that edge,
+                  so the line began nowhere near the thing it pointed at and the
+                  gap grew with the zoom. It also had no strokeWidth, so it
+                  rendered 1px at 45% opacity in the series colour on a near
+                  black ground: invisible exactly when it was needed most.
+
+                  Now it starts at the point's own transformed x, clamped into
+                  the plot so a point panned off-screen still yields a line from
+                  the edge rather than from outside it. */}
               {Math.abs(l.y - l.anchorY) > 2 && (
                 <path
-                  d={\`M \${PAD.l + iw} \${l.anchorY} L \${PAD.l + iw + GAP - 6} \${l.y}\`}
+                  d={\`M \${l.anchorX} \${l.anchorY} L \${PAD.l + iw + GAP - 6} \${l.y}\`}
                   stroke={l.colour}
                   fill="none"
-                  opacity={0.45}
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                  opacity={0.85}
                 />
               )}
               <text x={PAD.l + iw + GAP} y={l.y + 4} style={{ ...S.endText, fill: l.colour, fontWeight: l.us ? 700 : 500 }}>
