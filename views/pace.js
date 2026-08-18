@@ -11,7 +11,7 @@ const HTML = `<!DOCTYPE html>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#080b14;color:#e8edf7;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;font-size:16px;overflow-x:hidden;overscroll-behavior:none}
+body{background:#080b14;color:#e8edf7;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;font-size:22px;overflow-x:hidden;overscroll-behavior:none}
 button{font-family:inherit}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:#0d1220}
@@ -319,7 +319,9 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
   }, [inGroup]);
 
   const GAP = 19;
-  const NAME_W = 214;
+  // Widened from 214 so the enlarged end-labels (and the "Current pace · latest
+  // upload" header) fit the bigger fonts without clipping at the right edge.
+  const NAME_W = 300;
   const PAD = { l: 72, r: GAP + NAME_W + 12, t: 46, b: 66 };
   const iw = Math.max(80, w - PAD.l - PAD.r);
   const ih = Math.max(80, h - PAD.t - PAD.b);
@@ -443,9 +445,9 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
   const showChips = pinned != null || (playing && !reduced);
 
   const chipScale = Math.min(view.k, 2.6);
-  const chipFont = 13 * chipScale;
-  const chipH = 22 * chipScale;
-  const chipPadX = 8 * chipScale;
+  const chipFont = 18 * chipScale;
+  const chipH = 30 * chipScale;
+  const chipPadX = 10 * chipScale;
   const playX = xFor(readT) * view.k + view.tx;
   const chipGap = 12 * chipScale;
 
@@ -478,7 +480,7 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
         y: yFor(p.pace) * view.k + view.ty,
       });
     }
-    return decollide(raw, 20, PAD.t + 10, PAD.t + ih - 6);
+    return decollide(raw, 28, PAD.t + 12, PAD.t + ih - 6);
   }, [visible, inGroup, group, lo, hi, ih, view.k, view.ty]);
 
   const ticks = useMemo(() => Array.from({ length: 5 }, (_, i) => lo + ((hi - lo) * i) / 4), [lo, hi]);
@@ -849,7 +851,7 @@ function PaceStandings({ series = PLACEHOLDER_SERIES, datumT = DATUM_T }) {
                 <td style={{ ...S.tdNum, color: T.ink, fontWeight: 700 }}>
                   {r.currentPace == null ? "—" : fmtMoney(r.currentPace)}
                 </td>
-                <td style={{ ...S.tdNum, color: T.inkDim, fontSize: 12.5 }}>
+                <td style={{ ...S.tdNum, color: T.inkDim, fontSize: 17.5 }}>
                   {r.intervalMs == null ? "—" : fmtInterval(r.intervalMs)}
                 </td>
                 <td style={S.tdNum}>
@@ -917,12 +919,13 @@ function PacePages({ series: propSeries = PLACEHOLDER_SERIES, datumT: propDatumT
   const datumT = fetched ? fetched.datumT : propDatumT;
   const placeholder = fetched ? false : propPlaceholder;
 
+  // Operator: restore the week toggles — 7 days is the default, plus 2/3/4 weeks
+  // and ALL. Each is on/off; tapping the active one is fine (re-selects it).
   const windowPresets = [
-    { label: "2D", days: 2 },
-    { label: "1W", days: 7 },
+    { label: "7D", days: 7 },
     { label: "2W", days: 14 },
-    { label: "1M", days: 30 },
-    { label: "2M", days: 60 },
+    { label: "3W", days: 21 },
+    { label: "4W", days: 28 },
     { label: "ALL", days: null },
   ];
 
@@ -1013,14 +1016,14 @@ const S = {
     border: \`1px solid \${T.warn}\`,
     borderRadius: 6,
     padding: "8px 12px",
-    fontSize: 13,
+    fontSize: 18,
     color: T.inkDim,
     background: "rgba(255,112,67,.07)",
   },
   head: { display: "flex", alignItems: "flex-end", gap: 20, flexWrap: "wrap" },
   headLeft: { flex: "1 1 260px", minWidth: 0 },
-  title: { margin: 0, fontSize: 19, letterSpacing: ".14em", textTransform: "uppercase", color: T.gold, fontWeight: 700 },
-  sub: { margin: "4px 0 0", fontSize: 12.5, color: T.inkDim },
+  title: { margin: 0, fontSize: 26.5, letterSpacing: ".14em", textTransform: "uppercase", color: T.gold, fontWeight: 700 },
+  sub: { margin: "4px 0 0", fontSize: 17.5, color: T.inkDim },
   switch: { display: "flex", border: \`1px solid \${T.panelEdge}\`, borderRadius: 6, overflow: "hidden" },
   switchBtn: {
     padding: "9px 20px",
@@ -1028,7 +1031,7 @@ const S = {
     border: "none",
     color: T.inkDim,
     fontFamily: T.mono,
-    fontSize: 13,
+    fontSize: 18,
     letterSpacing: ".08em",
     cursor: "pointer",
   },
@@ -1041,14 +1044,14 @@ const S = {
     borderRadius: 5,
     color: T.inkDim,
     fontFamily: T.mono,
-    fontSize: 12,
+    fontSize: 17,
     letterSpacing: ".06em",
     cursor: "pointer",
   },
   btnLive: { color: T.gold, borderColor: T.goldDim },
   hint: {
     margin: 0,
-    fontSize: 11.5,
+    fontSize: 16,
     color: T.inkFaint,
     letterSpacing: ".04em",
     display: "flex",
@@ -1062,7 +1065,7 @@ const S = {
     color: T.gold,
     borderRadius: 4,
     padding: "2px 8px",
-    fontSize: 11,
+    fontSize: 15.5,
     cursor: "pointer",
     fontFamily: T.mono,
   },
@@ -1076,15 +1079,15 @@ const S = {
     cursor: "grab",
     userSelect: "none",
   },
-  axisText: { fontFamily: T.mono, fontSize: 11.5, fill: T.inkDim },
-  nilText: { fontFamily: T.mono, fontSize: 10.5, fill: T.inkFaint, fontStyle: "italic" },
+  axisText: { fontFamily: T.mono, fontSize: 16, fill: T.inkDim },
+  nilText: { fontFamily: T.mono, fontSize: 14.5, fill: T.inkFaint, fontStyle: "italic" },
   chipText: { fontFamily: T.mono, fontWeight: 700 },
-  chipHead: { fontFamily: T.mono, fontSize: 11, fill: T.gold, letterSpacing: ".08em", textTransform: "uppercase" },
-  chipSub: { fontFamily: T.mono, fontSize: 10, fill: T.inkFaint },
-  endText: { fontFamily: "Inter, system-ui, sans-serif", fontSize: 12.5 },
+  chipHead: { fontFamily: T.mono, fontSize: 15.5, fill: T.gold, letterSpacing: ".08em", textTransform: "uppercase" },
+  chipSub: { fontFamily: T.mono, fontSize: 14, fill: T.inkFaint },
+  endText: { fontFamily: "Inter, system-ui, sans-serif", fontSize: 17.5 },
   colHead: {
     fontFamily: "Inter, system-ui, sans-serif",
-    fontSize: 11,
+    fontSize: 15.5,
     fill: T.gold,
     letterSpacing: ".12em",
     textTransform: "uppercase",
@@ -1098,13 +1101,13 @@ const S = {
     background: "transparent",
     border: "none",
     padding: "2px 0",
-    fontSize: 12.5,
+    fontSize: 17.5,
     cursor: "pointer",
     fontFamily: "Inter, system-ui, sans-serif",
   },
   swatch: { width: 9, height: 9, borderRadius: "50%", flex: "0 0 auto", display: "inline-block" },
-  legendVal: { fontFamily: T.mono, color: T.inkDim, fontSize: 12 },
-  foot: { margin: 0, fontSize: 11.5, color: T.inkFaint, letterSpacing: ".02em", lineHeight: 1.5 },
+  legendVal: { fontFamily: T.mono, color: T.inkDim, fontSize: 17 },
+  foot: { margin: 0, fontSize: 16, color: T.inkFaint, letterSpacing: ".02em", lineHeight: 1.5 },
   code: { fontFamily: T.mono, color: T.gold },
   tabs: { display: "flex", gap: 2, padding: "12px 20px 0", borderBottom: \`1px solid \${T.panelEdge}\`, background: T.bg },
   tab: {
@@ -1114,7 +1117,7 @@ const S = {
     borderBottom: "2px solid transparent",
     color: T.inkDim,
     fontFamily: "Inter, system-ui, sans-serif",
-    fontSize: 13,
+    fontSize: 18,
     letterSpacing: ".12em",
     textTransform: "uppercase",
     cursor: "pointer",
@@ -1127,7 +1130,7 @@ const S = {
     top: 0,
     background: T.panel,
     padding: "12px 18px",
-    fontSize: 11,
+    fontSize: 15.5,
     letterSpacing: ".12em",
     textTransform: "uppercase",
     fontWeight: 700,
@@ -1135,11 +1138,11 @@ const S = {
     whiteSpace: "nowrap",
     verticalAlign: "bottom",
   },
-  thSub: { fontSize: 9.5, letterSpacing: ".06em", textTransform: "none", color: T.inkFaint, fontWeight: 400, marginTop: 3 },
+  thSub: { fontSize: 13.5, letterSpacing: ".06em", textTransform: "none", color: T.inkFaint, fontWeight: 400, marginTop: 3 },
   tr: { borderBottom: \`1px solid \${T.grid}\` },
   trUs: { borderBottom: \`1px solid \${T.grid}\`, background: "rgba(224,168,46,.07)" },
-  td: { padding: "11px 18px", fontSize: 14, whiteSpace: "nowrap" },
-  tdNum: { padding: "11px 18px", fontSize: 14, textAlign: "right", fontFamily: T.mono, whiteSpace: "nowrap" },
+  td: { padding: "11px 18px", fontSize: 19.5, whiteSpace: "nowrap" },
+  tdNum: { padding: "11px 18px", fontSize: 19.5, textAlign: "right", fontFamily: T.mono, whiteSpace: "nowrap" },
 };
 ReactDOM.createRoot(document.getElementById("root")).render(<PacePages />);
 
