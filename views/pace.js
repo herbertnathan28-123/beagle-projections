@@ -441,7 +441,11 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
   };
 
   const readT = pinned != null ? pinned : t0 + playT * (t1 - t0);
-  const revealX = xFor(readT);
+  // Lines always span the full width. The left-to-right reveal clip is ONLY for
+  // the Replay animation — pinning a day must not truncate the lines, it just
+  // moves the price boxes + cursor to that day. (Operator: lines visible the
+  // whole way across; boxes accessible at any day.)
+  const revealX = playing ? xFor(readT) : PAD.l + iw + 8;
   const showChips = pinned != null || (playing && !reduced);
 
   const chipScale = Math.min(view.k, 2.6);
@@ -633,7 +637,8 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
                     onClick={(e) => {
                       e.stopPropagation();
                       setPlaying(false);
-                      setPinned(p.t);
+                      // Toggle: tap a day's dot to show its price boxes, tap again to hide.
+                      setPinned((c) => (c === p.t ? null : p.t));
                     }}
                   />
                 ))
