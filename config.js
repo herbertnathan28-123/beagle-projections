@@ -5,18 +5,24 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── SECRETS / TOKENS ───────────────────────────────────────────────────────
-const SECRET        = process.env.PROJECTIONS_SECRET || 'changeme';
-
-// Upload tokens. These are shared secrets the caller sends and this server
-// compares — nothing more. They were literals here, which meant the live
-// credentials for ten /api/* endpoints were readable in a public repository.
+// Shared secrets the caller sends and this server compares — nothing more.
+// They were literals here, which meant the live credentials for ten /api/*
+// endpoints were readable in a public repository.
 //
 // No hardcoded fallback, deliberately. A missing env var must fail closed: an
 // empty-string default would let a request carrying `?token=` authenticate, so
 // an unset variable instead gets an unguessable per-boot value and nothing
-// matches it. Set both in the environment.
+// matches it. Set all three in the environment.
 const _requiredSecret = (name) =>
   process.env[name] || require('node:crypto').randomBytes(32).toString('hex');
+
+// PROJECTIONS_SECRET is not a peer of the two upload tokens below. server.js
+// accepts it as an ALTERNATIVE on every guarded route — /api/update,
+// /api/hq-update, every Hunter route, every fuel route, /api/visitors — and
+// signs fuel-plan tokens with it (server.js:118). It is the master key, and it
+// was the one still defaulting to a literal ('changeme', readable in a public
+// repo) after the two narrower tokens had already been made to fail closed.
+const SECRET        = _requiredSecret('PROJECTIONS_SECRET');
 
 const N8N_TOKEN     = _requiredSecret('N8N_TOKEN');      // projections + generic uploads
 const HQ_N8N_TOKEN  = _requiredSecret('HQ_N8N_TOKEN');   // HQ upload workflow

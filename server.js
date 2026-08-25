@@ -228,7 +228,7 @@ app.post('/api/hq-update', (req, res) => {
     // This declared a local `N8N_TOKEN` holding the HQ value, shadowing the
     // imported one — the name said projections, the value was HQ. Named for
     // what it is now, and read from config rather than hardcoded here.
-    if (token !== HQ_N8N_TOKEN && token !== process.env.PROJECTIONS_SECRET) {
+    if (token !== HQ_N8N_TOKEN && token !== SECRET) {
       return res.status(401).json({ ok: false, error: 'unauthorized' });
     }
     const rawText = body.rawText || '';
