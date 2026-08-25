@@ -467,15 +467,30 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
     return decollide(raw, chipH + 3, PAD.t + chipH, PAD.t + ih);
   }, [showChips, visible, readT, lo, hi, ih, view.k, view.ty, chipH]);
 
-  const endLabels = useMemo(() => {
-    const raw = [];
-    // Standing across the whole field, computed once per render rather than
-    // per row. An alliance with no current pace cannot hold a rank, so it is
-    // left out of the ordering and its own rank resolves to 0 below.
-    const paceOrder = rows
+  // Standing across the whole field, computed once per render and shared by
+  // EVERY surface that shows a rank.
+  //
+  // It lived inside endLabels, which fixed the number beside the line and left
+  // the legend still rendering i + (group === 1 ? 1 : 11). That is worse than
+  // the original defect rather than better: before, both surfaces were wrong
+  // in the same way, so they at least agreed. Afterwards the same alliance
+  // could read #2 against its line and #4 in the legend on one chart, and a
+  // reader has no way to tell which is the real standing.
+  //
+  // One derivation, one Map, both consumers. An alliance with no current pace
+  // cannot hold a standing, so it is absent from the Map and both surfaces
+  // render a dash rather than inventing a position for it.
+  const paceRank = useMemo(() => {
+    const m = new Map();
+    rows
       .filter((r) => r.currentPace != null)
       .sort((a, b) => b.currentPace - a.currentPace)
-      .map((r) => r.name);
+      .forEach((r, i) => m.set(r.name, i + 1));
+    return m;
+  }, [rows]);
+
+  const endLabels = useMemo(() => {
+    const raw = [];
     for (const r of visible) {
       const p = r.paceSeries[r.paceSeries.length - 1];
       if (!p) continue;
@@ -490,7 +505,7 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
       // Ranking against rows — every alliance, not the ten on screen — means
       // the number means the same thing in both panels and does not change when
       // you switch between them.
-      const rank = paceOrder.indexOf(r.name) + 1;
+      const rank = paceRank.get(r.name) || 0;
       raw.push({
         key: r.name,
         colour: r.colour,
@@ -513,7 +528,7 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
     // keeps a stale rank or its leader detaches from the point on pan.
     // inGroup/group are gone: rank no longer depends on which panel is open,
     // which was the defect.
-  }, [rows, visible, lo, hi, iw, ih, t0, t1, view.k, view.tx, view.ty]);
+  }, [paceRank, visible, lo, hi, iw, ih, t0, t1, view.k, view.tx, view.ty]);
 
   const ticks = useMemo(() => Array.from({ length: 5 }, (_, i) => lo + ((hi - lo) * i) / 4), [lo, hi]);
   const readInterval = useMemo(() => {
@@ -773,7 +788,7 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
                 />
               )}
               <text x={PAD.l + iw + GAP} y={l.y + 4} style={{ ...S.endText, fill: l.colour, fontWeight: l.us ? 700 : 500 }}>
-                {l.rank}. {l.name} {fmtMoney(l.pace)}
+                {l.rank ? l.rank + "." : "\u2014"} {l.name} {fmtMoney(l.pace)}
               </text>
             </g>
           ))}
@@ -787,7 +802,7 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
             <button key={r.name} onClick={() => toggle(r.name)} style={{ ...S.legendItem, opacity: off ? 0.32 : 1 }} aria-pressed={!off}>
               <span style={{ ...S.swatch, background: r.colour }} />
               <span style={{ color: off ? T.inkFaint : T.ink, fontWeight: r.us ? 700 : 400 }}>
-                {i + (group === 1 ? 1 : 11)}. {r.name}
+                {paceRank.get(r.name) ? paceRank.get(r.name) + "." : "\u2014"} {r.name}
               </span>
               <span style={S.legendVal}>{r.currentPace == null ? "—" : fmtMoney(r.currentPace)}</span>
             </button>
