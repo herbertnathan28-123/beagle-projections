@@ -29,7 +29,7 @@ const { FUEL_SETUP_HTML }    = require('./views/fuelSetup');
 const { buildFuelDashboard } = require('./views/fuelDashboard');
 
 const {
-  SECRET, N8N_TOKEN, AIRCRAFT_DATA, ALL_DISTANCES, CALC_TIMES,
+  SECRET, N8N_TOKEN, HQ_N8N_TOKEN, AIRCRAFT_DATA, ALL_DISTANCES, CALC_TIMES,
   FUEL_SCHEDULE, AIRCRAFT_BURN_HOUR, FUEL_SCREENSHOT_UPLOAD_WEBHOOK,
   HUNTER_DATA_FILE, FUEL_ACCESS_LOG_FILE,
 } = cfg;
@@ -225,8 +225,10 @@ app.post('/api/hq-update', (req, res) => {
   try {
     const body = req.body || {};
     const token = body.token || '';
-    const N8N_TOKEN = 'bgln8n-hq-2026';
-    if (token !== N8N_TOKEN && token !== process.env.PROJECTIONS_SECRET) {
+    // This declared a local `N8N_TOKEN` holding the HQ value, shadowing the
+    // imported one — the name said projections, the value was HQ. Named for
+    // what it is now, and read from config rather than hardcoded here.
+    if (token !== HQ_N8N_TOKEN && token !== process.env.PROJECTIONS_SECRET) {
       return res.status(401).json({ ok: false, error: 'unauthorized' });
     }
     const rawText = body.rawText || '';

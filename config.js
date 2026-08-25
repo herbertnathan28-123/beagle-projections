@@ -6,8 +6,20 @@
 
 // ── SECRETS / TOKENS ───────────────────────────────────────────────────────
 const SECRET        = process.env.PROJECTIONS_SECRET || 'changeme';
-const N8N_TOKEN     = 'bgln8n-proj-2026';   // projections + generic n8n uploads
-const HQ_N8N_TOKEN  = 'bgln8n-hq-2026';     // HQ upload workflow
+
+// Upload tokens. These are shared secrets the caller sends and this server
+// compares — nothing more. They were literals here, which meant the live
+// credentials for ten /api/* endpoints were readable in a public repository.
+//
+// No hardcoded fallback, deliberately. A missing env var must fail closed: an
+// empty-string default would let a request carrying `?token=` authenticate, so
+// an unset variable instead gets an unguessable per-boot value and nothing
+// matches it. Set both in the environment.
+const _requiredSecret = (name) =>
+  process.env[name] || require('node:crypto').randomBytes(32).toString('hex');
+
+const N8N_TOKEN     = _requiredSecret('N8N_TOKEN');      // projections + generic uploads
+const HQ_N8N_TOKEN  = _requiredSecret('HQ_N8N_TOKEN');   // HQ upload workflow
 
 // ── DISCORD WEBHOOK CHANNELS ───────────────────────────────────────────────
 // ALLIANCE_UPLOADS — alliance pace / projections / HQ confirmations
