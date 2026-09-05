@@ -691,17 +691,7 @@ app.get('/api/calc', (req, res) => {
   const ac = AIRCRAFT_DATA.find(a => a.name === req.query.aircraft);
   if (!ac) return res.status(400).json({ error: 'Unknown aircraft' });
   const mode = req.query.mode === 'Easy' ? 'Easy' : 'Realism';
-  const speed = mode === 'Easy' ? ac.easy : ac.realism;
-  const maxRange = ac.maxRange;
-  const stopoverMax = Math.min(maxRange * 2, 20000);
-
-  const singleDists = ALL_DISTANCES.filter(d => d <= maxRange);
-  const stopoverDists = ALL_DISTANCES.filter(d => d > maxRange && d <= stopoverMax);
-
-  const singleGrid = CALC_TIMES.map(t => singleDists.map(d => _calc(d, t, speed, mode)));
-  const stopoverGrid = CALC_TIMES.map(t => stopoverDists.map(d => _calc(d / 2, t, speed, mode)));
-
-  res.json({ singleGrid, singleDists, stopoverGrid, stopoverDists, maxRange, stopoverMax });
+  res.json(calculator.computeCalc(ac, mode));
 });
 
 // ── CALCULATOR PAGE — must be before wildcard ──────────────────────────────
