@@ -65,6 +65,8 @@ function buildCalcPage(key) {
   td.vem { background: #F5F5F5; }
   td.hot { font-weight: 700; }
   td.zpeak { outline: 2px solid #1A2744; outline-offset: -2px; font-weight: 700; }
+  td.b6, th.b6 { border-left: 3px solid #1A2744 !important; }
+  td.b10, th.b10 { border-left: 3px solid #1A2744 !important; }
   td.top3 { outline: 3px solid #FFD700; outline-offset: -3px; font-weight: 800; position: relative; }
   td.top3::after { content: attr(data-rank); position: absolute; top: -1px; left: 1px; font-size: 8px; font-weight: 800; color: #1A2744; }
   td.rowbest { box-shadow: inset 0 0 0 2px #1A72BB; }
@@ -137,8 +139,8 @@ function buildCalcPage(key) {
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
     <span style="font-size:10px;font-weight:700;">COLD</span><span class="grad-bar"></span><span style="font-size:10px;font-weight:700;">HOT</span>
     <span style="outline:2px solid #1A2744;outline-offset:1px;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">ZONE PEAK</span>
-    <span style="outline:3px solid #FFD700;outline-offset:1px;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:800;">★ TOP 3 OVERALL</span>
-    <span style="box-shadow:inset 0 0 0 2px #1A72BB;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">ROW BEST</span>
+    <span style="outline:3px solid #FFD700;outline-offset:1px;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:800;">★ TOP 3 IN SELECTED ROW</span>
+    <span style="box-shadow:inset 0 0 0 2px #1A72BB;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">PEAK SUB-6,000 / PEAK 10,000+</span>
     <span style="background:#FFCDD2;color:#B71C1C;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">NEGATIVE</span>
     <span style="background:#FF8080;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">CI &gt; 200</span>
     <span style="outline:2px solid #FFD700;outline-offset:1px;background:#1A3A1A;color:#FFD700;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">★ OPTIMAL ROW</span>
@@ -190,12 +192,13 @@ function zoneScale(g,c0,c1){
 }
 // Zone peak (best cell in column range, DZ excluded for single-leg) and global top-3 (both zones, DZ excluded).
 function zonePeak(g,dists,isSV,c0,c1){ let b=-Infinity,at=null; g.forEach((row,ti)=>{ for(let di=c0;di<c1;di++){ const v=row[di]; if(typeof v==='number'&&v>b&&(isSV||!isDZ(dists[di]))){b=v;at=ti+':'+di;} } }); return at; }
-function top3(g,dists,nSingle){
-  const all=[];
-  g.forEach((row,ti)=>row.forEach((v,di)=>{ if(typeof v==='number'&&v>0&&(di>=nSingle||!isDZ(dists[di])))all.push({v,k:ti+':'+di}); }));
-  all.sort((a,b)=>b.v-a.v); const m={}; all.slice(0,3).forEach((x,i)=>m[x.k]=i+1); return m;
+// TOP 3 across the SELECTED flight-time row only (dead zone excluded) — 21 Jun spec.
+function rowTop3(g,ti,dists,nSingle){
+  const m={}; if(ti<0||!g[ti])return m; const all=[];
+  g[ti].forEach((v,di)=>{ if(typeof v==='number'&&v>0&&(di>=nSingle||!isDZ(dists[di])))all.push({v,di}); });
+  all.sort((a,b)=>b.v-a.v); all.slice(0,3).forEach((x,i)=>m[ti+':'+x.di]=i+1); return m;
 }
-function rowBest(g,ti,dists,isSV,c0,c1){ let b=-Infinity,at=-1; if(!g[ti])return -1; for(let di=c0;di<c1;di++){ const v=g[ti][di]; if(typeof v==='number'&&v>b&&(isSV||!isDZ(dists[di]))){b=v;at=di;} } return at; }
+function rowBestRange(g,ti,dists,pred){ let b=-Infinity,at=-1; if(!g[ti])return -1; g[ti].forEach((v,di)=>{ if(typeof v==='number'&&v>b&&pred(dists[di])){b=v;at=di;} }); return at; }
 
 function isDZ(d){ return d>6000&&d<10000; }
 function buildHead(dists,nSingle){
@@ -204,8 +207,9 @@ function buildHead(dists,nSingle){
   dists.forEach((d,i)=>{
     const th=document.createElement('th');
     th.innerHTML=d.toLocaleString()+(i>=nSingle?'<span>stopover ÷2</span>':'');
-    if(i>=nSingle){ th.className='sv'; th.title='Beyond max range — two legs, contribution shown per leg'; }
-    else if(isDZ(d)){ th.className='dz'; th.title='Dead zone 6,001–9,999km — restricted, shown on same heat scale'; }
+    if(d===6500)th.classList.add('b6'); if(d===10000)th.classList.add('b10');
+    if(i>=nSingle){ th.classList.add('sv'); th.title='Beyond max range — two legs, contribution shown per leg'; }
+    else if(isDZ(d)){ th.classList.add('dz'); th.title='Dead zone 6,001–9,999km — restricted, shown on same heat scale'; }
     tr.appendChild(th);
   });
 }
@@ -214,11 +218,12 @@ function buildBody(grid,dists,nSingle,sScale,vScale,optRowIdx,sPeak,vPeak,topMap
   let html='';
   TMS.forEach((t,ti)=>{
     const isOpt=ti===optRowIdx;
-    const rbS=isOpt?rowBest(grid,ti,dists,false,0,nSingle):-1;
-    const rbV=isOpt?rowBest(grid,ti,dists,true,nSingle,dists.length):-1;
+    const rbS=isOpt?rowBestRange(grid,ti,dists,d=>d<=6000):-1;
+    const rbV=isOpt?rowBestRange(grid,ti,dists,d=>d>=10000):-1;
     html+='<tr><td class="tlbl'+(isOpt?' opt':'')+'">'+tl(t)+'</td>';
     dists.forEach((d,di)=>{
       const v=grid[ti][di]; const sv=di>=nSingle; let cls='',sty='',txt='',attr='';
+      if(d===6500)cls+=' b6'; if(d===10000)cls+=' b10';
       if(v==='X'){cls='vx';txt='X';}
       else if(typeof v==='number'){
         txt=v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -278,6 +283,7 @@ function onDDChange(){
 
 function reOpt(){
   if(!gGrid)return;
+  topMap=rowTop3(gGrid,optIdx,gDists,nSingle);
   buildBody(gGrid,gDists,nSingle,sScale,vScale,optIdx,sPeak,vPeak,topMap);
 }
 
@@ -297,7 +303,7 @@ async function loadGrid(ac,mode){
     gGrid=grid; gDists=dists; nSingle=nS;
     sScale=zoneScale(grid,0,nS); vScale=vd.length?zoneScale(grid,nS,dists.length):sScale;
     sPeak=zonePeak(grid,dists,false,0,nS); vPeak=vd.length?zonePeak(grid,dists,true,nS,dists.length):null;
-    topMap=top3(grid,dists,nS);
+    topMap=rowTop3(grid,optIdx,dists,nS);
     buildHead(dists,nS);
     buildBody(grid,dists,nS,sScale,vScale,optIdx,sPeak,vPeak,topMap);
     document.getElementById('hm1sub').textContent='500 – '+mx.toLocaleString()+'km single leg · '+(vd.length?mx.toLocaleString()+' – '+vmx.toLocaleString()+'km stopover, shown per leg (÷2)':'no stopover range');
@@ -324,4 +330,3 @@ document.addEventListener('contextmenu',e=>e.preventDefault());
 }
 
 module.exports = { buildCalcPage };
-
