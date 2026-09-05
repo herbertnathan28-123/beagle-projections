@@ -289,7 +289,10 @@ function tl(h){ const hr=Math.floor(h); return hr+'h '+(h%1===0?'00m':'30m'); }
 function fmins(m){ const h=Math.floor(m/60),mn=Math.round(m%60); return h+'h '+String(mn).padStart(2,'0')+'m'; }
 function fval(v){ return typeof v==='number'?'$'+v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):String(v); }
 
-function optMins(fpd,mt){ const f=fpd*2; return f<=1?(2880-(mt?30:0)-26):(2880-(mt?30:0)-26)/(f-1)-3; }
+// Departures rule (Nathan): N departures in 48h = N−1 full cycles inside the window + the final departure that only has to leave.
+// N is always ODD — 3, 5, 7, 9 … — the extra flight is the point. Longest flight time that fits N: avail/(N−1) − 3 min buffer.
+function optMinsDep(N,mt){ const avail=2880-(mt?30:0)-26; return N<=1?avail:avail/(N-1)-3; }
+function optMins(fpd,mt){ return optMinsDep(fpd,mt); }  // legacy name — 'fpd' now carries N departures
 function closestRow(om){ let b=0,bd=Infinity; TMS.forEach((t,i)=>{const d=Math.abs(t-om/60);if(d<bd){bd=d;b=i;}}); return b; }
 function peakRow(g,ri,ds){ if(!g||ri<0||ri>=g.length)return 0; return Math.max(0,...g[ri].filter((v,di)=>typeof v==='number'&&!(ds&&isDZ(ds[di])))); }
 
@@ -408,12 +411,12 @@ function buildBody(grid,dists,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
 function populateDD(sg,sd){
   const sel=document.getElementById('opt-dd'); sel.innerHTML='';
   const res=[];
-  for(let fpd=1;fpd<=10;fpd++){
-    const om=optMins(fpd,maint); if(om<=0)continue;
-    const ri=closestRow(om); const pk=peakRow(sg,ri,sd); const t48=pk*fpd*2;
-    const lbl=fmins(om)+' = '+fpd*2+' departures | '+fval(t48)+' /48hrs';
-    const opt=document.createElement('option'); opt.value=fpd; opt.textContent=lbl; sel.appendChild(opt);
-    res.push({fpd,om,ri,pk,t48,lbl});
+  for(let N=3;N<=25;N+=2){
+    const om=optMinsDep(N,maint); if(om<60)break;
+    const ri=closestRow(om); const pk=peakRow(sg,ri,sd); const t48=pk*N;
+    const lbl=fmins(om)+' = '+N+' departures in 48hrs | '+fval(t48);
+    const opt=document.createElement('option'); opt.value=N; opt.textContent=lbl; sel.appendChild(opt);
+    res.push({fpd:N,om,ri,pk,t48,lbl});
   }
   buildBestCards(res,sg,sd);
   return res;
@@ -429,7 +432,7 @@ function buildBestCards(res,sg,sd){
     d.title='Click to jump to this cell on the chart';
     d.innerHTML='<div class="bcard-rank">'+(i===0?'#1 BEST':i===1?'#2':'#3')+'</div>'+
       '<div class="bcard-time">'+fmins(r.om)+'</div>'+
-      '<div class="bcard-meta">'+r.fpd+' flt/day · '+r.fpd*2+' departures in 48hrs</div>'+
+      '<div class="bcard-meta">'+r.fpd+' departures in 48hrs · '+((r.fpd-1)/2)+'½ a day</div>'+
       (bd!=='—'?'<div class="bcard-meta">Best dist: '+bd.toLocaleString()+'km</div>':'')+
       '<div class="bcard-total">'+fval(r.t48)+' /48hrs</div>';
     d.onclick=()=>jumpTo(r.fpd,r.ri,bdi);
@@ -472,7 +475,7 @@ function onDDChange(){
   const el=document.getElementById('ores');
   if(!fpd||!sGrid){el.textContent='—';optIdx=-1;reOpt();return;}
   const om=optMins(fpd,maint); optIdx=closestRow(om);
-  const pk=peakRow(sGrid,optIdx,sDists); el.textContent=fmins(om)+' · '+fval(pk*fpd*2)+' /48hrs';
+  const pk=peakRow(sGrid,optIdx,sDists); el.textContent=fmins(om)+' · '+fpd+' departures · '+fval(pk*fpd)+' /48hrs';
   reOpt();
 }
 
