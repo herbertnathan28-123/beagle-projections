@@ -554,3 +554,4 @@ document.addEventListener('contextmenu',e=>e.preventDefault());
 }
 
 module.exports = { buildCalcPage };
+
