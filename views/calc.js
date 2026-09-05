@@ -38,6 +38,9 @@ function buildCalcPage(key) {
   .best-cards { display: flex; gap: 10px; flex-wrap: wrap; }
   .bcard { position: relative; background: #06121E; border: 1px solid #1A3A5A; border-radius: 6px; padding: 8px 14px; min-width: 170px; cursor: pointer; transition: transform .12s, box-shadow .12s; }
   .bcard:hover { transform: translateY(-2px); box-shadow: 0 0 18px rgba(13,193,232,.35); }
+  #insp-card:hover { transform:none; box-shadow:none; }
+  td.sel { box-shadow: inset 0 0 0 3px #FFF, 0 0 16px #FFF !important; z-index: 4; position: relative; }
+  td.cell.num { cursor: pointer; }
   .bcard.gold { border-color: transparent; background: linear-gradient(#06121E,#06121E) padding-box, linear-gradient(135deg,#FFC422,#FF2910,#FF00CE) border-box; box-shadow: 0 0 16px rgba(255,196,34,.25); }
   .bcard-rank { font-size: 9px; color: var(--gold); font-weight: 700; letter-spacing: 0.12em; margin-bottom: 3px; }
   .bcard-time { font-size: 20px; font-weight: 800; color: #FFF; letter-spacing: 0.02em; }
@@ -135,6 +138,16 @@ function buildCalcPage(key) {
       <div class="opt-result" id="ores">—</div>
     </div>
   </div>
+  <div id="insp" style="min-width:300px;">
+    <div class="opt-section-label">◎ CELL INSPECTOR — click any number on the chart</div>
+    <div class="bcard" id="insp-card" style="cursor:default;border-color:#2C4A6E;">
+      <div class="bcard-rank" id="insp-rank">—</div>
+      <div class="bcard-time" id="insp-head">Select a cell</div>
+      <div class="bcard-meta" id="insp-l1">&nbsp;</div>
+      <div class="bcard-meta" id="insp-l2">&nbsp;</div>
+      <div class="bcard-total" id="insp-total">&nbsp;</div>
+    </div>
+  </div>
 </div>
 
 <div class="mini-wrap">
@@ -170,6 +183,27 @@ const KEY = '${key}';
 let cMode = 'Realism', maint = true, optIdx = -1;
 let sGrid = null, sDists = null, gGrid=null, gDists=null, sScale=null, vScale=null, sPeak=null, vPeak=null, topMap={};
 
+// Flights that fit in 48h at flight time t (hours) with Nathan's buffers: 3 min per flight, 30 min maintenance (if on), 26 min human buffer.
+function flightsIn48(t){ return Math.max(0,Math.floor((2880-(maint?30:0)-26)/(t*60+3))); }
+// Rank table: every valid cell's 48h total (dead zone excluded), sorted high→low.
+let rankList=[];
+function buildRank(grid,dists){
+  rankList=[]; grid.forEach((row,ti)=>row.forEach((v,di)=>{ if(typeof v==='number'&&v>0&&!isDZ(dists[di])){ const n=flightsIn48(TMS[ti]); rankList.push({ti,di,t48:v*n}); } }));
+  rankList.sort((a,b)=>b.t48-a.t48);
+}
+function inspect(ti,di){
+  const v=gGrid[ti][di], d=gDists[di], t=TMS[ti];
+  document.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel'));
+  const td=document.getElementById('c-'+ti+'-'+di); if(td)td.classList.add('sel');
+  const n=flightsIn48(t), t48=(typeof v==='number')?v*n:0;
+  const idx=rankList.findIndex(r=>r.ti===ti&&r.di===di);
+  document.getElementById('insp-head').textContent=tl(t)+' × '+d.toLocaleString()+'km';
+  document.getElementById('insp-l1').textContent=(typeof v==='number'?fval(v)+' per flight':'No valid flight (CI > 200)');
+  document.getElementById('insp-l2').textContent=n+' flights in 48hrs'+(maint?' (maint on)':' (maint off)')+(isDZ(d)?' · DEAD ZONE':'');
+  document.getElementById('insp-total').textContent=(typeof v==='number'?fval(t48)+' /48hrs':'—');
+  document.getElementById('insp-rank').textContent=idx>=0?('RANKED #'+(idx+1)+' OF '+rankList.length+' ON THIS CHART'):(isDZ(d)?'DEAD ZONE — NOT RANKED':'NOT RANKED');
+  const card=document.getElementById('insp-card'); card.className='bcard'+(idx===0?' gold':'');
+}
 function tl(h){ const hr=Math.floor(h); return hr+'h '+(h%1===0?'00m':'30m'); }
 function fmins(m){ const h=Math.floor(m/60),mn=Math.round(m%60); return h+'h '+String(mn).padStart(2,'0')+'m'; }
 function fval(v){ return typeof v==='number'?'$'+v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):String(v); }
@@ -186,7 +220,7 @@ function setMode(m){
   if(ac){ const sp=ACM[ac]; document.getElementById('spd').textContent=(m==='Easy'?sp.e:sp.r).toLocaleString(); loadGrid(ac,m); }
 }
 
-function toggleMaint(){ maint=!maint; const b=document.getElementById('mbt'); b.textContent=maint?'YES':'NO'; b.className='maint-btn'+(maint?' on':''); if(sGrid){populateDD(sGrid,sDists);onDDChange();} }
+function toggleMaint(){ maint=!maint; const b=document.getElementById('mbt'); b.textContent=maint?'YES':'NO'; b.className='maint-btn'+(maint?' on':''); if(sGrid){buildRank(sGrid,sDists);populateDD(sGrid,sDists);onDDChange();} }
 
 // ── HEAT GRADIENT ─────────────────────────────────────────────────────────
 // Continuous hue: white (cold) → greens → yellow → orange → red (hot).
@@ -273,7 +307,7 @@ function buildBody(grid,dists,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
         const r=topMap[ti+':'+di]; if(r){cls+=' top3';attr=' data-rank="'+r+'"';}
       }
       else{cls+=' vem';}
-      html+='<td id="c-'+ti+'-'+di+'" class="cell'+cls+'"'+sty+attr+'>'+txt+'</td>';
+      html+='<td id="c-'+ti+'-'+di+'" class="cell'+cls+(typeof v==='number'?' num':'')+'"'+sty+attr+' onclick="inspect('+ti+','+di+')">'+txt+'</td>';
     });
     html+='</tr>';
   });
@@ -331,7 +365,7 @@ function drawMini(grid,dists,sScale,centres,optRowIdx,rbS,rbV,topMap){
     Object.keys(topMap).forEach(k=>{ const [ti,di]=k.split(':').map(Number); ctx.fillStyle='#FFF'; ctx.fillRect(di*cw+cw/2-1.5,ti*ch+ch/2-1.5,3,3); });
   }
   cv.onclick=e=>{ const r=cv.getBoundingClientRect(); const di=Math.floor((e.clientX-r.left)/r.width*nc), ti=Math.floor((e.clientY-r.top)/r.height*nr);
-    const td=document.getElementById('c-'+ti+'-'+di); if(td){ td.scrollIntoView({behavior:'smooth',block:'center',inline:'center'}); td.classList.remove('flash'); void td.offsetWidth; td.classList.add('flash'); } };
+    const td=document.getElementById('c-'+ti+'-'+di); if(td){ td.scrollIntoView({behavior:'smooth',block:'center',inline:'center'}); td.classList.remove('flash'); void td.offsetWidth; td.classList.add('flash'); inspect(ti,di); } };
 }
 
 // Best-card click: select that flights/day, highlight its row, scroll to and flash the best cell.
@@ -340,6 +374,7 @@ function jumpTo(fpd,ri,di){
   const td=document.getElementById('c-'+ri+'-'+di); if(!td)return;
   td.scrollIntoView({behavior:'smooth',block:'center',inline:'center'});
   td.classList.remove('flash'); void td.offsetWidth; td.classList.add('flash');
+  inspect(ri,di);
 }
 
 function onDDChange(){
@@ -368,6 +403,7 @@ async function loadGrid(ac,mode){
     populateDD(grid,dists);
     const fpd=parseInt(document.getElementById('opt-dd').value)||0;
     optIdx=fpd?closestRow(optMins(fpd,maint)):-1;
+    buildRank(grid,dists);
     sScale=zoneScale(grid,dists,d=>true); vScale=sScale;  // one continuous value scale — no zone cut in the colour
     sPeak=zonePeak(grid,dists,d=>d<=6000); vPeak=zonePeak(grid,dists,d=>d>=10000);
     topMap=rowTop3(grid,optIdx,dists);
