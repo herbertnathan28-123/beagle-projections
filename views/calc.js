@@ -139,7 +139,7 @@ function buildCalcPage(key) {
 
 <div class="mini-wrap">
   <canvas id="mini" width="400" height="188"></canvas>
-  <div class="mini-note">Thermal overview — every flight time × every distance. Green → yellow → orange → red = rising contribution, scaled inside each zone. Magenta = your hot zones. Click anywhere to jump to that cell.</div>
+  <div class="mini-note">Thermal overview — every flight time × every distance. Three heat circles — best sub-6,000, best 10,000+, best overall. Dead zone stays cold. Magenta = your hot zones. Click anywhere to jump to that cell.</div>
 </div>
 
 <div class="hmap-header">
@@ -153,10 +153,9 @@ function buildCalcPage(key) {
 <div class="footer">
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
     <span style="font-weight:700;">COLD</span><span class="grad-bar"></span><span style="font-weight:700;">HOT</span>
-    <span class="lg" style="box-shadow:inset 0 0 0 2px #FF00CE,0 0 10px #FF00CE;color:#FF00CE;">HOT ZONE — PEAK SUB-6,000 / PEAK 10,000+</span>
-    <span class="lg" style="background:linear-gradient(135deg,#9F00D0,#FF00CE);color:#FFF;">1 2 3 — TOP 3 IN SELECTED ROW</span>
-    <span class="lg" style="outline:2px solid #FFF;outline-offset:1px;color:#FFF;">ZONE PEAK (whole table)</span>
-    <span class="lg" style="background:#3A0A1A;color:#FF6E8A;">NEGATIVE</span>
+    <span class="lg" style="box-shadow:inset 0 0 0 2px #FF00CE,0 0 10px #FF00CE;color:#FF00CE;">SHORT STRATEGY — BEST SUB-6,000 · LONG STRATEGY — BEST 10,000+</span>
+    <span class="lg" style="background:linear-gradient(135deg,#9F00D0,#FF00CE);color:#FFF;">1 2 3 — BEST OVERALL</span>
+        <span class="lg" style="background:#3A0A1A;color:#FF6E8A;">NEGATIVE</span>
     <span class="lg" style="background:#2A0A12;color:#7A2A3A;">CI &gt; 200</span>
     <span class="lg" style="border-left:3px solid #FFC422;color:#FFC422;">★ OPTIMAL ROW</span>
   </div>
@@ -194,11 +193,17 @@ function toggleMaint(){ maint=!maint; const b=document.getElementById('mbt'); b.
 // Colour = percentile rank of the cell within its zone (single-leg or stopover).
 // Dead zone (6,001–9,999km) is coloured on the same gradient as every other cell.
 const STOPS=[[0,[236,252,236]],[0.30,[150,255,120]],[0.55,[26,255,0]],[0.75,[255,255,0]],[0.88,[254,169,0]],[1,[241,21,1]]];
-// Zone weighting (Nathan, 5 Sep): sub-6,000 heat runs cooler and smaller than the 10,000+ heat.
-// p is the cell's percentile inside its own zone; zone 1 is compressed so only its very top touches red.
-const ZONE1_MAX=0.92;  // zone 1 peak lands orange-red, never full red
-const ZONE1_GAMMA=1.35; // pushes zone 1's warm colours toward its top few cells
-function zoneP(p,sv){ return sv?p:Math.pow(p,ZONE1_GAMMA)*ZONE1_MAX; }
+// HEAT MODEL (Nathan, 5 Sep): colour is centred on the picks and blends outward.
+//   base  = cell's value rank across the whole table (one continuous scale, no zone cut)
+//   glow  = closeness to a heat centre — the selected row's PEAK sub-6,000, PEAK 10,000+ and TOP 3,
+//           plus the two whole-table zone peaks (weighted lower so the picks dominate when a row is chosen)
+//   heat  = max(glow, base*0.75)  → centres are red, falling through orange → yellow → green with distance
+const SIG_R=5.5, SIG_C=5.5;  // blend radius in rows / columns
+function glowAt(ti,di,centres){
+  let g=0; for(const c of centres){ const dr=(ti-c.ti)/SIG_R, dc=(di-c.di)/SIG_C; g=Math.max(g,c.w*Math.exp(-(dr*dr+dc*dc)/2)); } return g;
+}
+function heatP(base,glow){ return Math.max(glow, base*0.75); }
+const DZ_CAP=0.42;  // dead zone (6,001–9,999km) is capped at green — never orange or red, never a heat centre
 function heatArr(p){
   p=Math.max(0,Math.min(1,p));
   for(let i=1;i<STOPS.length;i++){ if(p<=STOPS[i][0]){ const [p0,c0]=STOPS[i-1],[p1,c1]=STOPS[i]; const t=(p-p0)/(p1-p0);
@@ -239,20 +244,30 @@ function buildHead(dists){
 function buildBody(grid,dists,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
   const rbS=optRowIdx>=0?rowBestRange(grid,optRowIdx,dists,d=>d<=6000):-1;
   const rbV=optRowIdx>=0?rowBestRange(grid,optRowIdx,dists,d=>d>=10000):-1;
+  // Three heat circles (Nathan, 5 Sep): SHORT strategy = best sub-6,000 · LONG strategy = best 10,000+ · best OVERALL.
+  // Scoped to the selected flight-time row when one is chosen; whole table otherwise. Dead zone never qualifies.
+  const centres=[];
+  const pk=k=>{ if(!k)return null; const [a,b]=k.split(':').map(Number); return {ti:a,di:b}; };
+  if(optRowIdx>=0){
+    if(rbS>=0)centres.push({ti:optRowIdx,di:rbS,w:1});
+    if(rbV>=0)centres.push({ti:optRowIdx,di:rbV,w:1});
+    Object.keys(topMap).forEach(k=>{ const c=pk(k); centres.push({ti:c.ti,di:c.di,w:topMap[k]===1?1:0.85}); });
+  } else {
+    const zp1=pk(sPeak), zp2=pk(vPeak);
+    if(zp1)centres.push({ti:zp1.ti,di:zp1.di,w:1}); if(zp2)centres.push({ti:zp2.ti,di:zp2.di,w:1});
+  }
   let html='';
   TMS.forEach((t,ti)=>{
     const isOpt=ti===optRowIdx; const dr=Math.abs(ti-optRowIdx);
     html+='<tr><td class="tlbl'+(isOpt?' opt':'')+'">'+tl(t)+'</td>';
     dists.forEach((d,di)=>{
       const v=grid[ti][di]; const sv=isSV(d); let cls='',sty='',txt='',attr='';
-      if(d===6500)cls+=' b6'; if(d===10000)cls+=' b10';
       if(v==='X'){cls+=' vx';txt='X';}
       else if(typeof v==='number'){
         txt=v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
         if(v<0){cls+=' vng';}
-        else{ const p=zoneP((sv?vScale:sScale).pct(v),sv); sty=' style="background:'+heatRGB(p)+'"'; if(p>=0.85)cls+=' hot'; if(isDark(p))cls+=' lt'; }
+        else{ let p=heatP(sScale.pct(v),glowAt(ti,di,centres)); if(isDZ(d))p=Math.min(p,DZ_CAP); sty=' style="background:'+heatRGB(p)+'"'; if(p>=0.85)cls+=' hot'; if(isDark(p))cls+=' lt'; }
         if(isOpt)cls+=' opt-cell';
-        if((sv?vPeak:sPeak)===ti+':'+di)cls+=' zpeak';
         // Hot-zone blob: peak cell of the selected row ±2 cols, ±1 row (yellow); peak itself bright yellow.
         if(optRowIdx>=0&&!isDZ(d)){ const rb=sv?rbV:rbS; if(rb>=0&&Math.abs(di-rb)<=2&&dr<=1){ cls+=(isOpt&&di===rb)?' blob2':' blob'; } }
         const r=topMap[ti+':'+di]; if(r){cls+=' top3';attr=' data-rank="'+r+'"';}
@@ -263,7 +278,7 @@ function buildBody(grid,dists,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
     html+='</tr>';
   });
   document.getElementById('s-body').innerHTML=html;
-  drawMini(grid,dists,sScale,vScale,optRowIdx,rbS,rbV,topMap);
+  drawMini(grid,dists,sScale,centres,optRowIdx,rbS,rbV,topMap);
 }
 
 function populateDD(sg,sd){
@@ -299,16 +314,16 @@ function buildBestCards(res,sg,sd){
 }
 
 // Thermal mini-map: one pixel block per cell, magenta glow on hot zones, gold line on optimal row.
-function drawMini(grid,dists,sScale,vScale,optRowIdx,rbS,rbV,topMap){
+function drawMini(grid,dists,sScale,centres,optRowIdx,rbS,rbV,topMap){
   const cv=document.getElementById('mini'); if(!cv)return; const ctx=cv.getContext('2d');
   const W=cv.width,H=cv.height,nc=dists.length,nr=grid.length,cw=W/nc,ch=H/nr;
   ctx.fillStyle='#0B1E3A'; ctx.fillRect(0,0,W,H);
   grid.forEach((row,ti)=>row.forEach((v,di)=>{
-    if(typeof v==='number'&&v>0){ const sv=isSV(dists[di]); ctx.fillStyle=heatRGB(zoneP((sv?vScale:sScale).pct(v),sv)); ctx.fillRect(di*cw,ti*ch,Math.ceil(cw),Math.ceil(ch)); }
+    if(typeof v==='number'&&v>0){ let p=heatP(sScale.pct(v),glowAt(ti,di,centres)); if(isDZ(dists[di]))p=Math.min(p,DZ_CAP); ctx.fillStyle=heatRGB(p); ctx.fillRect(di*cw,ti*ch,Math.ceil(cw),Math.ceil(ch)); }
     else if(v==='X'){ ctx.fillStyle='#2A0A12'; ctx.fillRect(di*cw,ti*ch,Math.ceil(cw),Math.ceil(ch)); }
   }));
   // zone rules
-  ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.lineWidth=1;
+  ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=1;
   [dists.indexOf(6500),dists.indexOf(10000)].forEach(i=>{ if(i>0){ ctx.beginPath(); ctx.moveTo(i*cw,0); ctx.lineTo(i*cw,H); ctx.stroke(); } });
   if(optRowIdx>=0){
     ctx.fillStyle='rgba(255,196,34,.35)'; ctx.fillRect(0,optRowIdx*ch,W,Math.ceil(ch));
@@ -353,7 +368,7 @@ async function loadGrid(ac,mode){
     populateDD(grid,dists);
     const fpd=parseInt(document.getElementById('opt-dd').value)||0;
     optIdx=fpd?closestRow(optMins(fpd,maint)):-1;
-    sScale=zoneScale(grid,dists,d=>d<10000); vScale=zoneScale(grid,dists,d=>d>=10000);
+    sScale=zoneScale(grid,dists,d=>true); vScale=sScale;  // one continuous value scale — no zone cut in the colour
     sPeak=zonePeak(grid,dists,d=>d<=6000); vPeak=zonePeak(grid,dists,d=>d>=10000);
     topMap=rowTop3(grid,optIdx,dists);
     buildHead(dists);
