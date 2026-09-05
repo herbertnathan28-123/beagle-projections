@@ -87,8 +87,8 @@ function buildCalcPage(key) {
   td.opt-cell { box-shadow: inset 0 -1px 0 rgba(255,196,34,.55), inset 0 1px 0 rgba(255,196,34,.55); }
   td.blob { box-shadow: inset 0 0 0 2px rgba(255,0,206,.55); }
   td.blob2 { box-shadow: inset 0 0 0 3px var(--mag), 0 0 14px var(--mag); font-weight: 800; z-index: 2; position: relative; }
-  td.top3 { background: linear-gradient(135deg,#9F00D0,#FF00CE) !important; color: #FFF !important; font-weight: 800; position: relative; box-shadow: 0 0 12px rgba(255,0,206,.6); z-index: 2; }
-  td.top3::after { content: attr(data-rank); position: absolute; top: -1px; left: 2px; font-size: 10px; font-weight: 900; color: #FFF; text-shadow: 0 0 4px #000; }
+  td.top3 { background: linear-gradient(135deg,#9F00D0,#FF00CE) !important; color: #FFF !important; font-weight: 800; position: relative; box-shadow: 0 0 12px rgba(255,0,206,.6); z-index: 2; padding-left: 14px !important; }
+  td.top3::after { content: attr(data-rank); position: absolute; top: 1px; left: 1px; width: 11px; height: 11px; line-height: 11px; border-radius: 2px; background: #FFF; color: #9F00D0; font-size: 8px; font-weight: 900; text-align: center; }
   .grad-bar { display: inline-block; width: 240px; height: 12px; border-radius: 3px; border: 1px solid #2C4A6E; vertical-align: middle; background: linear-gradient(90deg,#ECFCEC 0%,#96FF78 30%,#1AFF00 55%,#FFFF00 75%,#FEA900 88%,#F11501 100%); }
   .footer { padding: 14px 24px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; color: var(--dim); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; flex-wrap: wrap; gap: 8px; background: var(--panel); }
   .lg { padding:2px 8px; border-radius:3px; font-size:10px; font-weight:700; }
@@ -148,21 +148,7 @@ function buildCalcPage(key) {
     </div>
   </div>
   <div id="rev" style="min-width:300px;">
-    <div class="opt-section-label">$ REVENUE LANE — CI 200 · A-CHECK PER STARTED HOUR</div>
-    <div class="manual-row" style="gap:10px;">
-      <span class="control-label">FUEL $/1000lb</span><input id="fuelp" type="number" value="600" style="width:64px;background:#0A1E30;color:#E6F0FF;border:1px solid #2C4A6E;border-radius:4px;padding:4px 6px;font-family:inherit;">
-      <span class="control-label">CO₂ $/1000q</span><input id="co2p" type="number" value="135" style="width:64px;background:#0A1E30;color:#E6F0FF;border:1px solid #2C4A6E;border-radius:4px;padding:4px 6px;font-family:inherit;">
-    </div>
-    <div class="manual-row" style="gap:8px;margin-top:6px;">
-      <span class="control-label" title="Seats configured per class">SEATS Y/J/F</span>
-      <input id="sy" type="number" value="142" style="width:52px;background:#0A1E30;color:#E6F0FF;border:1px solid #2C4A6E;border-radius:4px;padding:4px 6px;font-family:inherit;">
-      <input id="sj" type="number" value="132" style="width:52px;background:#0A1E30;color:#E6F0FF;border:1px solid #2C4A6E;border-radius:4px;padding:4px 6px;font-family:inherit;">
-      <input id="sf" type="number" value="57" style="width:52px;background:#0A1E30;color:#E6F0FF;border:1px solid #2C4A6E;border-radius:4px;padding:4px 6px;font-family:inherit;">
-      <span class="control-label" title="Daily route demand per class — resets daily. Typical A380 route from export medians.">DEMAND/DAY Y/J/F</span>
-      <input id="dy" type="number" value="600" step="10" style="width:56px;background:#0A1E30;color:#E6F0FF;border:1px solid #2C4A6E;border-radius:4px;padding:4px 6px;font-family:inherit;">
-      <input id="dj" type="number" value="270" step="10" style="width:56px;background:#0A1E30;color:#E6F0FF;border:1px solid #2C4A6E;border-radius:4px;padding:4px 6px;font-family:inherit;">
-      <input id="df" type="number" value="120" step="10" style="width:56px;background:#0A1E30;color:#E6F0FF;border:1px solid #2C4A6E;border-radius:4px;padding:4px 6px;font-family:inherit;">
-    </div>
+    <div class="opt-section-label">$ REVENUE LANE — GENERIC: 3-CLASS AVERAGES · FUEL $600 · CO₂ $135 · A-CHECK PER STARTED HOUR</div>
     <div class="manual-row" style="gap:10px;margin-top:8px;">
       <span class="control-label">SWEET SPOT</span>
       <span style="font-size:10px;color:#1AFF00;font-weight:700;">CONTRIB</span>
@@ -186,7 +172,7 @@ function buildCalcPage(key) {
 
 <div class="mini-wrap">
   <canvas id="mini" width="400" height="188"></canvas>
-  <div class="mini-note">Thermal overview — every flight time × every distance. Three heat circles — best sub-6,000, best 10,000+ (by contribution), best overall 1·2·3 (by 48-hour total). Dead zone stays cold. Magenta = your hot zones. Click anywhere to jump to that cell.</div>
+  <div class="mini-note">Thermal overview — every flight time × every distance. Three heat circles on the combined $ + C/D score — best sub-6,000, best 10,000+, top 3 overall. Dead zone stays cold. Magenta = your hot zones. Click anywhere to jump to that cell.</div>
 </div>
 
 <div class="hmap-header">
@@ -201,7 +187,7 @@ function buildCalcPage(key) {
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
     <span style="font-weight:700;">COLD</span><span class="grad-bar"></span><span style="font-weight:700;">HOT</span>
     <span class="lg" style="box-shadow:inset 0 0 0 2px #FF00CE,0 0 10px #FF00CE;color:#FF00CE;">SHORT STRATEGY — BEST SUB-6,000 · LONG STRATEGY — BEST 10,000+</span>
-    <span class="lg" style="background:linear-gradient(135deg,#9F00D0,#FF00CE);color:#FFF;">1 2 3 — BEST OVERALL</span>
+    <span class="lg" style="background:linear-gradient(135deg,#9F00D0,#FF00CE);color:#FFF;">1 2 3 — BEST OVERALL ($ + C/D)</span>
         <span class="lg" style="background:#3A0A1A;color:#FF6E8A;">NEGATIVE</span>
     <span class="lg" style="background:#2A0A12;color:#7A2A3A;">CI &gt; 200</span>
     <span class="lg" style="border-left:3px solid #FFC422;color:#FFC422;">★ OPTIMAL ROW</span>
@@ -228,35 +214,42 @@ function flightsIn48(t){ const avail=2880-(maint?30:0)-26; const cyc=t*60+3; ret
 // Costs: fuel lb/km × price, CO₂ q/km × price, A-check $/h × ceil(flight hours at NORMAL speed), repair per flight.
 // Per-aircraft data — only aircraft listed here get a revenue lane; others rank on contributions alone.
 const REV={
-  'A380-800':  { ycap:600, fuelLbKm:21.59, co2QKm:85.79, acheckH:28750.5, repair:1557 },   // 400 = typical configured seats after class layout (Nathan, 6 Sep); 600 is the raw purchase capacity
-  'Concorde':  { ycap:128, fuelLbKm:44.0,  co2QKm:52.0,  acheckH:265693,  repair:2945 }
+  'A380-800':  { ycap:600, cf:21.59, cc:0.0914, acheckH:28750.5, repair:1557 },   // cf = fuel lb/km at CI 200 · cc = CO₂ q/km per seat-unit at CI 200 · fitted from 902-route export   // 400 = typical configured seats after class layout (Nathan, 6 Sep); 600 is the raw purchase capacity
+  'Concorde':  { ycap:128, cf:32.4,  cc:0.20,   acheckH:265693,  repair:2945 }
 };
-let revP=null, ac_name='';
+let revP=null, ac_name='', gSpeed=0;
+// CI of a cell from its distance and flight time (am4help: CI = 2000d/(7uT) − 600/7, same CI the contribution formula uses)
+function cellCI(d,t){ return gSpeed>0?Math.max(0,Math.min(200,(2000/7)*(d/(gSpeed*t))-600/7)):200; }
 // Demand cap (Nathan, 6 Sep): three separate demand pools (Y, J, F), each resets daily.
 // Seats sold per flight per class = min(configured seats, class demand ÷ flights that day). Contributions unaffected (15 pax).
-function num(id,dflt){ const el=document.getElementById(id); const v=+(el&&el.value); return (el&&el.value!==''&&isFinite(v)&&v>=0)?v:dflt; }
+// Generic class numbers — averages of Nathan's 108-route sheet (Book.xlsx, 6 Sep 2026). Fixed; not player inputs.
+const FUEL_P=600, CO2_P=135;             // generic $/1,000 lb and $/1,000 q — prices move every half hour in-game; a fixed point value is the doctrine
+const SEATS ={ y:57,  j:143, f:85  };   // configured seats per class
+const DEMAND={ y:735, j:377, f:162 };   // route demand per day per class
 function soldPerClass(t){
-  const perDay=Math.max(0.5,completedIn48(t)/2);
-  return { y:Math.min(num('sy',142),num('dy',600)/perDay), j:Math.min(num('sj',132),num('dj',270)/perDay), f:Math.min(num('sf',57),num('df',120)/perDay) };
+  const perDay=Math.max(0.5,flightsIn48(t)/2);
+  return { y:Math.min(SEATS.y,DEMAND.y/perDay), j:Math.min(SEATS.j,DEMAND.j/perDay), f:Math.min(SEATS.f,DEMAND.f/perDay) };
 }
 function seatsSold(t){ const s=soldPerClass(t); return s.y+s.j+s.f; }
 function profitPerFlight(d,t){
   if(!revP)return null;
   const s=soldPerClass(t);
   const inc=0.94*( s.y*((0.3*d+150)*1.10) + s.j*((0.6*d+500)*1.08) + s.f*((0.9*d+1000)*1.06) );
-  const fuel=revP.fuelLbKm*d*(+document.getElementById('fuelp').value||600)/1000;
-  const co2=revP.co2QKm*d*(+document.getElementById('co2p').value||135)/1000;
+  // Fuel and CO₂ scale with CI (am4help): fuel × (CI/500 + 0.6), CO₂ × (CI/2000 + 0.9). Slower cells burn less.
+  const ci=cellCI(d,t);
+  const seatUnits=(s.y+2*s.j+3*s.f)+(SEATS.y+SEATS.j+SEATS.f);
+  const fuel=revP.cf*d*(ci/500+0.6)*FUEL_P/1000;
+  const co2=revP.cc*d*seatUnits*(ci/2000+0.9)*CO2_P/1000;
   const chk=revP.acheckH*Math.ceil(t);
   return inc-fuel-co2-chk-revP.repair;
 }
-// Revenue lands on completion, contributions count on departure (Nathan's rule) — so profit uses completed flights.
-function completedIn48(t){ const avail=2880-(maint?30:0)-26; return Math.max(0,Math.floor(avail/(t*60+3))); }
+// One count for everything: departures in 48h (Nathan's rule) — money and contributions both use flightsIn48.
 function weightW(){ return (+document.getElementById('wslider').value||0)/100; }
 // Rank table: every valid cell's 48h total (dead zone excluded), sorted high→low.
 let rankList=[];
 function buildRank(grid,dists){
   rankList=[]; grid.forEach((row,ti)=>row.forEach((v,di)=>{ if(typeof v==='number'&&v>0&&!isDZ(dists[di])){
-    const t=TMS[ti], n=flightsIn48(t), pf=profitPerFlight(dists[di],t); const p48=pf==null?null:pf*completedIn48(t);
+    const t=TMS[ti], n=flightsIn48(t), pf=profitPerFlight(dists[di],t); const p48=pf==null?null:pf*n;
     rankList.push({ti,di,t48:v*n,p48}); } }));
   const maxT=Math.max(...rankList.map(r=>r.t48)), maxP=Math.max(...rankList.map(r=>r.p48==null?0:r.p48));
   const w=revP?weightW():0;
@@ -272,8 +265,8 @@ function inspect(ti,di){
   document.getElementById('insp-head').textContent=tl(t)+' × '+d.toLocaleString()+'km';
   document.getElementById('insp-l1').textContent=(typeof v==='number'?fval(v)+' per flight':'No valid flight (CI > 200)');
   document.getElementById('insp-l2').textContent=n+' departures in 48hrs'+(maint?' (maint on)':' (maint off)')+(isDZ(d)?' · DEAD ZONE':'');
-  const pf=profitPerFlight(d,t), cc=completedIn48(t);
-  document.getElementById('insp-total').textContent=(typeof v==='number'?fval(t48)+' /48hrs':'—')+(pf==null?'':'  ·  $'+Math.round(pf*cc).toLocaleString()+' profit /48hrs ('+cc+' landed · '+Math.round(seatsSold(t))+' pax/flight)');
+  const pf=profitPerFlight(d,t), cc=n;
+  document.getElementById('insp-total').textContent=(typeof v==='number'?fval(t48)+' /48hrs':'—')+(pf==null?'':'  ·  $'+Math.round(pf*cc).toLocaleString()+' profit /48hrs');
   document.getElementById('insp-rank').textContent=idx>=0?('RANKED #'+(idx+1)+' OF '+rankList.length+(revP?' — SWEET SPOT '+(100-Math.round(weightW()*100))+'/'+Math.round(weightW()*100):' — CONTRIBUTIONS')):(isDZ(d)?'DEAD ZONE — NOT RANKED':'NOT RANKED');
   const card=document.getElementById('insp-card'); card.className='bcard'+(idx===0?' gold':'');
   // Floating copy next to the cell
@@ -347,6 +340,9 @@ function rowTop3(g,ti,dists){
   g[ti].forEach((v,di)=>{ if(typeof v==='number'&&v>0&&!isDZ(dists[di]))all.push({v,di}); });
   all.sort((a,b)=>b.v-a.v); all.slice(0,3).forEach((x,i)=>m[ti+':'+x.di]=i+1); return m;
 }
+// Best cell by combined score inside a distance band (whole table or one row). rankList is score-sorted.
+function scorePeak(dists,pred,ti){ const r=rankList.find(r=>pred(dists[r.di])&&(ti==null||r.ti===ti)); return r?r.ti+':'+r.di:null; }
+function scoreTop3Row(ti){ const m={}; rankList.filter(r=>r.ti===ti).slice(0,3).forEach((r,i)=>m[r.ti+':'+r.di]=i+1); return m; }
 function rowBestRange(g,ti,dists,pred){ let b=-Infinity,at=-1; if(!g[ti])return -1; g[ti].forEach((v,di)=>{ if(typeof v==='number'&&v>b&&pred(dists[di])){b=v;at=di;} }); return at; }
 
 function isDZ(d){ return d>6000&&d<10000; }
@@ -365,8 +361,8 @@ function buildHead(dists){
 
 function buildBody(grid,dists,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
   if(optRowIdx<0)topMap={};
-  const rbS=optRowIdx>=0?rowBestRange(grid,optRowIdx,dists,d=>d<=6000):-1;
-  const rbV=optRowIdx>=0?rowBestRange(grid,optRowIdx,dists,d=>d>=10000):-1;
+  const pkS=optRowIdx>=0?scorePeak(dists,d=>d<=6000,optRowIdx):null, pkV=optRowIdx>=0?scorePeak(dists,d=>d>=10000,optRowIdx):null;
+  const rbS=pkS?+pkS.split(':')[1]:-1, rbV=pkV?+pkV.split(':')[1]:-1;
   // Three heat circles (Nathan, 5 Sep): SHORT strategy = best sub-6,000 · LONG strategy = best 10,000+ · best OVERALL.
   // Scoped to the selected flight-time row when one is chosen; whole table otherwise. Dead zone never qualifies.
   const centres=[];
@@ -482,7 +478,8 @@ function onDDChange(){
 
 function reOpt(){
   if(!gGrid)return;
-  topMap=rowTop3(gGrid,optIdx,gDists);
+  sPeak=scorePeak(gDists,d=>d<=6000); vPeak=scorePeak(gDists,d=>d>=10000);
+  topMap=optIdx>=0?scoreTop3Row(optIdx):{};
   buildBody(gGrid,gDists,sScale,vScale,optIdx,sPeak,vPeak,topMap);
 }
 
@@ -497,12 +494,12 @@ async function loadGrid(ac,mode){
     populateDD(grid,dists);
     const fpd=parseInt(document.getElementById('opt-dd').value)||0;
     optIdx=fpd?closestRow(optMins(fpd,maint)):-1;
-    ac_name=ac; revP=REV[ac]||null;
-    document.getElementById('revnote').textContent=revP?('Revenue lane active for '+ac+' — '+revP.fuelLbKm+' lb/km, '+revP.co2QKm+' q/km, A-check $'+Math.round(revP.acheckH).toLocaleString()+' per started hour, repair $'+revP.repair.toLocaleString()):('No revenue data for '+ac+' yet — ranking on contributions only');
+    ac_name=ac; revP=REV[ac]||null; gSpeed=D.speed||0;
+    document.getElementById('revnote').textContent=revP?('Revenue lane active for '+ac+' — '+revP.cf+' lb/km @CI200, CO₂ '+revP.cc+' q/km/seat, A-check $'+Math.round(revP.acheckH).toLocaleString()+' per started hour, repair $'+revP.repair.toLocaleString()):('No revenue data for '+ac+' yet — ranking on contributions only');
     buildRank(grid,dists);
     sScale=zoneScale(grid,dists,d=>true); vScale=sScale;  // one continuous value scale — no zone cut in the colour
-    sPeak=zonePeak(grid,dists,d=>d<=6000); vPeak=zonePeak(grid,dists,d=>d>=10000);
-    topMap=rowTop3(grid,optIdx,dists);
+    sPeak=scorePeak(dists,d=>d<=6000); vPeak=scorePeak(dists,d=>d>=10000);
+    topMap=optIdx>=0?scoreTop3Row(optIdx):{};
     buildHead(dists);
     buildBody(grid,dists,sScale,vScale,optIdx,sPeak,vPeak,topMap);
     document.getElementById('hm1sub').textContent='500 – 6,000km · 6,001 – 9,999km dead zone · 10,000 – 20,000km · max range '+mx.toLocaleString()+'km';
@@ -514,9 +511,7 @@ async function loadGrid(ac,mode){
 
 function rerank(){ if(!gGrid)return; buildRank(gGrid,gDists); document.getElementById('wlbl').textContent=(100-Math.round(weightW()*100))+' / '+Math.round(weightW()*100); reOpt(); const sel=document.querySelector('td.sel'); if(sel){const [_,ti,di]=sel.id.split('-'); inspect(+ti,+di);} }
 document.getElementById('wslider').addEventListener('input',rerank);
-document.getElementById('fuelp').addEventListener('change',rerank);
-document.getElementById('co2p').addEventListener('change',rerank);
-['sy','sj','sf','dy','dj','df'].forEach(id=>document.getElementById(id).addEventListener('change',rerank));
+
 document.getElementById('ac-sel').addEventListener('change',function(){
   const sp=ACM[this.value];
   document.getElementById('spd').textContent=(cMode==='Easy'?sp.e:sp.r).toLocaleString();
