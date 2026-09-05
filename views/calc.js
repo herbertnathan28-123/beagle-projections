@@ -67,10 +67,11 @@ function buildCalcPage(key) {
   td.zpeak { outline: 2px solid #1A2744; outline-offset: -2px; font-weight: 700; }
   td.b6, th.b6 { border-left: 3px solid #1A2744 !important; }
   td.b10, th.b10 { border-left: 3px solid #1A2744 !important; }
-  td.top3 { outline: 3px solid #FFD700; outline-offset: -3px; font-weight: 800; position: relative; }
-  td.top3::after { content: attr(data-rank); position: absolute; top: -1px; left: 1px; font-size: 8px; font-weight: 800; color: #1A2744; }
-  td.rowbest { box-shadow: inset 0 0 0 2px #1A72BB; }
-  .grad-bar { display: inline-block; width: 220px; height: 12px; border-radius: 3px; border: 1px solid #999; vertical-align: middle; background: linear-gradient(90deg,#FFFFFF 0%,#CCFFCC 35%,#33FF00 65%,#FFFF00 85%,#FF9900 95%,#FF0000 100%); }
+  td.blob { background: #FFF176 !important; }
+  td.blob2 { background: #FFFF00 !important; font-weight: 700; }
+  td.top3 { background: #E9A08A !important; font-weight: 800; position: relative; }
+  td.top3::after { content: attr(data-rank); position: absolute; top: -2px; left: 2px; font-size: 10px; font-weight: 800; color: #E00000; }
+  .grad-bar { display: inline-block; width: 220px; height: 12px; border-radius: 3px; border: 1px solid #999; vertical-align: middle; background: linear-gradient(90deg,#FFFFFF 0%,#D9F5D9 30%,#8CF07A 55%,#33CC00 80%,#0E8A0E 95%,#0B5E0B 100%); }
   td.opt-cell { outline: 2px solid #FFD700; outline-offset: -2px; }
   .footer { padding: 14px 24px; border-top: 1px solid #AAAAAA; display: flex; align-items: center; justify-content: space-between; color: #555; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; flex-wrap: wrap; gap: 8px; }
   #lov { position: fixed; inset: 0; background: rgba(7,9,15,0.85); display: none; align-items: center; justify-content: center; z-index: 200; font-size: 13px; letter-spacing: 0.1em; color: #FFFFFF; }
@@ -138,9 +139,9 @@ function buildCalcPage(key) {
 <div class="footer">
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
     <span style="font-size:10px;font-weight:700;">COLD</span><span class="grad-bar"></span><span style="font-size:10px;font-weight:700;">HOT</span>
-    <span style="outline:2px solid #1A2744;outline-offset:1px;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">ZONE PEAK</span>
-    <span style="outline:3px solid #FFD700;outline-offset:1px;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:800;">★ TOP 3 IN SELECTED ROW</span>
-    <span style="box-shadow:inset 0 0 0 2px #1A72BB;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">PEAK SUB-6,000 / PEAK 10,000+</span>
+    <span style="background:#FFFF00;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">HOT ZONE — PEAK SUB-6,000 / PEAK 10,000+</span>
+    <span style="background:#E9A08A;color:#E00000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:800;">1 2 3 — TOP 3 IN SELECTED ROW</span>
+    <span style="outline:2px solid #1A2744;outline-offset:1px;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">ZONE PEAK (whole table)</span>
     <span style="background:#FFCDD2;color:#B71C1C;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">NEGATIVE</span>
     <span style="background:#FF8080;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">CI &gt; 200</span>
     <span style="outline:2px solid #FFD700;outline-offset:1px;background:#1A3A1A;color:#FFD700;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">★ OPTIMAL ROW</span>
@@ -154,7 +155,7 @@ const ACM = Object.fromEntries(ACD.map(a=>[a.n,a]));
 const TMS = ${JSON.stringify(CALC_TIMES)};
 const KEY = '${key}';
 let cMode = 'Realism', maint = true, optIdx = -1;
-let sGrid = null, sDists = null, gGrid=null, gDists=null, nSingle=0, sScale=null, vScale=null, sPeak=null, vPeak=null, topMap={};
+let sGrid = null, sDists = null, gGrid=null, gDists=null, sScale=null, vScale=null, sPeak=null, vPeak=null, topMap={};
 
 function tl(h){ const hr=Math.floor(h); return hr+'h '+(h%1===0?'00m':'30m'); }
 function fmins(m){ const h=Math.floor(m/60),mn=Math.round(m%60); return h+'h '+String(mn).padStart(2,'0')+'m'; }
@@ -178,64 +179,66 @@ function toggleMaint(){ maint=!maint; const b=document.getElementById('mbt'); b.
 // Continuous hue: white (cold) → greens → yellow → orange → red (hot).
 // Colour = percentile rank of the cell within its zone (single-leg or stopover).
 // Dead zone (6,001–9,999km) is coloured on the same gradient as every other cell.
-const STOPS=[[0,[255,255,255]],[0.35,[204,255,204]],[0.65,[51,255,0]],[0.85,[255,255,0]],[0.95,[255,153,0]],[1,[255,0,0]]];
+const STOPS=[[0,[255,255,255]],[0.30,[217,245,217]],[0.55,[140,240,122]],[0.80,[51,204,0]],[0.95,[14,138,14]],[1,[11,94,11]]];
 function heatRGB(p){
   p=Math.max(0,Math.min(1,p));
   for(let i=1;i<STOPS.length;i++){ if(p<=STOPS[i][0]){ const [p0,c0]=STOPS[i-1],[p1,c1]=STOPS[i]; const t=(p-p0)/(p1-p0);
     return 'rgb('+c0.map((c,k)=>Math.round(c+(c1[k]-c)*t)).join(',')+')'; } }
-  return 'rgb(255,0,0)';
+  return 'rgb(11,94,11)';
 }
 // Sorted positive values of a column range → percentile lookup (binary search).
-function zoneScale(g,c0,c1){
-  const n=[]; g.forEach(row=>{ for(let di=c0;di<c1;di++){ const v=row[di]; if(typeof v==='number'&&v>0)n.push(v); } }); n.sort((a,b)=>a-b);
+function zoneScale(g,dists,pred){
+  const n=[]; g.forEach(row=>row.forEach((v,di)=>{ if(typeof v==='number'&&v>0&&pred(dists[di]))n.push(v); })); n.sort((a,b)=>a-b);
   return { n, pct(v){ if(!n.length)return 0; let lo=0,hi=n.length; while(lo<hi){const m=(lo+hi)>>1; if(n[m]<v)lo=m+1; else hi=m;} return n.length>1?lo/(n.length-1):1; } };
 }
 // Zone peak (best cell in column range, DZ excluded for single-leg) and global top-3 (both zones, DZ excluded).
-function zonePeak(g,dists,isSV,c0,c1){ let b=-Infinity,at=null; g.forEach((row,ti)=>{ for(let di=c0;di<c1;di++){ const v=row[di]; if(typeof v==='number'&&v>b&&(isSV||!isDZ(dists[di]))){b=v;at=ti+':'+di;} } }); return at; }
+function zonePeak(g,dists,pred){ let b=-Infinity,at=null; g.forEach((row,ti)=>row.forEach((v,di)=>{ if(typeof v==='number'&&v>b&&pred(dists[di])&&!isDZ(dists[di])){b=v;at=ti+':'+di;} })); return at; }
 // TOP 3 across the SELECTED flight-time row only (dead zone excluded) — 21 Jun spec.
-function rowTop3(g,ti,dists,nSingle){
+function rowTop3(g,ti,dists){
   const m={}; if(ti<0||!g[ti])return m; const all=[];
-  g[ti].forEach((v,di)=>{ if(typeof v==='number'&&v>0&&(di>=nSingle||!isDZ(dists[di])))all.push({v,di}); });
+  g[ti].forEach((v,di)=>{ if(typeof v==='number'&&v>0&&!isDZ(dists[di]))all.push({v,di}); });
   all.sort((a,b)=>b.v-a.v); all.slice(0,3).forEach((x,i)=>m[ti+':'+x.di]=i+1); return m;
 }
 function rowBestRange(g,ti,dists,pred){ let b=-Infinity,at=-1; if(!g[ti])return -1; g[ti].forEach((v,di)=>{ if(typeof v==='number'&&v>b&&pred(dists[di])){b=v;at=di;} }); return at; }
 
 function isDZ(d){ return d>6000&&d<10000; }
-function buildHead(dists,nSingle){
+function isSV(d){ return d>=10000; }
+function buildHead(dists){
   const tr=document.getElementById('s-head');
   while(tr.children.length>1)tr.removeChild(tr.lastChild);
-  dists.forEach((d,i)=>{
+  dists.forEach(d=>{
     const th=document.createElement('th');
-    th.innerHTML=d.toLocaleString()+(i>=nSingle?'<span>stopover ÷2</span>':'');
+    th.innerHTML=d.toLocaleString()+(isSV(d)?'<span>stopover</span>':'');
     if(d===6500)th.classList.add('b6'); if(d===10000)th.classList.add('b10');
-    if(i>=nSingle){ th.classList.add('sv'); th.title='Beyond max range — two legs, contribution shown per leg'; }
+    if(isSV(d)){ th.classList.add('sv'); th.title='10,000km+ — stopover route, full-distance contribution'; }
     else if(isDZ(d)){ th.classList.add('dz'); th.title='Dead zone 6,001–9,999km — restricted, shown on same heat scale'; }
     tr.appendChild(th);
   });
 }
 
-function buildBody(grid,dists,nSingle,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
+function buildBody(grid,dists,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
+  const rbS=optRowIdx>=0?rowBestRange(grid,optRowIdx,dists,d=>d<=6000):-1;
+  const rbV=optRowIdx>=0?rowBestRange(grid,optRowIdx,dists,d=>d>=10000):-1;
   let html='';
   TMS.forEach((t,ti)=>{
-    const isOpt=ti===optRowIdx;
-    const rbS=isOpt?rowBestRange(grid,ti,dists,d=>d<=6000):-1;
-    const rbV=isOpt?rowBestRange(grid,ti,dists,d=>d>=10000):-1;
+    const isOpt=ti===optRowIdx; const dr=Math.abs(ti-optRowIdx);
     html+='<tr><td class="tlbl'+(isOpt?' opt':'')+'">'+tl(t)+'</td>';
     dists.forEach((d,di)=>{
-      const v=grid[ti][di]; const sv=di>=nSingle; let cls='',sty='',txt='',attr='';
+      const v=grid[ti][di]; const sv=isSV(d); let cls='',sty='',txt='',attr='';
       if(d===6500)cls+=' b6'; if(d===10000)cls+=' b10';
-      if(v==='X'){cls='vx';txt='X';}
+      if(v==='X'){cls+=' vx';txt='X';}
       else if(typeof v==='number'){
         txt=v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-        if(v<0){cls='vng';}
-        else{ const p=(sv?vScale:sScale).pct(v); sty=' style="background:'+heatRGB(p)+'"'; if(p>=0.9)cls='hot'; }
+        if(v<0){cls+=' vng';}
+        else{ const p=(sv?vScale:sScale).pct(v); sty=' style="background:'+heatRGB(p)+'"'; if(p>=0.9)cls+=' hot'; }
         if(isOpt)cls+=' opt-cell';
         if((sv?vPeak:sPeak)===ti+':'+di)cls+=' zpeak';
-        const r=topMap[ti+':'+di]; if(r){cls+=' top3';attr=' data-rank="★'+r+'"';}
-        if(isOpt&&(di===rbS||di===rbV))cls+=' rowbest';
+        // Hot-zone blob: peak cell of the selected row ±2 cols, ±1 row (yellow); peak itself bright yellow.
+        if(optRowIdx>=0&&!isDZ(d)){ const rb=sv?rbV:rbS; if(rb>=0&&Math.abs(di-rb)<=2&&dr<=1){ cls+=(isOpt&&di===rb)?' blob2':' blob'; } }
+        const r=topMap[ti+':'+di]; if(r){cls+=' top3';attr=' data-rank="'+r+'"';}
       }
-      else{cls='vem';}
-      html+='<td class="cell '+cls+'"'+sty+attr+'>'+txt+'</td>';
+      else{cls+=' vem';}
+      html+='<td class="cell'+cls+'"'+sty+attr+'>'+txt+'</td>';
     });
     html+='</tr>';
   });
@@ -283,8 +286,8 @@ function onDDChange(){
 
 function reOpt(){
   if(!gGrid)return;
-  topMap=rowTop3(gGrid,optIdx,gDists,nSingle);
-  buildBody(gGrid,gDists,nSingle,sScale,vScale,optIdx,sPeak,vPeak,topMap);
+  topMap=rowTop3(gGrid,optIdx,gDists);
+  buildBody(gGrid,gDists,sScale,vScale,optIdx,sPeak,vPeak,topMap);
 }
 
 async function loadGrid(ac,mode){
@@ -293,20 +296,17 @@ async function loadGrid(ac,mode){
   try{
     const r=await fetch('/api/calc?k='+encodeURIComponent(KEY)+'&aircraft='+encodeURIComponent(ac)+'&mode='+encodeURIComponent(mode));
     const D=await r.json();
-    const{singleGrid:sg,singleDists:sd,stopoverGrid:vg,stopoverDists:vd,maxRange:mx,stopoverMax:vmx}=D;
-    sGrid=sg; sDists=sd;
-    populateDD(sg,sd);
+    const grid=D.grid, dists=D.dists, mx=D.maxRange;
+    sGrid=grid; sDists=dists; gGrid=grid; gDists=dists;
+    populateDD(grid,dists);
     const fpd=parseInt(document.getElementById('opt-dd').value)||0;
     optIdx=fpd?closestRow(optMins(fpd,maint)):-1;
-    // One continuous table: single-leg columns then stopover columns (per leg ÷2).
-    const nS=sd.length; const dists=sd.concat(vd); const grid=sg.map((row,ti)=>row.concat(vd.length?vg[ti]:[]));
-    gGrid=grid; gDists=dists; nSingle=nS;
-    sScale=zoneScale(grid,0,nS); vScale=vd.length?zoneScale(grid,nS,dists.length):sScale;
-    sPeak=zonePeak(grid,dists,false,0,nS); vPeak=vd.length?zonePeak(grid,dists,true,nS,dists.length):null;
-    topMap=rowTop3(grid,optIdx,dists,nS);
-    buildHead(dists,nS);
-    buildBody(grid,dists,nS,sScale,vScale,optIdx,sPeak,vPeak,topMap);
-    document.getElementById('hm1sub').textContent='500 – '+mx.toLocaleString()+'km single leg · '+(vd.length?mx.toLocaleString()+' – '+vmx.toLocaleString()+'km stopover, shown per leg (÷2)':'no stopover range');
+    sScale=zoneScale(grid,dists,d=>d<10000); vScale=zoneScale(grid,dists,d=>d>=10000);
+    sPeak=zonePeak(grid,dists,d=>d<=6000); vPeak=zonePeak(grid,dists,d=>d>=10000);
+    topMap=rowTop3(grid,optIdx,dists);
+    buildHead(dists);
+    buildBody(grid,dists,sScale,vScale,optIdx,sPeak,vPeak,topMap);
+    document.getElementById('hm1sub').textContent='500 – 6,000km single leg · 6,001 – 9,999km dead zone · 10,000 – 20,000km stopover · max range '+mx.toLocaleString()+'km';
     document.getElementById('smsg').textContent=ac.toUpperCase()+' — '+mode.toUpperCase();
     onDDChange();
   }catch(e){ document.getElementById('smsg').textContent='ERROR — RELOAD PAGE'; }
