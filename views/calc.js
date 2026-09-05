@@ -53,23 +53,20 @@ function buildCalcPage(key) {
   table { border-collapse: collapse; white-space: nowrap; font-size: 11.5px; }
   thead th { background: #1A2744; border: 1px solid #2A3A6A; padding: 6px 8px; text-align: center; font-weight: 700; font-size: 10px; letter-spacing: 0.06em; color: #FFFFFF; position: sticky; top: 0; z-index: 50; }
   thead th:first-child { position: sticky; left: 0; z-index: 60; background: #1A2744; min-width: 68px; font-size: 9px; }
-  th.dz-col { background: #888888 !important; color: #FFFFFF !important; border-color: #666666 !important; font-size: 9px; min-width: 90px; padding: 4px 8px; }
-  th.dz-col span { font-size: 8px; display: block; margin-top: 2px; }
-  th.dz { background: #AAAAAA !important; color: #000000 !important; border-color: #999999 !important; }
+  th.dz { background: #1A2744 !important; color: #C9D3E6 !important; }
   td.tlbl { position: sticky; left: 0; z-index: 10; background: #1A2744; border: 1px solid #2A3A6A; padding: 4px 10px 4px 8px; font-size: 10.5px; font-weight: 600; color: #FFFFFF; text-align: right; }
   td.tlbl.opt { background: #1A3A1A !important; border-left: 3px solid #FFD700 !important; color: #FFD700 !important; }
-  td.cell { border: 1px solid #AAAAAA; padding: 4px 7px; text-align: right; min-width: 52px; font-size: 11px; font-weight: 500; }
-  td.cell:hover { filter: brightness(1.3); cursor: default; }
-  td.dz { background: #D9D9D9; color: #000000; border-color: #BBBBBB; }
+  td.cell { border: 1px solid #C8C8C8; padding: 4px 7px; text-align: right; min-width: 52px; font-size: 11px; font-weight: 500; color: #000; }
+  td.cell:hover { filter: brightness(1.12); cursor: default; }
   td.vx  { background: #FF8080; color: #000000; font-weight: 700; }
-  td.vt1 { background: #1B5E20; color: #000000; font-weight: 700; }
-  td.vt2 { background: #2E7D32; color: #000000; font-weight: 600; }
-  td.vt3 { background: #43A047; color: #000000; }
-  td.vt4 { background: #81C784; color: #000000; }
-  td.vt5 { background: #C8E6C9; color: #000000; }
-  td.vlo { background: #FFFFFF; color: #000000; }
   td.vng { background: #FFCDD2; color: #B71C1C; font-weight: 600; }
   td.vem { background: #F5F5F5; }
+  td.hot { font-weight: 700; }
+  td.zpeak { outline: 2px solid #1A2744; outline-offset: -2px; font-weight: 700; }
+  td.top3 { outline: 3px solid #FFD700; outline-offset: -3px; font-weight: 800; position: relative; }
+  td.top3::after { content: attr(data-rank); position: absolute; top: -1px; left: 1px; font-size: 8px; font-weight: 800; color: #1A2744; }
+  td.rowbest { box-shadow: inset 0 0 0 2px #1A72BB; }
+  .grad-bar { display: inline-block; width: 220px; height: 12px; border-radius: 3px; border: 1px solid #999; vertical-align: middle; background: linear-gradient(90deg,#FFFFFF 0%,#C8E6C9 45%,#43A047 75%,#FFEB3B 90%,#FF9800 96%,#E53935 100%); }
   td.opt-cell { outline: 2px solid #FFD700; outline-offset: -2px; }
   .footer { padding: 14px 24px; border-top: 1px solid #AAAAAA; display: flex; align-items: center; justify-content: space-between; color: #555; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; flex-wrap: wrap; gap: 8px; }
   #lov { position: fixed; inset: 0; background: rgba(7,9,15,0.85); display: none; align-items: center; justify-content: center; z-index: 200; font-size: 13px; letter-spacing: 0.1em; color: #FFFFFF; }
@@ -143,15 +140,13 @@ function buildCalcPage(key) {
 </div>
 
 <div class="footer">
-  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-    <span style="background:#1B5E20;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">PEAK #1</span>
-    <span style="background:#2E7D32;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">TOP 9</span>
-    <span style="background:#43A047;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">TOP 25</span>
-    <span style="background:#81C784;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">TOP 60</span>
-    <span style="background:#C8E6C9;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">TOP 120</span>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <span style="font-size:10px;font-weight:700;">COLD</span><span class="grad-bar"></span><span style="font-size:10px;font-weight:700;">HOT</span>
+    <span style="outline:2px solid #1A2744;outline-offset:1px;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">ZONE PEAK</span>
+    <span style="outline:3px solid #FFD700;outline-offset:1px;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:800;">★ TOP 3 OVERALL</span>
+    <span style="box-shadow:inset 0 0 0 2px #1A72BB;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">ROW BEST</span>
     <span style="background:#FFCDD2;color:#B71C1C;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">NEGATIVE</span>
     <span style="background:#FF8080;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">CI &gt; 200</span>
-    <span style="background:#D9D9D9;color:#000;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">DEAD ZONE</span>
     <span style="outline:2px solid #FFD700;outline-offset:1px;background:#1A3A1A;color:#FFD700;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;">★ OPTIMAL ROW</span>
   </div>
   <span>BROWSER USE ONLY — NOT FOR DOWNLOAD OR DISTRIBUTION</span>
@@ -163,7 +158,7 @@ const ACM = Object.fromEntries(ACD.map(a=>[a.n,a]));
 const TMS = ${JSON.stringify(CALC_TIMES)};
 const KEY = '${key}';
 let cMode = 'Realism', maint = true, optIdx = -1;
-let sGrid = null, sDists = null;
+let sGrid = null, sDists = null, vGrid = null, vDists = null, sScale=null, vScale=null, sPeak=null, vPeak=null, topMap={};
 
 function tl(h){ const hr=Math.floor(h); return hr+'h '+(h%1===0?'00m':'30m'); }
 function fmins(m){ const h=Math.floor(m/60),mn=Math.round(m%60); return h+'h '+String(mn).padStart(2,'0')+'m'; }
@@ -183,16 +178,31 @@ function setMode(m){
 
 function toggleMaint(){ maint=!maint; const b=document.getElementById('mbt'); b.textContent=maint?'YES':'NO'; b.className='maint-btn'+(maint?' on':''); if(sGrid){populateDD(sGrid,sDists);onDDChange();} }
 
-function thresholds(g,dists){
-  const n=[]; g.forEach(row=>row.forEach((v,di)=>{if(typeof v==='number'&&v>0&&!(dists&&isDZ(dists[di])))n.push(v);})); n.sort((a,b)=>b-a);
-  return[n[0]||0,n[Math.min(8,n.length-1)]||0,n[Math.min(24,n.length-1)]||0,n[Math.min(59,n.length-1)]||0,n[Math.min(119,n.length-1)]||0];
+// ── HEAT GRADIENT ─────────────────────────────────────────────────────────
+// Continuous hue: white (cold) → greens → yellow → orange → red (hot).
+// Colour = percentile rank of the cell within its zone (single-leg or stopover).
+// Dead zone (6,001–9,999km) is coloured on the same gradient as every other cell.
+const STOPS=[[0,[255,255,255]],[0.45,[200,230,201]],[0.75,[67,160,71]],[0.90,[255,235,59]],[0.96,[255,152,0]],[1,[229,57,53]]];
+function heatRGB(p){
+  p=Math.max(0,Math.min(1,p));
+  for(let i=1;i<STOPS.length;i++){ if(p<=STOPS[i][0]){ const [p0,c0]=STOPS[i-1],[p1,c1]=STOPS[i]; const t=(p-p0)/(p1-p0);
+    return 'rgb('+c0.map((c,k)=>Math.round(c+(c1[k]-c)*t)).join(',')+')'; } }
+  return 'rgb(229,57,53)';
 }
-
-function tier(v,th){
-  if(v<0)return'vng';
-  if(v>=th[0])return'vt1'; if(v>=th[1])return'vt2'; if(v>=th[2])return'vt3';
-  if(v>=th[3])return'vt4'; if(v>=th[4])return'vt5'; return'vlo';
+// Sorted positive values of a zone → percentile lookup (binary search).
+function zoneScale(g){
+  const n=[]; g.forEach(row=>row.forEach(v=>{ if(typeof v==='number'&&v>0)n.push(v); })); n.sort((a,b)=>a-b);
+  return { n, pct(v){ if(!n.length)return 0; let lo=0,hi=n.length; while(lo<hi){const m=(lo+hi)>>1; if(n[m]<v)lo=m+1; else hi=m;} return n.length>1?lo/(n.length-1):1; } };
 }
+// Zone peak (best cell, DZ excluded) and global top-3 (both zones, DZ excluded).
+function zonePeak(g,dists,isSV){ let b=-Infinity,at=null; g.forEach((row,ti)=>row.forEach((v,di)=>{ if(typeof v==='number'&&v>b&&(isSV||!isDZ(dists[di]))){b=v;at=ti+':'+di;} })); return at; }
+function top3(sg,sd,vg,vd){
+  const all=[];
+  sg.forEach((row,ti)=>row.forEach((v,di)=>{ if(typeof v==='number'&&v>0&&!isDZ(sd[di]))all.push({v,k:'s:'+ti+':'+di}); }));
+  if(vg)vg.forEach((row,ti)=>row.forEach((v,di)=>{ if(typeof v==='number'&&v>0)all.push({v,k:'v:'+ti+':'+di}); }));
+  all.sort((a,b)=>b.v-a.v); const m={}; all.slice(0,3).forEach((x,i)=>m[x.k]=i+1); return m;
+}
+function rowBest(g,ti,dists,isSV){ let b=-Infinity,at=-1; if(!g[ti])return -1; g[ti].forEach((v,di)=>{ if(typeof v==='number'&&v>b&&(isSV||!isDZ(dists[di]))){b=v;at=di;} }); return at; }
 
 function isDZ(d){ return d>6000&&d<10000; }
 function buildHead(dists,headId,isSV){
@@ -201,26 +211,30 @@ function buildHead(dists,headId,isSV){
   dists.forEach((d,i)=>{
     const th=document.createElement('th');
     th.textContent=d.toLocaleString();
-    if(!isSV&&isDZ(d)) th.className='dz';
+    if(!isSV&&isDZ(d)){ th.className='dz'; th.title='Dead zone 6,001–9,999km — restricted, shown on same heat scale'; }
     tr.appendChild(th);
   });
 }
 
-function buildBody(grid,dists,bodyId,th,isSV,optRowIdx){
+function buildBody(grid,dists,bodyId,scale,isSV,optRowIdx,peakKey,topMap,prefix){
   let html='';
   TMS.forEach((t,ti)=>{
-    const isOpt=ti===optRowIdx;
+    const isOpt=ti===optRowIdx; const rb=isOpt?rowBest(grid,ti,dists,isSV):-1;
     html+='<tr><td class="tlbl'+(isOpt?' opt':'')+'">'+tl(t)+'</td>';
     dists.forEach((d,di)=>{
-      const v=grid[ti][di]; let cls,txt;
-      if(!isSV&&isDZ(d)){
-        if(v==='X'){cls='dz';txt='X';}
-        else if(typeof v==='number'){cls='dz';txt=v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
-        else{cls='dz';txt='';}
-      } else if(v==='X'){cls='vx';txt='X';}
-      else if(typeof v==='number'){cls=tier(v,th)+(isOpt?' opt-cell':'');txt=v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
-      else{cls='vem';txt='';}
-      html+='<td class="cell '+cls+'">'+txt+'</td>';
+      const v=grid[ti][di]; let cls='',sty='',txt='',attr='';
+      if(v==='X'){cls='vx';txt='X';}
+      else if(typeof v==='number'){
+        txt=v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+        if(v<0){cls='vng';}
+        else{ const p=scale.pct(v); sty=' style="background:'+heatRGB(p)+'"'; if(p>=0.9)cls='hot'; }
+        if(isOpt)cls+=' opt-cell';
+        if(peakKey===ti+':'+di)cls+=' zpeak';
+        const r=topMap[prefix+':'+ti+':'+di]; if(r){cls+=' top3';attr=' data-rank="★'+r+'"';}
+        if(isOpt&&di===rb)cls+=' rowbest';
+      }
+      else{cls='vem';}
+      html+='<td class="cell '+cls+'"'+sty+attr+'>'+txt+'</td>';
     });
     html+='</tr>';
   });
@@ -267,15 +281,8 @@ function onDDChange(){
 }
 
 function reOpt(){
-  document.querySelectorAll('.tlbl').forEach(td=>td.classList.remove('opt'));
-  document.querySelectorAll('.opt-cell').forEach(td=>td.classList.remove('opt-cell'));
-  if(optIdx<0)return;
-  const rows=document.getElementById('s-body').querySelectorAll('tr');
-  if(rows[optIdx]){
-    const cells=rows[optIdx].querySelectorAll('td');
-    cells[0].classList.add('opt');
-    for(let i=1;i<cells.length;i++)cells[i].classList.add('opt-cell');
-  }
+  if(!sGrid)return;
+  buildBody(sGrid,sDists,'s-body',sScale,false,optIdx,sPeak,topMap,'s');
 }
 
 async function loadGrid(ac,mode){
@@ -289,14 +296,16 @@ async function loadGrid(ac,mode){
     populateDD(sg,sd);
     const fpd=parseInt(document.getElementById('opt-dd').value)||0;
     optIdx=fpd?closestRow(optMins(fpd,maint)):-1;
-    const sth=thresholds(sg,sd);
+    vGrid=vg; vDists=vd;
+    sScale=zoneScale(sg); vScale=vd.length?zoneScale(vg):null;
+    sPeak=zonePeak(sg,sd,false); vPeak=vd.length?zonePeak(vg,vd,true):null;
+    topMap=top3(sg,sd,vd.length?vg:null,vd);
     buildHead(sd,'s-head',false);
-    buildBody(sg,sd,'s-body',sth,false,optIdx);
+    buildBody(sg,sd,'s-body',sScale,false,optIdx,sPeak,topMap,'s');
     document.getElementById('hm1sub').textContent='500 – '+mx.toLocaleString()+'km';
     if(vd.length>0){
-      const vth=thresholds(vg);
       buildHead(vd,'sv-head',true);
-      buildBody(vg,vd,'sv-body',vth,true,-1);
+      buildBody(vg,vd,'sv-body',vScale,true,-1,vPeak,topMap,'v');
       document.getElementById('hm2sub').textContent=mx.toLocaleString()+' – '+vmx.toLocaleString()+'km · contribution shown per leg (total ÷ 2)';
       document.getElementById('sv-wrap').style.display='';
     } else {
