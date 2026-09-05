@@ -147,6 +147,31 @@ function buildCalcPage(key) {
       <div class="opt-result" id="ores">—</div>
     </div>
   </div>
+  <div id="rev" style="min-width:300px;">
+    <div class="opt-section-label">$ REVENUE LANE — CI 200 · A-CHECK PER STARTED HOUR</div>
+    <div class="manual-row" style="gap:10px;">
+      <span class="control-label">FUEL $/1000lb</span><input id="fuelp" type="number" value="600" style="width:64px;background:#0A1E30;color:#E6F0FF;border:1px solid #2C4A6E;border-radius:4px;padding:4px 6px;font-family:inherit;">
+      <span class="control-label">CO₂ $/1000q</span><input id="co2p" type="number" value="135" style="width:64px;background:#0A1E30;color:#E6F0FF;border:1px solid #2C4A6E;border-radius:4px;padding:4px 6px;font-family:inherit;">
+    </div>
+    <div class="manual-row" style="gap:8px;margin-top:6px;">
+      <span class="control-label" title="Seats configured per class">SEATS Y/J/F</span>
+      <input id="sy" type="number" value="142" style="width:52px;background:#0A1E30;color:#E6F0FF;border:1px solid #2C4A6E;border-radius:4px;padding:4px 6px;font-family:inherit;">
+      <input id="sj" type="number" value="132" style="width:52px;background:#0A1E30;color:#E6F0FF;border:1px solid #2C4A6E;border-radius:4px;padding:4px 6px;font-family:inherit;">
+      <input id="sf" type="number" value="57" style="width:52px;background:#0A1E30;color:#E6F0FF;border:1px solid #2C4A6E;border-radius:4px;padding:4px 6px;font-family:inherit;">
+      <span class="control-label" title="Daily route demand per class — resets daily. Typical A380 route from export medians.">DEMAND/DAY Y/J/F</span>
+      <input id="dy" type="number" value="600" step="10" style="width:56px;background:#0A1E30;color:#E6F0FF;border:1px solid #2C4A6E;border-radius:4px;padding:4px 6px;font-family:inherit;">
+      <input id="dj" type="number" value="270" step="10" style="width:56px;background:#0A1E30;color:#E6F0FF;border:1px solid #2C4A6E;border-radius:4px;padding:4px 6px;font-family:inherit;">
+      <input id="df" type="number" value="120" step="10" style="width:56px;background:#0A1E30;color:#E6F0FF;border:1px solid #2C4A6E;border-radius:4px;padding:4px 6px;font-family:inherit;">
+    </div>
+    <div class="manual-row" style="gap:10px;margin-top:8px;">
+      <span class="control-label">SWEET SPOT</span>
+      <span style="font-size:10px;color:#1AFF00;font-weight:700;">CONTRIB</span>
+      <input id="wslider" type="range" min="0" max="100" value="50" style="width:150px;accent-color:#FFC422;">
+      <span style="font-size:10px;color:#FFC422;font-weight:700;">PROFIT</span>
+      <span id="wlbl" style="font-size:11px;color:#E6F0FF;font-weight:700;">50 / 50</span>
+    </div>
+    <div class="bcard-meta" id="revnote" style="margin-top:6px;">&nbsp;</div>
+  </div>
   <div id="insp" style="min-width:300px;">
     <div class="opt-section-label">◎ CELL INSPECTOR — click any number on the chart</div>
     <div class="bcard" id="insp-card" style="cursor:default;border-color:#2C4A6E;">
@@ -193,12 +218,50 @@ let cMode = 'Realism', maint = true, optIdx = -1;
 let sGrid = null, sDists = null, gGrid=null, gDists=null, sScale=null, vScale=null, sPeak=null, vPeak=null, topMap={};
 
 // Flights that fit in 48h at flight time t (hours) with Nathan's buffers: 3 min per flight, 30 min maintenance (if on), 26 min human buffer.
-function flightsIn48(t){ return Math.max(0,Math.floor((2880-(maint?30:0)-26)/(t*60+3))); }
+// DEPARTURES RULE (Nathan, 5 Sep 2026): a flight counts when it DEPARTS inside the 48h window — it does not have to land.
+// So departures = full cycles that fit + 1 (the final departure). Cycle = flight time + 3 min buffer.
+// e.g. 11h40 → 2,824 ÷ 703 = 4 cycles → 5 departures, the whole fleet's contributions on the fifth.
+function flightsIn48(t){ const avail=2880-(maint?30:0)-26; const cyc=t*60+3; return cyc>avail?1:Math.floor(avail/cyc)+1; }
+// ── REVENUE MODEL (fitted 5–6 Sep 2026 from am4help exports, CI 200, realism) ──────────────────
+// Tickets: Y=(0.3d+150)×1.10  J=(0.6d+500)×1.08  F=(0.9d+1000)×1.06. J uses 2 Y-seats, F uses 3, so class mix barely
+// moves income: income ≈ 0.94 × Ycap × Y-ticket (A380 predicts $3.198M vs bot $3.192M at 16,684km).
+// Costs: fuel lb/km × price, CO₂ q/km × price, A-check $/h × ceil(flight hours at NORMAL speed), repair per flight.
+// Per-aircraft data — only aircraft listed here get a revenue lane; others rank on contributions alone.
+const REV={
+  'A380-800':  { ycap:600, fuelLbKm:21.59, co2QKm:85.79, acheckH:28750.5, repair:1557 },   // 400 = typical configured seats after class layout (Nathan, 6 Sep); 600 is the raw purchase capacity
+  'Concorde':  { ycap:128, fuelLbKm:44.0,  co2QKm:52.0,  acheckH:265693,  repair:2945 }
+};
+let revP=null, ac_name='';
+// Demand cap (Nathan, 6 Sep): three separate demand pools (Y, J, F), each resets daily.
+// Seats sold per flight per class = min(configured seats, class demand ÷ flights that day). Contributions unaffected (15 pax).
+function num(id,dflt){ const el=document.getElementById(id); const v=+(el&&el.value); return (el&&el.value!==''&&isFinite(v)&&v>=0)?v:dflt; }
+function soldPerClass(t){
+  const perDay=Math.max(0.5,completedIn48(t)/2);
+  return { y:Math.min(num('sy',142),num('dy',600)/perDay), j:Math.min(num('sj',132),num('dj',270)/perDay), f:Math.min(num('sf',57),num('df',120)/perDay) };
+}
+function seatsSold(t){ const s=soldPerClass(t); return s.y+s.j+s.f; }
+function profitPerFlight(d,t){
+  if(!revP)return null;
+  const s=soldPerClass(t);
+  const inc=0.94*( s.y*((0.3*d+150)*1.10) + s.j*((0.6*d+500)*1.08) + s.f*((0.9*d+1000)*1.06) );
+  const fuel=revP.fuelLbKm*d*(+document.getElementById('fuelp').value||600)/1000;
+  const co2=revP.co2QKm*d*(+document.getElementById('co2p').value||135)/1000;
+  const chk=revP.acheckH*Math.ceil(t);
+  return inc-fuel-co2-chk-revP.repair;
+}
+// Revenue lands on completion, contributions count on departure (Nathan's rule) — so profit uses completed flights.
+function completedIn48(t){ const avail=2880-(maint?30:0)-26; return Math.max(0,Math.floor(avail/(t*60+3))); }
+function weightW(){ return (+document.getElementById('wslider').value||0)/100; }
 // Rank table: every valid cell's 48h total (dead zone excluded), sorted high→low.
 let rankList=[];
 function buildRank(grid,dists){
-  rankList=[]; grid.forEach((row,ti)=>row.forEach((v,di)=>{ if(typeof v==='number'&&v>0&&!isDZ(dists[di])){ const n=flightsIn48(TMS[ti]); rankList.push({ti,di,t48:v*n}); } }));
-  rankList.sort((a,b)=>b.t48-a.t48);
+  rankList=[]; grid.forEach((row,ti)=>row.forEach((v,di)=>{ if(typeof v==='number'&&v>0&&!isDZ(dists[di])){
+    const t=TMS[ti], n=flightsIn48(t), pf=profitPerFlight(dists[di],t); const p48=pf==null?null:pf*completedIn48(t);
+    rankList.push({ti,di,t48:v*n,p48}); } }));
+  const maxT=Math.max(...rankList.map(r=>r.t48)), maxP=Math.max(...rankList.map(r=>r.p48==null?0:r.p48));
+  const w=revP?weightW():0;
+  rankList.forEach(r=>{ const cN=r.t48/maxT, pN=(r.p48==null||maxP<=0)?0:Math.max(0,r.p48)/maxP; r.score=revP?((1-w)*cN+w*pN):cN; });
+  rankList.sort((a,b)=>b.score-a.score);
 }
 function inspect(ti,di){
   const v=gGrid[ti][di], d=gDists[di], t=TMS[ti];
@@ -208,9 +271,10 @@ function inspect(ti,di){
   const idx=rankList.findIndex(r=>r.ti===ti&&r.di===di);
   document.getElementById('insp-head').textContent=tl(t)+' × '+d.toLocaleString()+'km';
   document.getElementById('insp-l1').textContent=(typeof v==='number'?fval(v)+' per flight':'No valid flight (CI > 200)');
-  document.getElementById('insp-l2').textContent=n+' flights in 48hrs'+(maint?' (maint on)':' (maint off)')+(isDZ(d)?' · DEAD ZONE':'');
-  document.getElementById('insp-total').textContent=(typeof v==='number'?fval(t48)+' /48hrs':'—');
-  document.getElementById('insp-rank').textContent=idx>=0?('RANKED #'+(idx+1)+' OF '+rankList.length+' ON THIS CHART'):(isDZ(d)?'DEAD ZONE — NOT RANKED':'NOT RANKED');
+  document.getElementById('insp-l2').textContent=n+' departures in 48hrs'+(maint?' (maint on)':' (maint off)')+(isDZ(d)?' · DEAD ZONE':'');
+  const pf=profitPerFlight(d,t), cc=completedIn48(t);
+  document.getElementById('insp-total').textContent=(typeof v==='number'?fval(t48)+' /48hrs':'—')+(pf==null?'':'  ·  $'+Math.round(pf*cc).toLocaleString()+' profit /48hrs ('+cc+' landed · '+Math.round(seatsSold(t))+' pax/flight)');
+  document.getElementById('insp-rank').textContent=idx>=0?('RANKED #'+(idx+1)+' OF '+rankList.length+(revP?' — SWEET SPOT '+(100-Math.round(weightW()*100))+'/'+Math.round(weightW()*100):' — CONTRIBUTIONS')):(isDZ(d)?'DEAD ZONE — NOT RANKED':'NOT RANKED');
   const card=document.getElementById('insp-card'); card.className='bcard'+(idx===0?' gold':'');
   // Floating copy next to the cell
   const pop=document.getElementById('pop');
@@ -232,7 +296,7 @@ function tl(h){ const hr=Math.floor(h); return hr+'h '+(h%1===0?'00m':'30m'); }
 function fmins(m){ const h=Math.floor(m/60),mn=Math.round(m%60); return h+'h '+String(mn).padStart(2,'0')+'m'; }
 function fval(v){ return typeof v==='number'?'$'+v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):String(v); }
 
-function optMins(fpd,mt){ const f=fpd*2; return (2880-(f*3)-(mt?30:0)-26)/f; }
+function optMins(fpd,mt){ const f=fpd*2; return f<=1?(2880-(mt?30:0)-26):(2880-(mt?30:0)-26)/(f-1)-3; }
 function closestRow(om){ let b=0,bd=Infinity; TMS.forEach((t,i)=>{const d=Math.abs(t-om/60);if(d<bd){bd=d;b=i;}}); return b; }
 function peakRow(g,ri,ds){ if(!g||ri<0||ri>=g.length)return 0; return Math.max(0,...g[ri].filter((v,di)=>typeof v==='number'&&!(ds&&isDZ(ds[di])))); }
 
@@ -351,7 +415,7 @@ function populateDD(sg,sd){
   for(let fpd=1;fpd<=10;fpd++){
     const om=optMins(fpd,maint); if(om<=0)continue;
     const ri=closestRow(om); const pk=peakRow(sg,ri,sd); const t48=pk*fpd*2;
-    const lbl=fmins(om)+' = '+fpd*2+' flights | '+fval(t48)+' /48hrs';
+    const lbl=fmins(om)+' = '+fpd*2+' departures | '+fval(t48)+' /48hrs';
     const opt=document.createElement('option'); opt.value=fpd; opt.textContent=lbl; sel.appendChild(opt);
     res.push({fpd,om,ri,pk,t48,lbl});
   }
@@ -369,7 +433,7 @@ function buildBestCards(res,sg,sd){
     d.title='Click to jump to this cell on the chart';
     d.innerHTML='<div class="bcard-rank">'+(i===0?'#1 BEST':i===1?'#2':'#3')+'</div>'+
       '<div class="bcard-time">'+fmins(r.om)+'</div>'+
-      '<div class="bcard-meta">'+r.fpd+' flt/day · '+r.fpd*2+' in 48hrs</div>'+
+      '<div class="bcard-meta">'+r.fpd+' flt/day · '+r.fpd*2+' departures in 48hrs</div>'+
       (bd!=='—'?'<div class="bcard-meta">Best dist: '+bd.toLocaleString()+'km</div>':'')+
       '<div class="bcard-total">'+fval(r.t48)+' /48hrs</div>';
     d.onclick=()=>jumpTo(r.fpd,r.ri,bdi);
@@ -433,6 +497,8 @@ async function loadGrid(ac,mode){
     populateDD(grid,dists);
     const fpd=parseInt(document.getElementById('opt-dd').value)||0;
     optIdx=fpd?closestRow(optMins(fpd,maint)):-1;
+    ac_name=ac; revP=REV[ac]||null;
+    document.getElementById('revnote').textContent=revP?('Revenue lane active for '+ac+' — '+revP.fuelLbKm+' lb/km, '+revP.co2QKm+' q/km, A-check $'+Math.round(revP.acheckH).toLocaleString()+' per started hour, repair $'+revP.repair.toLocaleString()):('No revenue data for '+ac+' yet — ranking on contributions only');
     buildRank(grid,dists);
     sScale=zoneScale(grid,dists,d=>true); vScale=sScale;  // one continuous value scale — no zone cut in the colour
     sPeak=zonePeak(grid,dists,d=>d<=6000); vPeak=zonePeak(grid,dists,d=>d>=10000);
@@ -446,6 +512,11 @@ async function loadGrid(ac,mode){
   finally{ document.getElementById('lov').style.display='none'; }
 }
 
+function rerank(){ if(!gGrid)return; buildRank(gGrid,gDists); document.getElementById('wlbl').textContent=(100-Math.round(weightW()*100))+' / '+Math.round(weightW()*100); reOpt(); const sel=document.querySelector('td.sel'); if(sel){const [_,ti,di]=sel.id.split('-'); inspect(+ti,+di);} }
+document.getElementById('wslider').addEventListener('input',rerank);
+document.getElementById('fuelp').addEventListener('change',rerank);
+document.getElementById('co2p').addEventListener('change',rerank);
+['sy','sj','sf','dy','dj','df'].forEach(id=>document.getElementById(id).addEventListener('change',rerank));
 document.getElementById('ac-sel').addEventListener('change',function(){
   const sp=ACM[this.value];
   document.getElementById('spd').textContent=(cMode==='Easy'?sp.e:sp.r).toLocaleString();
