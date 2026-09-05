@@ -159,7 +159,7 @@ function buildCalcPage(key) {
 
 <div class="mini-wrap">
   <canvas id="mini" width="400" height="188"></canvas>
-  <div class="mini-note">Thermal overview — every flight time × every distance. Three heat circles — best sub-6,000, best 10,000+, best overall. Dead zone stays cold. Magenta = your hot zones. Click anywhere to jump to that cell.</div>
+  <div class="mini-note">Thermal overview — every flight time × every distance. Three heat circles — best sub-6,000, best 10,000+ (by contribution), best overall 1·2·3 (by 48-hour total). Dead zone stays cold. Magenta = your hot zones. Click anywhere to jump to that cell.</div>
 </div>
 
 <div class="hmap-header">
@@ -297,6 +297,7 @@ function buildHead(dists){
 }
 
 function buildBody(grid,dists,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
+  if(optRowIdx<0)topMap={};
   const rbS=optRowIdx>=0?rowBestRange(grid,optRowIdx,dists,d=>d<=6000):-1;
   const rbV=optRowIdx>=0?rowBestRange(grid,optRowIdx,dists,d=>d>=10000):-1;
   // Three heat circles (Nathan, 5 Sep): SHORT strategy = best sub-6,000 · LONG strategy = best 10,000+ · best OVERALL.
@@ -308,8 +309,10 @@ function buildBody(grid,dists,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
     if(rbV>=0)centres.push({ti:optRowIdx,di:rbV,w:1});
     Object.keys(topMap).forEach(k=>{ const c=pk(k); centres.push({ti:c.ti,di:c.di,w:topMap[k]===1?1:0.85}); });
   } else {
+    // No row selected: SHORT + LONG by contribution, BEST OVERALL = top 3 by 48-hour total across the chart.
     const zp1=pk(sPeak), zp2=pk(vPeak);
     if(zp1)centres.push({ti:zp1.ti,di:zp1.di,w:1}); if(zp2)centres.push({ti:zp2.ti,di:zp2.di,w:1});
+    rankList.slice(0,3).forEach((r,i)=>{ centres.push({ti:r.ti,di:r.di,w:i===0?1:0.85}); topMap[r.ti+':'+r.di]=i+1; });
   }
   let html='';
   TMS.forEach((t,ti)=>{
@@ -324,7 +327,10 @@ function buildBody(grid,dists,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
         else{ let p=heatP(sScale.pct(v),glowAt(ti,di,centres)); if(isDZ(d))p=Math.min(p,DZ_CAP); sty=' style="background:'+heatRGB(p)+'"'; if(p>=0.85)cls+=' hot'; if(isDark(p))cls+=' lt'; }
         if(isOpt)cls+=' opt-cell';
         // Hot-zone blob: peak cell of the selected row ±2 cols, ±1 row (yellow); peak itself bright yellow.
-        if(optRowIdx>=0&&!isDZ(d)){ const rb=sv?rbV:rbS; if(rb>=0&&Math.abs(di-rb)<=2&&dr<=1){ cls+=(isOpt&&di===rb)?' blob2':' blob'; } }
+        if(!isDZ(d)){
+          if(optRowIdx>=0){ const rb=sv?rbV:rbS; if(rb>=0&&Math.abs(di-rb)<=2&&dr<=1){ cls+=(isOpt&&di===rb)?' blob2':' blob'; } }
+          else { const zp=sv?vPeak:sPeak; if(zp){ const [zt,zd]=zp.split(':').map(Number); if(Math.abs(di-zd)<=2&&Math.abs(ti-zt)<=1){ cls+=(ti===zt&&di===zd)?' blob2':' blob'; } } }
+        }
         const r=topMap[ti+':'+di]; if(r){cls+=' top3';attr=' data-rank="'+r+'"';}
       }
       else{cls+=' vem';}
@@ -370,7 +376,7 @@ function buildBestCards(res,sg,sd){
 
 // Thermal mini-map: one pixel block per cell, magenta glow on hot zones, gold line on optimal row.
 function drawMini(grid,dists,sScale,centres,optRowIdx,rbS,rbV,topMap){
-  const cv=document.getElementById('mini'); if(!cv)return; const ctx=cv.getContext('2d');
+  const cv=document.getElementById('mini'); if(!cv)return; const ctx=cv.getContext&&cv.getContext('2d'); if(!ctx)return;
   const W=cv.width,H=cv.height,nc=dists.length,nr=grid.length,cw=W/nc,ch=H/nr;
   ctx.fillStyle='#0B1E3A'; ctx.fillRect(0,0,W,H);
   grid.forEach((row,ti)=>row.forEach((v,di)=>{
