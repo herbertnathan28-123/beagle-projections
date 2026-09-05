@@ -1,7 +1,8 @@
 const { AIRCRAFT_DATA, CALC_TIMES } = require('../config');
 
 function buildCalcPage(key) {
-  const acOptions = AIRCRAFT_DATA.map(a =>
+  // A380 first and selected by default (Nathan, 6 Sep)
+  const acOptions = [...AIRCRAFT_DATA.filter(a=>a.name==='A380-800'), ...AIRCRAFT_DATA.filter(a=>a.name!=='A380-800')].map(a =>
     '<option value="' + a.name + '">' + a.name + '</option>'
   ).join('');
 
@@ -68,7 +69,7 @@ function buildCalcPage(key) {
   .hmap-title { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); }
   .hmap-sub { font-size: 10px; color: var(--dim); }
   .table-wrap { overflow: auto; background: var(--bg); }
-  table { border-collapse: separate; border-spacing: 0; white-space: nowrap; width: 100%; table-layout: fixed; font-size: clamp(9px, 0.62vw, 12px); }
+  table { border-collapse: separate; border-spacing: 0; white-space: nowrap; width: 100%; min-width: 2150px; table-layout: fixed; font-size: clamp(9px, 0.62vw, 12px); }
   thead th { background: #0B1E3A; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 6px 2px; text-align: center; font-weight: 700; font-size: clamp(8px, 0.55vw, 10px); overflow: hidden; letter-spacing: 0.06em; color: var(--ink); position: sticky; top: 0; z-index: 50; }
   thead th:first-child { position: sticky; left: 0; z-index: 60; background: #0B1E3A; width: 70px; font-size: 9px; }
   th.dz { color: var(--dim) !important; }
@@ -132,7 +133,16 @@ function buildCalcPage(key) {
     </div>
   </div>
   <div>
-    <div class="opt-section-label">MANUAL — flights per day</div>
+    <div class="opt-section-label">MANUAL — DEPARTURES IN 48HRS (ALWAYS ODD — THE EXTRA FLIGHT)</div>
+    <div class="manual-row" style="margin-bottom:8px;">
+      <span class="control-label">4× SPEED</span>
+      <select id="boost" style="min-width:200px;">
+        <option value="0">Off</option>
+        <option value="4x1">4h × 1 a day (standard)</option><option value="4x2">4h × 2 a day</option><option value="4x3">4h × 3 a day</option><option value="4x4">4h × 4 a day</option><option value="4x5">4h × 5 a day</option><option value="4x6">4h × 6 a day</option>
+        <option value="1x1">1h × 1 a day (bonus)</option><option value="1x2">1h × 2 a day</option><option value="1x3">1h × 3 a day</option><option value="1x4">1h × 4 a day</option><option value="1x5">1h × 5 a day</option><option value="1x6">1h × 6 a day</option>
+        <option value="24">24h — all the time (bonus)</option>
+      </select>
+    </div>
     <div class="manual-row">
       <div class="control-group">
         <span class="control-label" style="color:#8AAABB;">Maintenance</span>
@@ -207,7 +217,7 @@ let sGrid = null, sDists = null, gGrid=null, gDists=null, sScale=null, vScale=nu
 // DEPARTURES RULE (Nathan, 5 Sep 2026): a flight counts when it DEPARTS inside the 48h window — it does not have to land.
 // So departures = full cycles that fit + 1 (the final departure). Cycle = flight time + 3 min buffer.
 // e.g. 11h40 → 2,824 ÷ 703 = 4 cycles → 5 departures, the whole fleet's contributions on the fifth.
-function flightsIn48(t){ const avail=2880-(maint?30:0)-26; const cyc=t*60+3; return cyc>avail?1:Math.floor(avail/cyc)+1; }
+function flightsIn48(t){ const avail=2880-(maint?30:0)-26; const cyc=clockMins(t)+3; return cyc>avail?1:Math.floor(avail/cyc)+1; }
 // ── REVENUE MODEL (fitted 5–6 Sep 2026 from am4help exports, CI 200, realism) ──────────────────
 // Tickets: Y=(0.3d+150)×1.10  J=(0.6d+500)×1.08  F=(0.9d+1000)×1.06. J uses 2 Y-seats, F uses 3, so class mix barely
 // moves income: income ≈ 0.94 × Ycap × Y-ticket (A380 predicts $3.198M vs bot $3.192M at 16,684km).
@@ -291,7 +301,11 @@ function fval(v){ return typeof v==='number'?'$'+v.toLocaleString(undefined,{min
 
 // Departures rule (Nathan): N departures in 48h = N−1 full cycles inside the window + the final departure that only has to leave.
 // N is always ODD — 3, 5, 7, 9 … — the extra flight is the point. Longest flight time that fits N: avail/(N−1) − 3 min buffer.
-function optMinsDep(N,mt){ const avail=2880-(mt?30:0)-26; return N<=1?avail:avail/(N-1)-3; }
+// 4× SPEED (Nathan, 6 Sep): sessions of 1h, 4h (standard paid) or 24h, activated 1–6 times a day.
+// Share of the window at 4× = sessions × hours ÷ 24. A flight's clock time shrinks by 75% of that share. Contributions per flight unchanged.
+function boostF(){ const v=(document.getElementById('boost')||{}).value||'0'; if(v==='0')return 0; if(v==='24')return 1; const [h,n]=v.split('x').map(Number); return Math.min(1,h*n/24); }
+function clockMins(t){ return t*60*(1-0.75*boostF()); }   // real minutes a flight of table time t takes
+function optMinsDep(N,mt){ const avail=2880-(mt?30:0)-26; const m=N<=1?avail:avail/(N-1)-3; return m/(1-0.75*boostF()); }
 function optMins(fpd,mt){ return optMinsDep(fpd,mt); }  // legacy name — 'fpd' now carries N departures
 function closestRow(om){ let b=0,bd=Infinity; TMS.forEach((t,i)=>{const d=Math.abs(t-om/60);if(d<bd){bd=d;b=i;}}); return b; }
 function peakRow(g,ri,ds){ if(!g||ri<0||ri>=g.length)return 0; return Math.max(0,...g[ri].filter((v,di)=>typeof v==='number'&&!(ds&&isDZ(ds[di])))); }
@@ -363,26 +377,17 @@ function buildHead(dists){
 }
 
 function buildBody(grid,dists,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
-  if(optRowIdx<0)topMap={};
-  const pkS=optRowIdx>=0?scorePeak(dists,d=>d<=6000,optRowIdx):null, pkV=optRowIdx>=0?scorePeak(dists,d=>d>=10000,optRowIdx):null;
+  // Circles are ALWAYS whole-table (Nathan, 6 Sep): SHORT = best sub-6,000, LONG = best 10,000+, 1·2·3 = top 3 overall, on the balance score.
+  const pkS=scorePeak(dists,d=>d<=6000), pkV=scorePeak(dists,d=>d>=10000);
   const rbS=pkS?+pkS.split(':')[1]:-1, rbV=pkV?+pkV.split(':')[1]:-1;
-  // Three heat circles (Nathan, 5 Sep): SHORT strategy = best sub-6,000 · LONG strategy = best 10,000+ · best OVERALL.
-  // Scoped to the selected flight-time row when one is chosen; whole table otherwise. Dead zone never qualifies.
+  const rowS=pkS?+pkS.split(':')[0]:-1, rowV=pkV?+pkV.split(':')[0]:-1;
   const centres=[];
   const pk=k=>{ if(!k)return null; const [a,b]=k.split(':').map(Number); return {ti:a,di:b}; };
-  if(optRowIdx>=0){
-    if(rbS>=0)centres.push({ti:optRowIdx,di:rbS,w:1});
-    if(rbV>=0)centres.push({ti:optRowIdx,di:rbV,w:1});
-    Object.keys(topMap).forEach(k=>{ const c=pk(k); centres.push({ti:c.ti,di:c.di,w:topMap[k]===1?1:0.85}); });
-  } else {
-    // No row selected: SHORT + LONG by contribution, BEST OVERALL = top 3 by 48-hour total across the chart.
-    const zp1=pk(sPeak), zp2=pk(vPeak);
-    if(zp1)centres.push({ti:zp1.ti,di:zp1.di,w:1}); if(zp2)centres.push({ti:zp2.ti,di:zp2.di,w:1});
-    rankList.slice(0,3).forEach((r,i)=>{ centres.push({ti:r.ti,di:r.di,w:i===0?1:0.85}); topMap[r.ti+':'+r.di]=i+1; });
-  }
+  if(pkS)centres.push({ti:rowS,di:rbS,w:1}); if(pkV)centres.push({ti:rowV,di:rbV,w:1});
+  topMap={}; rankList.slice(0,3).forEach((r,i)=>{ centres.push({ti:r.ti,di:r.di,w:i===0?1:0.85}); topMap[r.ti+':'+r.di]=i+1; });
   let html='';
   TMS.forEach((t,ti)=>{
-    const isOpt=ti===optRowIdx; const dr=Math.abs(ti-optRowIdx);
+    const isOpt=ti===optRowIdx; 
     html+='<tr><td class="tlbl'+(isOpt?' opt':'')+'">'+tl(t)+'</td>';
     dists.forEach((d,di)=>{
       const v=grid[ti][di]; const sv=isSV(d); let cls='',sty='',txt='',attr='';
@@ -394,8 +399,8 @@ function buildBody(grid,dists,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
         if(isOpt)cls+=' opt-cell';
         // Hot-zone blob: peak cell of the selected row ±2 cols, ±1 row (yellow); peak itself bright yellow.
         if(!isDZ(d)){
-          if(optRowIdx>=0){ const rb=sv?rbV:rbS; if(rb>=0&&Math.abs(di-rb)<=2&&dr<=1){ cls+=(isOpt&&di===rb)?' blob2':' blob'; } }
-          else { const zp=sv?vPeak:sPeak; if(zp){ const [zt,zd]=zp.split(':').map(Number); if(Math.abs(di-zd)<=2&&Math.abs(ti-zt)<=1){ cls+=(ti===zt&&di===zd)?' blob2':' blob'; } } }
+          if(pkS&&Math.abs(di-rbS)<=2&&Math.abs(ti-rowS)<=1) cls+=(ti===rowS&&di===rbS)?' blob2':' blob';
+          if(pkV&&Math.abs(di-rbV)<=2&&Math.abs(ti-rowV)<=1) cls+=(ti===rowV&&di===rbV)?' blob2':' blob';
         }
         const r=topMap[ti+':'+di]; if(r){cls+=' top3';attr=' data-rank="'+r+'"';}
       }
@@ -412,8 +417,8 @@ function populateDD(sg,sd){
   const sel=document.getElementById('opt-dd'); sel.innerHTML='';
   const none=document.createElement('option'); none.value='0'; none.textContent='— whole table —'; sel.appendChild(none);
   const res=[];
-  for(let N=3;N<=25;N+=2){
-    const om=optMinsDep(N,maint); if(om<60)break;
+  for(let N=3;N<=61;N+=2){
+    const om=optMinsDep(N,maint); if(om<60)break; if(om>24*60)continue;
     const ri=closestRow(om); const pk=peakRow(sg,ri,sd); const t48=pk*N;
     const lbl=fmins(om)+' = '+N+' departures in 48hrs | '+fval(t48);
     const opt=document.createElement('option'); opt.value=N; opt.textContent=lbl; sel.appendChild(opt);
@@ -424,18 +429,20 @@ function populateDD(sg,sd){
 }
 
 function buildBestCards(res,sg,sd){
-  const top=[...res].sort((a,b)=>b.t48-a.t48).slice(0,3);
+  // Cards rank on the same balance score as the circles: contributions/48h and profit/48h at the slider setting.
+  res.forEach(r=>{ let best=null; rankList.forEach(x=>{ if(x.ti===r.ri&&(!best||x.score>best.score))best=x; }); r.score=best?best.score:0; r.bestDi=best?best.di:-1; });
+  const top=[...res].sort((a,b)=>b.score-a.score).slice(0,3);
   const c=document.getElementById('best-cards'); c.innerHTML='';
   top.forEach((r,i)=>{
     let bd='—'; let bv=0; let bdi=-1;
-    if(sg&&r.ri<sg.length){sg[r.ri].forEach((v,di)=>{if(typeof v==='number'&&v>bv&&!isDZ(sd[di])){bv=v;bd=sd[di];bdi=di;}});}
-    const d=document.createElement('div'); d.className='bcard'+(i===0?' gold':'');
+    if(r.bestDi>=0){bdi=r.bestDi;bd=sd[bdi];bv=sg[r.ri][bdi];}
+    const d=document.createElement('div'); d.className='bcard'; d.dataset.n=r.fpd;
     d.title='Click to jump to this cell on the chart';
     d.innerHTML='<div class="bcard-rank">'+(i===0?'#1 BEST':i===1?'#2':'#3')+'</div>'+
       '<div class="bcard-time">'+fmins(r.om)+'</div>'+
-      '<div class="bcard-meta">'+r.fpd+' departures in 48hrs · '+((r.fpd-1)/2)+'½ a day</div>'+
+      '<div class="bcard-meta">'+r.fpd+' departures in 48hrs · '+((r.fpd-1)/2)+'½ a day'+(boostF()>0?' · 4× on':'')+'</div>'+
       (bd!=='—'?'<div class="bcard-meta">Best dist: '+bd.toLocaleString()+'km</div>':'')+
-      '<div class="bcard-total">'+fval(r.t48)+' /48hrs</div>';
+      '<div class="bcard-total">'+fval(bv*r.fpd)+' /48hrs</div>';
     d.onclick=()=>jumpTo(r.fpd,r.ri,bdi);
     c.appendChild(d);
   });
@@ -465,6 +472,7 @@ function drawMini(grid,dists,sScale,centres,optRowIdx,rbS,rbV,topMap){
 // Best-card click: select that flights/day, highlight its row, scroll to and flash the best cell.
 function jumpTo(fpd,ri,di){
   const sel=document.getElementById('opt-dd'); sel.value=String(fpd); onDDChange();
+  document.querySelectorAll('.best-cards .bcard').forEach(c=>c.classList.toggle('gold',c.dataset.n===String(fpd)));
   const td=document.getElementById('c-'+ri+'-'+di); if(!td)return;
   td.scrollIntoView({behavior:'smooth',block:'center',inline:'center'});
   td.classList.remove('flash'); void td.offsetWidth; td.classList.add('flash');
@@ -482,8 +490,6 @@ function onDDChange(){
 
 function reOpt(){
   if(!gGrid)return;
-  sPeak=scorePeak(gDists,d=>d<=6000); vPeak=scorePeak(gDists,d=>d>=10000);
-  topMap=optIdx>=0?scoreTop3Row(optIdx):{};
   buildBody(gGrid,gDists,sScale,vScale,optIdx,sPeak,vPeak,topMap);
 }
 
@@ -503,7 +509,6 @@ async function loadGrid(ac,mode){
     buildRank(grid,dists);
     sScale=zoneScale(grid,dists,d=>true); vScale=sScale;  // one continuous value scale — no zone cut in the colour
     sPeak=scorePeak(dists,d=>d<=6000); vPeak=scorePeak(dists,d=>d>=10000);
-    topMap=optIdx>=0?scoreTop3Row(optIdx):{};
     buildHead(dists);
     buildBody(grid,dists,sScale,vScale,optIdx,sPeak,vPeak,topMap);
     document.getElementById('hm1sub').textContent='500 – 6,000km · 6,001 – 9,999km dead zone · 10,000 – 20,000km · max range '+mx.toLocaleString()+'km';
@@ -513,8 +518,9 @@ async function loadGrid(ac,mode){
   finally{ document.getElementById('lov').style.display='none'; }
 }
 
-function rerank(){ if(!gGrid)return; buildRank(gGrid,gDists); document.getElementById('wlbl').textContent=(100-Math.round(weightW()*100))+' / '+Math.round(weightW()*100); reOpt(); const sel=document.querySelector('td.sel'); if(sel){const [_,ti,di]=sel.id.split('-'); inspect(+ti,+di);} }
+function rerank(){ if(!gGrid)return; buildRank(gGrid,gDists); populateDD(gGrid,gDists); document.getElementById('wlbl').textContent=(100-Math.round(weightW()*100))+' / '+Math.round(weightW()*100); reOpt(); const sel=document.querySelector('td.sel'); if(sel){const [_,ti,di]=sel.id.split('-'); inspect(+ti,+di);} }
 document.getElementById('wslider').addEventListener('input',rerank);
+document.getElementById('boost').addEventListener('change',()=>{ if(!sGrid)return; buildRank(sGrid,sDists); populateDD(sGrid,sDists); onDDChange(); });
 
 document.getElementById('ac-sel').addEventListener('change',function(){
   const sp=ACM[this.value];
