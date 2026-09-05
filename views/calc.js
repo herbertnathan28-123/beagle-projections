@@ -34,7 +34,10 @@ function buildCalcPage(key) {
   .optimizer-bar { background: #0D1A2E; border-bottom: 2px solid #1A3A5A; padding: 12px 24px; display: flex; align-items: flex-start; gap: 40px; flex-wrap: wrap; }
   .opt-section-label { font-size: 9px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: #8AAABB; margin-bottom: 8px; }
   .best-cards { display: flex; gap: 10px; flex-wrap: wrap; }
-  .bcard { background: #06121E; border: 1px solid #1A3A5A; border-radius: 5px; padding: 8px 14px; min-width: 165px; }
+  .bcard { background: #06121E; border: 1px solid #1A3A5A; border-radius: 5px; padding: 8px 14px; min-width: 165px; cursor: pointer; }
+  .bcard:hover { border-color: #E8B84B; }
+  @keyframes flash { 0%,100%{ box-shadow: inset 0 0 0 3px #FF00CE; } 50%{ box-shadow: none; } }
+  td.flash { animation: flash 0.6s ease-in-out 4; }
   .bcard.gold { border-color: #C4920A; }
   .bcard-rank { font-size: 9px; color: #C4920A; font-weight: 700; letter-spacing: 0.12em; margin-bottom: 3px; }
   .bcard-time { font-size: 19px; font-weight: 700; color: #E8B84B; letter-spacing: 0.02em; }
@@ -208,10 +211,9 @@ function buildHead(dists){
   while(tr.children.length>1)tr.removeChild(tr.lastChild);
   dists.forEach(d=>{
     const th=document.createElement('th');
-    th.innerHTML=d.toLocaleString()+(isSV(d)?'<span>stopover</span>':'');
+    th.textContent=d.toLocaleString();
     if(d===6500)th.classList.add('b6'); if(d===10000)th.classList.add('b10');
-    if(isSV(d)){ th.classList.add('sv'); th.title='10,000km+ — stopover route, full-distance contribution'; }
-    else if(isDZ(d)){ th.classList.add('dz'); th.title='Dead zone 6,001–9,999km — restricted, shown on same heat scale'; }
+    if(isDZ(d)){ th.classList.add('dz'); th.title='Dead zone 6,001–9,999km — restricted, shown on same heat scale'; }
     tr.appendChild(th);
   });
 }
@@ -238,7 +240,7 @@ function buildBody(grid,dists,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
         const r=topMap[ti+':'+di]; if(r){cls+=' top3';attr=' data-rank="'+r+'"';}
       }
       else{cls+=' vem';}
-      html+='<td class="cell'+cls+'"'+sty+attr+'>'+txt+'</td>';
+      html+='<td id="c-'+ti+'-'+di+'" class="cell'+cls+'"'+sty+attr+'>'+txt+'</td>';
     });
     html+='</tr>';
   });
@@ -263,16 +265,26 @@ function buildBestCards(res,sg,sd){
   const top=[...res].sort((a,b)=>b.t48-a.t48).slice(0,3);
   const c=document.getElementById('best-cards'); c.innerHTML='';
   top.forEach((r,i)=>{
-    let bd='—'; let bv=0;
-    if(sg&&r.ri<sg.length){sg[r.ri].forEach((v,di)=>{if(typeof v==='number'&&v>bv&&!isDZ(sd[di])){bv=v;bd=sd[di];}});}
+    let bd='—'; let bv=0; let bdi=-1;
+    if(sg&&r.ri<sg.length){sg[r.ri].forEach((v,di)=>{if(typeof v==='number'&&v>bv&&!isDZ(sd[di])){bv=v;bd=sd[di];bdi=di;}});}
     const d=document.createElement('div'); d.className='bcard'+(i===0?' gold':'');
+    d.title='Click to jump to this cell on the chart';
     d.innerHTML='<div class="bcard-rank">'+(i===0?'#1 BEST':i===1?'#2':'#3')+'</div>'+
       '<div class="bcard-time">'+fmins(r.om)+'</div>'+
       '<div class="bcard-meta">'+r.fpd+' flt/day · '+r.fpd*2+' in 48hrs</div>'+
       (bd!=='—'?'<div class="bcard-meta">Best dist: '+bd.toLocaleString()+'km</div>':'')+
       '<div class="bcard-total">'+fval(r.t48)+' /48hrs</div>';
+    d.onclick=()=>jumpTo(r.fpd,r.ri,bdi);
     c.appendChild(d);
   });
+}
+
+// Best-card click: select that flights/day, highlight its row, scroll to and flash the best cell.
+function jumpTo(fpd,ri,di){
+  const sel=document.getElementById('opt-dd'); sel.value=String(fpd); onDDChange();
+  const td=document.getElementById('c-'+ri+'-'+di); if(!td)return;
+  td.scrollIntoView({behavior:'smooth',block:'center',inline:'center'});
+  td.classList.remove('flash'); void td.offsetWidth; td.classList.add('flash');
 }
 
 function onDDChange(){
@@ -301,12 +313,12 @@ async function loadGrid(ac,mode){
     populateDD(grid,dists);
     const fpd=parseInt(document.getElementById('opt-dd').value)||0;
     optIdx=fpd?closestRow(optMins(fpd,maint)):-1;
-    sScale=zoneScale(grid,dists,d=>d<10000); vScale=zoneScale(grid,dists,d=>d>=10000);
+    sScale=zoneScale(grid,dists,d=>true); vScale=sScale;  // one continuous scale across the whole table
     sPeak=zonePeak(grid,dists,d=>d<=6000); vPeak=zonePeak(grid,dists,d=>d>=10000);
     topMap=rowTop3(grid,optIdx,dists);
     buildHead(dists);
     buildBody(grid,dists,sScale,vScale,optIdx,sPeak,vPeak,topMap);
-    document.getElementById('hm1sub').textContent='500 – 6,000km single leg · 6,001 – 9,999km dead zone · 10,000 – 20,000km stopover · max range '+mx.toLocaleString()+'km';
+    document.getElementById('hm1sub').textContent='500 – 6,000km · 6,001 – 9,999km dead zone · 10,000 – 20,000km · max range '+mx.toLocaleString()+'km';
     document.getElementById('smsg').textContent=ac.toUpperCase()+' — '+mode.toUpperCase();
     onDDChange();
   }catch(e){ document.getElementById('smsg').textContent='ERROR — RELOAD PAGE'; }
