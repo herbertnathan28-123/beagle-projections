@@ -54,6 +54,8 @@ function buildCalcPage(key) {
   thead th { background: #1A2744; border: 1px solid #2A3A6A; padding: 6px 8px; text-align: center; font-weight: 700; font-size: 10px; letter-spacing: 0.06em; color: #FFFFFF; position: sticky; top: 0; z-index: 50; }
   thead th:first-child { position: sticky; left: 0; z-index: 60; background: #1A2744; min-width: 68px; font-size: 9px; }
   th.dz { background: #1A2744 !important; color: #C9D3E6 !important; }
+  th.sv { background: #14213A !important; color: #C9D3E6 !important; }
+  th.sv span { display:block; font-size:8px; font-weight:400; opacity:.8; }
   td.tlbl { position: sticky; left: 0; z-index: 10; background: #1A2744; border: 1px solid #2A3A6A; padding: 4px 10px 4px 8px; font-size: 10.5px; font-weight: 600; color: #FFFFFF; text-align: right; }
   td.tlbl.opt { background: #1A3A1A !important; border-left: 3px solid #FFD700 !important; color: #FFD700 !important; }
   td.cell { border: 1px solid #C8C8C8; padding: 4px 7px; text-align: right; min-width: 52px; font-size: 11px; font-weight: 500; color: #000; }
@@ -124,19 +126,11 @@ function buildCalcPage(key) {
 </div>
 
 <div class="hmap-header">
-  <span class="hmap-title">SINGLE LEG</span>
+  <span class="hmap-title">CONTRIBUTION HEAT MAP</span>
   <span class="hmap-sub" id="hm1sub">—</span>
 </div>
 <div class="table-wrap">
   <table><thead><tr id="s-head"><th>FLIGHT TIME</th></tr></thead><tbody id="s-body"></tbody></table>
-</div>
-
-<div class="hmap-header">
-  <span class="hmap-title">STOPOVER</span>
-  <span class="hmap-sub" id="hm2sub">—</span>
-</div>
-<div class="table-wrap" id="sv-wrap">
-  <table><thead><tr id="sv-head"><th>FLIGHT TIME</th></tr></thead><tbody id="sv-body"></tbody></table>
 </div>
 
 <div class="footer">
@@ -158,7 +152,7 @@ const ACM = Object.fromEntries(ACD.map(a=>[a.n,a]));
 const TMS = ${JSON.stringify(CALC_TIMES)};
 const KEY = '${key}';
 let cMode = 'Realism', maint = true, optIdx = -1;
-let sGrid = null, sDists = null, vGrid = null, vDists = null, sScale=null, vScale=null, sPeak=null, vPeak=null, topMap={};
+let sGrid = null, sDists = null, gGrid=null, gDists=null, nSingle=0, sScale=null, vScale=null, sPeak=null, vPeak=null, topMap={};
 
 function tl(h){ const hr=Math.floor(h); return hr+'h '+(h%1===0?'00m':'30m'); }
 function fmins(m){ const h=Math.floor(m/60),mn=Math.round(m%60); return h+'h '+String(mn).padStart(2,'0')+'m'; }
@@ -189,56 +183,58 @@ function heatRGB(p){
     return 'rgb('+c0.map((c,k)=>Math.round(c+(c1[k]-c)*t)).join(',')+')'; } }
   return 'rgb(229,57,53)';
 }
-// Sorted positive values of a zone → percentile lookup (binary search).
-function zoneScale(g){
-  const n=[]; g.forEach(row=>row.forEach(v=>{ if(typeof v==='number'&&v>0)n.push(v); })); n.sort((a,b)=>a-b);
+// Sorted positive values of a column range → percentile lookup (binary search).
+function zoneScale(g,c0,c1){
+  const n=[]; g.forEach(row=>{ for(let di=c0;di<c1;di++){ const v=row[di]; if(typeof v==='number'&&v>0)n.push(v); } }); n.sort((a,b)=>a-b);
   return { n, pct(v){ if(!n.length)return 0; let lo=0,hi=n.length; while(lo<hi){const m=(lo+hi)>>1; if(n[m]<v)lo=m+1; else hi=m;} return n.length>1?lo/(n.length-1):1; } };
 }
-// Zone peak (best cell, DZ excluded) and global top-3 (both zones, DZ excluded).
-function zonePeak(g,dists,isSV){ let b=-Infinity,at=null; g.forEach((row,ti)=>row.forEach((v,di)=>{ if(typeof v==='number'&&v>b&&(isSV||!isDZ(dists[di]))){b=v;at=ti+':'+di;} })); return at; }
-function top3(sg,sd,vg,vd){
+// Zone peak (best cell in column range, DZ excluded for single-leg) and global top-3 (both zones, DZ excluded).
+function zonePeak(g,dists,isSV,c0,c1){ let b=-Infinity,at=null; g.forEach((row,ti)=>{ for(let di=c0;di<c1;di++){ const v=row[di]; if(typeof v==='number'&&v>b&&(isSV||!isDZ(dists[di]))){b=v;at=ti+':'+di;} } }); return at; }
+function top3(g,dists,nSingle){
   const all=[];
-  sg.forEach((row,ti)=>row.forEach((v,di)=>{ if(typeof v==='number'&&v>0&&!isDZ(sd[di]))all.push({v,k:'s:'+ti+':'+di}); }));
-  if(vg)vg.forEach((row,ti)=>row.forEach((v,di)=>{ if(typeof v==='number'&&v>0)all.push({v,k:'v:'+ti+':'+di}); }));
+  g.forEach((row,ti)=>row.forEach((v,di)=>{ if(typeof v==='number'&&v>0&&(di>=nSingle||!isDZ(dists[di])))all.push({v,k:ti+':'+di}); }));
   all.sort((a,b)=>b.v-a.v); const m={}; all.slice(0,3).forEach((x,i)=>m[x.k]=i+1); return m;
 }
-function rowBest(g,ti,dists,isSV){ let b=-Infinity,at=-1; if(!g[ti])return -1; g[ti].forEach((v,di)=>{ if(typeof v==='number'&&v>b&&(isSV||!isDZ(dists[di]))){b=v;at=di;} }); return at; }
+function rowBest(g,ti,dists,isSV,c0,c1){ let b=-Infinity,at=-1; if(!g[ti])return -1; for(let di=c0;di<c1;di++){ const v=g[ti][di]; if(typeof v==='number'&&v>b&&(isSV||!isDZ(dists[di]))){b=v;at=di;} } return at; }
 
 function isDZ(d){ return d>6000&&d<10000; }
-function buildHead(dists,headId,isSV){
-  const tr=document.getElementById(headId);
+function buildHead(dists,nSingle){
+  const tr=document.getElementById('s-head');
   while(tr.children.length>1)tr.removeChild(tr.lastChild);
   dists.forEach((d,i)=>{
     const th=document.createElement('th');
-    th.textContent=d.toLocaleString();
-    if(!isSV&&isDZ(d)){ th.className='dz'; th.title='Dead zone 6,001–9,999km — restricted, shown on same heat scale'; }
+    th.innerHTML=d.toLocaleString()+(i>=nSingle?'<span>stopover ÷2</span>':'');
+    if(i>=nSingle){ th.className='sv'; th.title='Beyond max range — two legs, contribution shown per leg'; }
+    else if(isDZ(d)){ th.className='dz'; th.title='Dead zone 6,001–9,999km — restricted, shown on same heat scale'; }
     tr.appendChild(th);
   });
 }
 
-function buildBody(grid,dists,bodyId,scale,isSV,optRowIdx,peakKey,topMap,prefix){
+function buildBody(grid,dists,nSingle,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
   let html='';
   TMS.forEach((t,ti)=>{
-    const isOpt=ti===optRowIdx; const rb=isOpt?rowBest(grid,ti,dists,isSV):-1;
+    const isOpt=ti===optRowIdx;
+    const rbS=isOpt?rowBest(grid,ti,dists,false,0,nSingle):-1;
+    const rbV=isOpt?rowBest(grid,ti,dists,true,nSingle,dists.length):-1;
     html+='<tr><td class="tlbl'+(isOpt?' opt':'')+'">'+tl(t)+'</td>';
     dists.forEach((d,di)=>{
-      const v=grid[ti][di]; let cls='',sty='',txt='',attr='';
+      const v=grid[ti][di]; const sv=di>=nSingle; let cls='',sty='',txt='',attr='';
       if(v==='X'){cls='vx';txt='X';}
       else if(typeof v==='number'){
         txt=v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
         if(v<0){cls='vng';}
-        else{ const p=scale.pct(v); sty=' style="background:'+heatRGB(p)+'"'; if(p>=0.9)cls='hot'; }
+        else{ const p=(sv?vScale:sScale).pct(v); sty=' style="background:'+heatRGB(p)+'"'; if(p>=0.9)cls='hot'; }
         if(isOpt)cls+=' opt-cell';
-        if(peakKey===ti+':'+di)cls+=' zpeak';
-        const r=topMap[prefix+':'+ti+':'+di]; if(r){cls+=' top3';attr=' data-rank="★'+r+'"';}
-        if(isOpt&&di===rb)cls+=' rowbest';
+        if((sv?vPeak:sPeak)===ti+':'+di)cls+=' zpeak';
+        const r=topMap[ti+':'+di]; if(r){cls+=' top3';attr=' data-rank="★'+r+'"';}
+        if(isOpt&&(di===rbS||di===rbV))cls+=' rowbest';
       }
       else{cls='vem';}
       html+='<td class="cell '+cls+'"'+sty+attr+'>'+txt+'</td>';
     });
     html+='</tr>';
   });
-  document.getElementById(bodyId).innerHTML=html;
+  document.getElementById('s-body').innerHTML=html;
 }
 
 function populateDD(sg,sd){
@@ -281,8 +277,8 @@ function onDDChange(){
 }
 
 function reOpt(){
-  if(!sGrid)return;
-  buildBody(sGrid,sDists,'s-body',sScale,false,optIdx,sPeak,topMap,'s');
+  if(!gGrid)return;
+  buildBody(gGrid,gDists,nSingle,sScale,vScale,optIdx,sPeak,vPeak,topMap);
 }
 
 async function loadGrid(ac,mode){
@@ -296,22 +292,15 @@ async function loadGrid(ac,mode){
     populateDD(sg,sd);
     const fpd=parseInt(document.getElementById('opt-dd').value)||0;
     optIdx=fpd?closestRow(optMins(fpd,maint)):-1;
-    vGrid=vg; vDists=vd;
-    sScale=zoneScale(sg); vScale=vd.length?zoneScale(vg):null;
-    sPeak=zonePeak(sg,sd,false); vPeak=vd.length?zonePeak(vg,vd,true):null;
-    topMap=top3(sg,sd,vd.length?vg:null,vd);
-    buildHead(sd,'s-head',false);
-    buildBody(sg,sd,'s-body',sScale,false,optIdx,sPeak,topMap,'s');
-    document.getElementById('hm1sub').textContent='500 – '+mx.toLocaleString()+'km';
-    if(vd.length>0){
-      buildHead(vd,'sv-head',true);
-      buildBody(vg,vd,'sv-body',vScale,true,-1,vPeak,topMap,'v');
-      document.getElementById('hm2sub').textContent=mx.toLocaleString()+' – '+vmx.toLocaleString()+'km · contribution shown per leg (total ÷ 2)';
-      document.getElementById('sv-wrap').style.display='';
-    } else {
-      document.getElementById('sv-body').innerHTML='<tr><td colspan="2" style="padding:16px;color:#888;font-size:12px;">No stopover range available for this aircraft.</td></tr>';
-      document.getElementById('hm2sub').textContent='Not available';
-    }
+    // One continuous table: single-leg columns then stopover columns (per leg ÷2).
+    const nS=sd.length; const dists=sd.concat(vd); const grid=sg.map((row,ti)=>row.concat(vd.length?vg[ti]:[]));
+    gGrid=grid; gDists=dists; nSingle=nS;
+    sScale=zoneScale(grid,0,nS); vScale=vd.length?zoneScale(grid,nS,dists.length):sScale;
+    sPeak=zonePeak(grid,dists,false,0,nS); vPeak=vd.length?zonePeak(grid,dists,true,nS,dists.length):null;
+    topMap=top3(grid,dists,nS);
+    buildHead(dists,nS);
+    buildBody(grid,dists,nS,sScale,vScale,optIdx,sPeak,vPeak,topMap);
+    document.getElementById('hm1sub').textContent='500 – '+mx.toLocaleString()+'km single leg · '+(vd.length?mx.toLocaleString()+' – '+vmx.toLocaleString()+'km stopover, shown per leg (÷2)':'no stopover range');
     document.getElementById('smsg').textContent=ac.toUpperCase()+' — '+mode.toUpperCase();
     onDDChange();
   }catch(e){ document.getElementById('smsg').textContent='ERROR — RELOAD PAGE'; }
