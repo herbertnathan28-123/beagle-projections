@@ -119,6 +119,7 @@ const AIRCRAFT_DATA = [
   { name: 'A340-600',          maxRange: 14630, realism: 998,  easy: 1497 },
   { name: 'A350-900',          maxRange: 14500, realism: 1040, easy: 1559 },
   { name: 'A350-900R',         maxRange: 14500, realism: 1040, easy: 1559 },
+  { name: 'A380-800',          maxRange: 14500, realism: 1154, easy: 1731 },
   { name: 'B777-200',          maxRange: 9695,  realism: 996,  easy: 1493 },
   { name: 'B787-8',            maxRange: 14500, realism: 993,  easy: 1490 },
   { name: 'B787-9',            maxRange: 14500, realism: 993,  easy: 1490 },
