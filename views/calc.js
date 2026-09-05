@@ -41,14 +41,16 @@ function buildCalcPage(key) {
   #insp-card:hover { transform:none; box-shadow:none; }
   td.sel { box-shadow: inset 0 0 0 3px #FFF, 0 0 16px #FFF !important; z-index: 4; position: relative; }
   td.cell.num { cursor: pointer; }
-  #pop { position: fixed; z-index: 300; display: none; min-width: 210px; background: rgba(6,18,30,.92); backdrop-filter: blur(6px); border: 1px solid #2C4A6E; border-radius: 6px; padding: 8px 12px; box-shadow: 0 0 22px rgba(13,193,232,.35); pointer-events: none; }
+  #pop { position: fixed; z-index: 300; display: none; min-width: 300px; background: rgba(6,18,30,.94); backdrop-filter: blur(6px); border: 2px solid #2C4A6E; border-radius: 8px; padding: 12px 16px; box-shadow: 0 0 28px rgba(13,193,232,.45); pointer-events: none; }
   #pop.gold { border-color: transparent; background: linear-gradient(rgba(6,18,30,.92),rgba(6,18,30,.92)) padding-box, linear-gradient(135deg,#FFC422,#FF2910,#FF00CE) border-box; }
-  #pop .r { font-size: 9px; color: var(--gold); font-weight: 700; letter-spacing: .12em; }
-  #pop .h { font-size: 15px; font-weight: 800; color: #FFF; margin: 2px 0; }
-  #pop .m { font-size: 11px; color: var(--dim); }
-  #pop .t { font-size: 13px; font-weight: 800; color: var(--lime); margin-top: 4px; text-shadow: 0 0 8px rgba(26,255,0,.5); }
+  #pop .r { font-size: 18px; color: #FFF; font-weight: 900; letter-spacing: .06em; background: linear-gradient(90deg,#FFC422,#FF2910); -webkit-background-clip: text; background-clip: text; color: transparent; line-height: 1.15; }
+  #pop .r.dz { background: none; color: var(--dim); font-size: 14px; }
+  #pop .h { font-size: 22px; font-weight: 800; color: #FFF; margin: 4px 0 2px; }
+  #pop .m { font-size: 13px; color: var(--dim); }
+  #pop .t { font-size: 18px; font-weight: 800; color: var(--lime); margin-top: 6px; text-shadow: 0 0 8px rgba(26,255,0,.5); }
   .bcard.gold { border-color: transparent; background: linear-gradient(#06121E,#06121E) padding-box, linear-gradient(135deg,#FFC422,#FF2910,#FF00CE) border-box; box-shadow: 0 0 16px rgba(255,196,34,.25); }
   .bcard-rank { font-size: 9px; color: var(--gold); font-weight: 700; letter-spacing: 0.12em; margin-bottom: 3px; }
+  #insp-rank { font-size: 15px; letter-spacing: .04em; }
   .bcard-time { font-size: 20px; font-weight: 800; color: #FFF; letter-spacing: 0.02em; }
   .bcard-meta { font-size: 11px; color: var(--dim); margin-top: 2px; }
   .bcard-total { font-size: 13px; font-weight: 800; color: var(--lime); margin-top: 5px; text-shadow: 0 0 8px rgba(26,255,0,.5); }
@@ -214,6 +216,7 @@ function inspect(ti,di){
   const pop=document.getElementById('pop');
   ['rank','head','l1','l2','total'].forEach(k=>document.getElementById('pop-'+k).textContent=document.getElementById('insp-'+k).textContent);
   pop.className=idx===0?'gold':'';
+  document.getElementById('pop-rank').className='r'+(idx>=0?'':' dz');
   if(td){ const r=td.getBoundingClientRect(); pop.style.display='block';
     const pw=pop.offsetWidth||220, ph=pop.offsetHeight||90;
     let x=r.right+10, y=r.top-ph/2+r.height/2;
