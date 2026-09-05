@@ -135,12 +135,12 @@ function buildCalcPage(key) {
   <div>
     <div class="opt-section-label">MANUAL — DEPARTURES IN 48HRS (ALWAYS ODD — THE EXTRA FLIGHT)</div>
     <div class="manual-row" style="margin-bottom:8px;">
-      <span class="control-label">4× SPEED</span>
+      <span class="control-label">4X SPEED (EACH LOT = 4 HRS)</span>
       <select id="boost" style="min-width:200px;">
         <option value="0">Off</option>
-        <option value="4x1">4h × 1 a day (standard)</option><option value="4x2">4h × 2 a day</option><option value="4x3">4h × 3 a day</option><option value="4x4">4h × 4 a day</option><option value="4x5">4h × 5 a day</option><option value="4x6">4h × 6 a day</option>
-        <option value="1x1">1h × 1 a day (bonus)</option><option value="1x2">1h × 2 a day</option><option value="1x3">1h × 3 a day</option><option value="1x4">1h × 4 a day</option><option value="1x5">1h × 5 a day</option><option value="1x6">1h × 6 a day</option>
-        <option value="24">24h — all the time (bonus)</option>
+        <option value="4x1">1 × 4X SPEED</option><option value="4x2">2 × 4X SPEED</option><option value="4x3">3 × 4X SPEED</option><option value="4x4">4 × 4X SPEED</option><option value="4x5">5 × 4X SPEED</option><option value="4x6">6 × 4X SPEED</option>
+        <option value="b1">BONUS — 4X SPEED FOR 1 HR</option>
+        <option value="b24">BONUS — 4X SPEED FOR 24 HRS</option>
       </select>
     </div>
     <div class="manual-row">
@@ -286,8 +286,9 @@ function inspect(ti,di){
   document.getElementById('pop-rank').className='r'+(idx>=0?'':' dz');
   if(td){ const r=td.getBoundingClientRect(); pop.style.display='block';
     const pw=pop.offsetWidth||220, ph=pop.offsetHeight||90;
-    let x=r.right+10, y=r.top-ph/2+r.height/2;
-    if(x+pw>window.innerWidth-8) x=r.left-pw-10;
+    let x=r.right+56, y=r.top-ph-28;                       // clear of the cell: right and above
+    if(x+pw>window.innerWidth-8) x=r.left-pw-56;
+    if(y<8) y=r.bottom+28;
     y=Math.max(8,Math.min(window.innerHeight-ph-8,y));
     pop.style.left=x+'px'; pop.style.top=y+'px'; }
 }
@@ -301,11 +302,11 @@ function fval(v){ return typeof v==='number'?'$'+v.toLocaleString(undefined,{min
 
 // Departures rule (Nathan): N departures in 48h = N−1 full cycles inside the window + the final departure that only has to leave.
 // N is always ODD — 3, 5, 7, 9 … — the extra flight is the point. Longest flight time that fits N: avail/(N−1) − 3 min buffer.
-// 4× SPEED (Nathan, 6 Sep, from the in-game card): one lot = 4 hours (1h and 24h lots come as bonuses). Players buy 1–6 lots a day.
+// 4× SPEED (Nathan, 6 Sep): one lot = 4 hours; players buy 1–6 lots a day. The 1-hour and 24-hour lots are ONE-OFF bonuses — a single window, not daily.
 // Every aircraft that DEPARTS inside the window flies its whole flight at 4×, so a flight of table time t takes t/4 and,
 // if that fits, departs again inside the same window. Departures after the window run at normal speed.
 // 48h count = boosted departures across all windows + normal cycles in the remaining time + the final departure.
-function boostCfg(){ const v=(document.getElementById('boost')||{}).value||'0'; if(v==='0')return {win:0,n:0}; if(v==='24')return {win:1440,n:2}; const [h,n]=v.split('x').map(Number); return {win:h*60,n:n*2}; }
+function boostCfg(){ const v=(document.getElementById('boost')||{}).value||'0'; if(v==='0')return {win:0,n:0}; if(v==='b1')return {win:60,n:1}; if(v==='b24')return {win:1440,n:1}; const [h,n]=v.split('x').map(Number); return {win:h*60,n:n*2}; }
 function departures48(t,mt){
   const avail=2880-(mt?30:0)-26, cyc=t*60+3, b=boostCfg();
   if(!b.win) return cyc>avail?1:Math.floor(avail/cyc)+1;
@@ -347,7 +348,7 @@ const SIG_R=5.5, SIG_C=5.5;  // blend radius in rows / columns
 function glowAt(ti,di,centres){
   let g=0; for(const c of centres){ const dr=(ti-c.ti)/SIG_R, dc=(di-c.di)/SIG_C; g=Math.max(g,c.w*Math.exp(-(dr*dr+dc*dc)/2)); } return g;
 }
-function heatP(base,glow){ return Math.max(glow, base*0.75); }
+function heatP(base,glow){ return Math.max(glow, Math.pow(base,1.8)); }  // whole table graded by rank: cold → green → yellow → orange → red at the top
 const DZ_CAP=0.42;  // dead zone (6,001–9,999km) is capped at green — never orange or red, never a heat centre
 function heatArr(p){
   p=Math.max(0,Math.min(1,p));
@@ -553,4 +554,3 @@ document.addEventListener('contextmenu',e=>e.preventDefault());
 }
 
 module.exports = { buildCalcPage };
-
