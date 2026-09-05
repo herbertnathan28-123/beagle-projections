@@ -217,7 +217,7 @@ let sGrid = null, sDists = null, gGrid=null, gDists=null, sScale=null, vScale=nu
 // DEPARTURES RULE (Nathan, 5 Sep 2026): a flight counts when it DEPARTS inside the 48h window — it does not have to land.
 // So departures = full cycles that fit + 1 (the final departure). Cycle = flight time + 3 min buffer.
 // e.g. 11h40 → 2,824 ÷ 703 = 4 cycles → 5 departures, the whole fleet's contributions on the fifth.
-function flightsIn48(t){ const avail=2880-(maint?30:0)-26; const cyc=clockMins(t)+3; return cyc>avail?1:Math.floor(avail/cyc)+1; }
+function flightsIn48(t){ return departures48(t,maint); }
 // ── REVENUE MODEL (fitted 5–6 Sep 2026 from am4help exports, CI 200, realism) ──────────────────
 // Tickets: Y=(0.3d+150)×1.10  J=(0.6d+500)×1.08  F=(0.9d+1000)×1.06. J uses 2 Y-seats, F uses 3, so class mix barely
 // moves income: income ≈ 0.94 × Ycap × Y-ticket (A380 predicts $3.198M vs bot $3.192M at 16,684km).
@@ -301,11 +301,24 @@ function fval(v){ return typeof v==='number'?'$'+v.toLocaleString(undefined,{min
 
 // Departures rule (Nathan): N departures in 48h = N−1 full cycles inside the window + the final departure that only has to leave.
 // N is always ODD — 3, 5, 7, 9 … — the extra flight is the point. Longest flight time that fits N: avail/(N−1) − 3 min buffer.
-// 4× SPEED (Nathan, 6 Sep): sessions of 1h, 4h (standard paid) or 24h, activated 1–6 times a day.
-// Share of the window at 4× = sessions × hours ÷ 24. A flight's clock time shrinks by 75% of that share. Contributions per flight unchanged.
-function boostF(){ const v=(document.getElementById('boost')||{}).value||'0'; if(v==='0')return 0; if(v==='24')return 1; const [h,n]=v.split('x').map(Number); return Math.min(1,h*n/24); }
-function clockMins(t){ return t*60*(1-0.75*boostF()); }   // real minutes a flight of table time t takes
-function optMinsDep(N,mt){ const avail=2880-(mt?30:0)-26; const m=N<=1?avail:avail/(N-1)-3; return m/(1-0.75*boostF()); }
+// 4× SPEED (Nathan, 6 Sep, from the in-game card): one lot = 4 hours (1h and 24h lots come as bonuses). Players buy 1–6 lots a day.
+// Every aircraft that DEPARTS inside the window flies its whole flight at 4×, so a flight of table time t takes t/4 and,
+// if that fits, departs again inside the same window. Departures after the window run at normal speed.
+// 48h count = boosted departures across all windows + normal cycles in the remaining time + the final departure.
+function boostCfg(){ const v=(document.getElementById('boost')||{}).value||'0'; if(v==='0')return {win:0,n:0}; if(v==='24')return {win:1440,n:2}; const [h,n]=v.split('x').map(Number); return {win:h*60,n:n*2}; }
+function departures48(t,mt){
+  const avail=2880-(mt?30:0)-26, cyc=t*60+3, b=boostCfg();
+  if(!b.win) return cyc>avail?1:Math.floor(avail/cyc)+1;
+  const fast=t*15+3;                       // boosted cycle in minutes
+  const perWin=Math.floor(b.win/fast)+1;   // departures inside one window (the last only has to leave inside it)
+  const winTime=perWin*fast;               // clock consumed by one window's boosted flights
+  let boosted=0, used=0;
+  for(let i=0;i<b.n;i++){ if(used+winTime>avail)break; boosted+=perWin; used+=winTime; }
+  const normal=Math.max(0,Math.floor((avail-used)/cyc));
+  return boosted+normal+1;
+}
+// Longest table time that still yields at least N departures in 48h.
+function optMinsDep(N,mt){ let best=-1; for(let ti=TMS.length-1;ti>=0;ti--){ if(departures48(TMS[ti],mt)>=N){ best=TMS[ti]*60; break; } } return best; }
 function optMins(fpd,mt){ return optMinsDep(fpd,mt); }  // legacy name — 'fpd' now carries N departures
 function closestRow(om){ let b=0,bd=Infinity; TMS.forEach((t,i)=>{const d=Math.abs(t-om/60);if(d<bd){bd=d;b=i;}}); return b; }
 function peakRow(g,ri,ds){ if(!g||ri<0||ri>=g.length)return 0; return Math.max(0,...g[ri].filter((v,di)=>typeof v==='number'&&!(ds&&isDZ(ds[di])))); }
@@ -417,8 +430,9 @@ function populateDD(sg,sd){
   const sel=document.getElementById('opt-dd'); sel.innerHTML='';
   const none=document.createElement('option'); none.value='0'; none.textContent='— whole table —'; sel.appendChild(none);
   const res=[];
+  const seen=new Set();
   for(let N=3;N<=61;N+=2){
-    const om=optMinsDep(N,maint); if(om<60)break; if(om>24*60)continue;
+    const om=optMinsDep(N,maint); if(om<60)break; if(seen.has(om))continue; seen.add(om);
     const ri=closestRow(om); const pk=peakRow(sg,ri,sd); const t48=pk*N;
     const lbl=fmins(om)+' = '+N+' departures in 48hrs | '+fval(t48);
     const opt=document.createElement('option'); opt.value=N; opt.textContent=lbl; sel.appendChild(opt);
@@ -440,7 +454,7 @@ function buildBestCards(res,sg,sd){
     d.title='Click to jump to this cell on the chart';
     d.innerHTML='<div class="bcard-rank">'+(i===0?'#1 BEST':i===1?'#2':'#3')+'</div>'+
       '<div class="bcard-time">'+fmins(r.om)+'</div>'+
-      '<div class="bcard-meta">'+r.fpd+' departures in 48hrs · '+((r.fpd-1)/2)+'½ a day'+(boostF()>0?' · 4× on':'')+'</div>'+
+      '<div class="bcard-meta">'+r.fpd+' departures in 48hrs · '+((r.fpd-1)/2)+'½ a day'+(boostCfg().n>0?' · 4× on':'')+'</div>'+
       (bd!=='—'?'<div class="bcard-meta">Best dist: '+bd.toLocaleString()+'km</div>':'')+
       '<div class="bcard-total">'+fval(bv*r.fpd)+' /48hrs</div>';
     d.onclick=()=>jumpTo(r.fpd,r.ri,bdi);
