@@ -41,6 +41,12 @@ function buildCalcPage(key) {
   #insp-card:hover { transform:none; box-shadow:none; }
   td.sel { box-shadow: inset 0 0 0 3px #FFF, 0 0 16px #FFF !important; z-index: 4; position: relative; }
   td.cell.num { cursor: pointer; }
+  #pop { position: fixed; z-index: 300; display: none; min-width: 210px; background: rgba(6,18,30,.92); backdrop-filter: blur(6px); border: 1px solid #2C4A6E; border-radius: 6px; padding: 8px 12px; box-shadow: 0 0 22px rgba(13,193,232,.35); pointer-events: none; }
+  #pop.gold { border-color: transparent; background: linear-gradient(rgba(6,18,30,.92),rgba(6,18,30,.92)) padding-box, linear-gradient(135deg,#FFC422,#FF2910,#FF00CE) border-box; }
+  #pop .r { font-size: 9px; color: var(--gold); font-weight: 700; letter-spacing: .12em; }
+  #pop .h { font-size: 15px; font-weight: 800; color: #FFF; margin: 2px 0; }
+  #pop .m { font-size: 11px; color: var(--dim); }
+  #pop .t { font-size: 13px; font-weight: 800; color: var(--lime); margin-top: 4px; text-shadow: 0 0 8px rgba(26,255,0,.5); }
   .bcard.gold { border-color: transparent; background: linear-gradient(#06121E,#06121E) padding-box, linear-gradient(135deg,#FFC422,#FF2910,#FF00CE) border-box; box-shadow: 0 0 16px rgba(255,196,34,.25); }
   .bcard-rank { font-size: 9px; color: var(--gold); font-weight: 700; letter-spacing: 0.12em; margin-bottom: 3px; }
   .bcard-time { font-size: 20px; font-weight: 800; color: #FFF; letter-spacing: 0.02em; }
@@ -60,13 +66,13 @@ function buildCalcPage(key) {
   .hmap-title { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); }
   .hmap-sub { font-size: 10px; color: var(--dim); }
   .table-wrap { overflow: auto; background: var(--bg); }
-  table { border-collapse: separate; border-spacing: 0; white-space: nowrap; font-size: 11.5px; }
-  thead th { background: #0B1E3A; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: center; font-weight: 700; font-size: 10px; letter-spacing: 0.06em; color: var(--ink); position: sticky; top: 0; z-index: 50; }
-  thead th:first-child { position: sticky; left: 0; z-index: 60; background: #0B1E3A; min-width: 68px; font-size: 9px; }
+  table { border-collapse: separate; border-spacing: 0; white-space: nowrap; width: 100%; table-layout: fixed; font-size: clamp(9px, 0.62vw, 12px); }
+  thead th { background: #0B1E3A; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 6px 2px; text-align: center; font-weight: 700; font-size: clamp(8px, 0.55vw, 10px); overflow: hidden; letter-spacing: 0.06em; color: var(--ink); position: sticky; top: 0; z-index: 50; }
+  thead th:first-child { position: sticky; left: 0; z-index: 60; background: #0B1E3A; width: 70px; font-size: 9px; }
   th.dz { color: var(--dim) !important; }
-  td.tlbl { position: sticky; left: 0; z-index: 10; background: #0B1E3A; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 4px 10px 4px 8px; font-size: 10.5px; font-weight: 600; color: var(--ink); text-align: right; }
+  td.tlbl { position: sticky; left: 0; z-index: 10; background: #0B1E3A; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 4px 6px; width: 70px; font-size: clamp(8px, 0.55vw, 10.5px); font-weight: 600; color: var(--ink); text-align: right; }
   td.tlbl.opt { background: #1F1A00 !important; border-left: 3px solid var(--gold) !important; color: var(--gold) !important; text-shadow: 0 0 6px rgba(255,196,34,.6); }
-  td.cell { border-right: 1px solid rgba(255,255,255,.06); border-bottom: 1px solid rgba(255,255,255,.06); padding: 4px 7px; text-align: right; min-width: 52px; font-size: 11px; font-weight: 500; color: #000; }
+  td.cell { border-right: 1px solid rgba(255,255,255,.06); border-bottom: 1px solid rgba(255,255,255,.06); padding: 4px 3px; text-align: center; font-size: inherit; font-weight: 500; color: #000; overflow: hidden; }
   td.cell:hover { filter: brightness(1.25); cursor: default; }
   td.lt { color: #FFF; }
   td.vx  { background: #2A0A12; color: #7A2A3A; font-weight: 700; }
@@ -92,6 +98,7 @@ function buildCalcPage(key) {
 </head>
 <body>
 <div id="lov">CALCULATING...</div>
+<div id="pop"><div class="r" id="pop-rank"></div><div class="h" id="pop-head"></div><div class="m" id="pop-l1"></div><div class="m" id="pop-l2"></div><div class="t" id="pop-total"></div></div>
 <div class="top-bar">
   <div class="logo-block">
     <span class="logo-text">ATLAS FX</span><span class="logo-sep">|</span><span class="logo-text">BEAGLE GLOBAL</span>
@@ -203,7 +210,21 @@ function inspect(ti,di){
   document.getElementById('insp-total').textContent=(typeof v==='number'?fval(t48)+' /48hrs':'—');
   document.getElementById('insp-rank').textContent=idx>=0?('RANKED #'+(idx+1)+' OF '+rankList.length+' ON THIS CHART'):(isDZ(d)?'DEAD ZONE — NOT RANKED':'NOT RANKED');
   const card=document.getElementById('insp-card'); card.className='bcard'+(idx===0?' gold':'');
+  // Floating copy next to the cell
+  const pop=document.getElementById('pop');
+  ['rank','head','l1','l2','total'].forEach(k=>document.getElementById('pop-'+k).textContent=document.getElementById('insp-'+k).textContent);
+  pop.className=idx===0?'gold':'';
+  if(td){ const r=td.getBoundingClientRect(); pop.style.display='block';
+    const pw=pop.offsetWidth||220, ph=pop.offsetHeight||90;
+    let x=r.right+10, y=r.top-ph/2+r.height/2;
+    if(x+pw>window.innerWidth-8) x=r.left-pw-10;
+    y=Math.max(8,Math.min(window.innerHeight-ph-8,y));
+    pop.style.left=x+'px'; pop.style.top=y+'px'; }
 }
+function hidePop(){ const p=document.getElementById('pop'); if(p)p.style.display='none'; document.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape')hidePop(); });
+document.addEventListener('click',e=>{ if(!e.target.closest('td.cell')&&!e.target.closest('.bcard')&&e.target.id!=='mini')hidePop(); });
+document.querySelectorAll('.table-wrap').forEach(w=>w.addEventListener('scroll',()=>{ const sel=document.querySelector('td.sel'); if(sel){ const [_,ti,di]=sel.id.split('-'); inspect(+ti,+di); } }));
 function tl(h){ const hr=Math.floor(h); return hr+'h '+(h%1===0?'00m':'30m'); }
 function fmins(m){ const h=Math.floor(m/60),mn=Math.round(m%60); return h+'h '+String(mn).padStart(2,'0')+'m'; }
 function fval(v){ return typeof v==='number'?'$'+v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):String(v); }
