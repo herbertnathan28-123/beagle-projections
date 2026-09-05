@@ -68,7 +68,7 @@ function buildCalcPage(key) {
   td.top3 { outline: 3px solid #FFD700; outline-offset: -3px; font-weight: 800; position: relative; }
   td.top3::after { content: attr(data-rank); position: absolute; top: -1px; left: 1px; font-size: 8px; font-weight: 800; color: #1A2744; }
   td.rowbest { box-shadow: inset 0 0 0 2px #1A72BB; }
-  .grad-bar { display: inline-block; width: 220px; height: 12px; border-radius: 3px; border: 1px solid #999; vertical-align: middle; background: linear-gradient(90deg,#FFFFFF 0%,#C8E6C9 45%,#43A047 75%,#FFEB3B 90%,#FF9800 96%,#E53935 100%); }
+  .grad-bar { display: inline-block; width: 220px; height: 12px; border-radius: 3px; border: 1px solid #999; vertical-align: middle; background: linear-gradient(90deg,#FFFFFF 0%,#CCFFCC 35%,#33FF00 65%,#FFFF00 85%,#FF9900 95%,#FF0000 100%); }
   td.opt-cell { outline: 2px solid #FFD700; outline-offset: -2px; }
   .footer { padding: 14px 24px; border-top: 1px solid #AAAAAA; display: flex; align-items: center; justify-content: space-between; color: #555; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; flex-wrap: wrap; gap: 8px; }
   #lov { position: fixed; inset: 0; background: rgba(7,9,15,0.85); display: none; align-items: center; justify-content: center; z-index: 200; font-size: 13px; letter-spacing: 0.1em; color: #FFFFFF; }
@@ -176,12 +176,12 @@ function toggleMaint(){ maint=!maint; const b=document.getElementById('mbt'); b.
 // Continuous hue: white (cold) → greens → yellow → orange → red (hot).
 // Colour = percentile rank of the cell within its zone (single-leg or stopover).
 // Dead zone (6,001–9,999km) is coloured on the same gradient as every other cell.
-const STOPS=[[0,[255,255,255]],[0.45,[200,230,201]],[0.75,[67,160,71]],[0.90,[255,235,59]],[0.96,[255,152,0]],[1,[229,57,53]]];
+const STOPS=[[0,[255,255,255]],[0.35,[204,255,204]],[0.65,[51,255,0]],[0.85,[255,255,0]],[0.95,[255,153,0]],[1,[255,0,0]]];
 function heatRGB(p){
   p=Math.max(0,Math.min(1,p));
   for(let i=1;i<STOPS.length;i++){ if(p<=STOPS[i][0]){ const [p0,c0]=STOPS[i-1],[p1,c1]=STOPS[i]; const t=(p-p0)/(p1-p0);
     return 'rgb('+c0.map((c,k)=>Math.round(c+(c1[k]-c)*t)).join(',')+')'; } }
-  return 'rgb(229,57,53)';
+  return 'rgb(255,0,0)';
 }
 // Sorted positive values of a column range → percentile lookup (binary search).
 function zoneScale(g,c0,c1){
