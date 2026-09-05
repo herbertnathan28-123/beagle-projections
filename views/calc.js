@@ -150,7 +150,7 @@ function buildCalcPage(key) {
   <div id="rev" style="min-width:300px;">
     <div class="opt-section-label">$ REVENUE LANE — GENERIC: 3-CLASS AVERAGES · FUEL $600 · CO₂ $135 · A-CHECK PER STARTED HOUR</div>
     <div class="manual-row" style="gap:10px;margin-top:8px;">
-      <span class="control-label">SWEET SPOT</span>
+      <span class="control-label">BALANCE</span>
       <span style="font-size:10px;color:#1AFF00;font-weight:700;">CONTRIB</span>
       <input id="wslider" type="range" min="0" max="100" value="50" style="width:150px;accent-color:#FFC422;">
       <span style="font-size:10px;color:#FFC422;font-weight:700;">PROFIT</span>
@@ -172,7 +172,7 @@ function buildCalcPage(key) {
 
 <div class="mini-wrap">
   <canvas id="mini" width="400" height="188"></canvas>
-  <div class="mini-note">Thermal overview — every flight time × every distance. Three heat circles on the combined $ + C/D score — best sub-6,000, best 10,000+, top 3 overall. Dead zone stays cold. Magenta = your hot zones. Click anywhere to jump to that cell.</div>
+  <div class="mini-note">Thermal overview — every flight time × every distance. Three heat circles on the combined C/D + $ score — best sub-6,000, best 10,000+, top 3 overall. Dead zone stays cold. Magenta = your hot zones. Click anywhere to jump to that cell.</div>
 </div>
 
 <div class="hmap-header">
@@ -267,7 +267,7 @@ function inspect(ti,di){
   document.getElementById('insp-l2').textContent=n+' departures in 48hrs'+(maint?' (maint on)':' (maint off)')+(isDZ(d)?' · DEAD ZONE':'');
   const pf=profitPerFlight(d,t), cc=n;
   document.getElementById('insp-total').textContent=(typeof v==='number'?fval(t48)+' /48hrs':'—')+(pf==null?'':'  ·  $'+Math.round(pf*cc).toLocaleString()+' profit /48hrs');
-  document.getElementById('insp-rank').textContent=idx>=0?('RANKED #'+(idx+1)+' OF '+rankList.length+(revP?' — SWEET SPOT '+(100-Math.round(weightW()*100))+'/'+Math.round(weightW()*100):' — CONTRIBUTIONS')):(isDZ(d)?'DEAD ZONE — NOT RANKED':'NOT RANKED');
+  document.getElementById('insp-rank').textContent=idx>=0?('RANKED #'+(idx+1)+' OF '+rankList.length+(revP?' — CONTRIB/PROFIT '+(100-Math.round(weightW()*100))+'/'+Math.round(weightW()*100):' — CONTRIBUTIONS')):(isDZ(d)?'DEAD ZONE — NOT RANKED':'NOT RANKED');
   const card=document.getElementById('insp-card'); card.className='bcard'+(idx===0?' gold':'');
   // Floating copy next to the cell
   const pop=document.getElementById('pop');
@@ -410,6 +410,7 @@ function buildBody(grid,dists,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
 
 function populateDD(sg,sd){
   const sel=document.getElementById('opt-dd'); sel.innerHTML='';
+  const none=document.createElement('option'); none.value='0'; none.textContent='— whole table —'; sel.appendChild(none);
   const res=[];
   for(let N=3;N<=25;N+=2){
     const om=optMinsDep(N,maint); if(om<60)break;
