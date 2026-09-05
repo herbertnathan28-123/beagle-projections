@@ -16,18 +16,18 @@ function buildCalcPage(key) {
   :root { --bg:#040A14; --panel:#071426; --line:#12294A; --ink:#E6F0FF; --dim:#7F9BC0; --gold:#FFC422; --mag:#FF00CE; --cyan:#0DC1E8; --lime:#1AFF00; }
   body { background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; font-size: 13px; min-height: 100vh; }
   .top-bar { background: linear-gradient(90deg,#071426 0%,#0B1E3A 60%,#071426 100%); border-bottom: 1px solid var(--line); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 52px; position: sticky; top: 0; z-index: 100; }
-  .top-bar::after { content:''; position:absolute; left:0; right:0; bottom:-2px; height:2px; background: linear-gradient(90deg,#4411DB,#0DC1E8,#1AFF00,#FFFF00,#FEA900,#F11501,#FF00CE); }
+  .top-bar::after { content:''; position:absolute; left:0; right:0; bottom:-2px; height:2px; background: linear-gradient(90deg,#1AFF00,#FFFF00,#FEA900,#F11501,#FF00CE); }
   .logo-block { display: flex; align-items: center; gap: 12px; }
   .logo-text { font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--ink); }
   .logo-sep { color: var(--dim); }
-  .page-title { font-size: 14px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; background: linear-gradient(90deg,#0DC1E8,#1AFF00,#FFFF00,#FEA900); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .page-title { font-size: 14px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; background: linear-gradient(90deg,#1AFF00,#FFFF00,#FEA900,#F11501); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .control-bar { background: var(--panel); border-bottom: 1px solid var(--line); padding: 10px 24px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; position: sticky; top: 52px; z-index: 99; }
   .control-group { display: flex; align-items: center; gap: 10px; }
   .control-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
   select { background: #0A1E30; border: 1px solid #2C4A6E; color: var(--ink); padding: 6px 28px 6px 10px; border-radius: 4px; font-size: 13px; font-family: inherit; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%230DC1E8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; min-width: 160px; }
   .mode-toggle { display: flex; border-radius: 4px; overflow: hidden; border: 1px solid #2C4A6E; }
   .mode-btn { padding: 6px 16px; background: #0A1E30; border: none; color: var(--dim); font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; letter-spacing: 0.05em; }
-  .mode-btn.active { background: linear-gradient(90deg,#4411DB,#0DC1E8); color: #fff; }
+  .mode-btn.active { background: linear-gradient(90deg,#1AFF00,#FFC422); color: #000; }
   .mode-btn:not(:last-child) { border-right: 1px solid #2C4A6E; }
   .speed-display { font-size: 11px; color: var(--dim); white-space: nowrap; }
   .speed-display span { color: var(--ink); font-weight: 700; }
@@ -71,14 +71,14 @@ function buildCalcPage(key) {
   td.vem { background: #071426; }
   td.hot { font-weight: 700; }
   td.zpeak { outline: 2px solid #FFF; outline-offset: -2px; font-weight: 800; }
-  td.b6, th.b6 { border-left: 2px solid var(--cyan) !important; }
-  td.b10, th.b10 { border-left: 2px solid var(--cyan) !important; }
+  td.b6, th.b6 { border-left: 2px solid #FFFFFF !important; }
+  td.b10, th.b10 { border-left: 2px solid #FFFFFF !important; }
   td.opt-cell { box-shadow: inset 0 -1px 0 rgba(255,196,34,.55), inset 0 1px 0 rgba(255,196,34,.55); }
   td.blob { box-shadow: inset 0 0 0 2px rgba(255,0,206,.55); }
   td.blob2 { box-shadow: inset 0 0 0 3px var(--mag), 0 0 14px var(--mag); font-weight: 800; z-index: 2; position: relative; }
   td.top3 { background: linear-gradient(135deg,#9F00D0,#FF00CE) !important; color: #FFF !important; font-weight: 800; position: relative; box-shadow: 0 0 12px rgba(255,0,206,.6); z-index: 2; }
   td.top3::after { content: attr(data-rank); position: absolute; top: -1px; left: 2px; font-size: 10px; font-weight: 900; color: #FFF; text-shadow: 0 0 4px #000; }
-  .grad-bar { display: inline-block; width: 240px; height: 12px; border-radius: 3px; border: 1px solid #2C4A6E; vertical-align: middle; background: linear-gradient(90deg,#0B1E3A 0%,#4411DB 15%,#0DC1E8 32%,#1AFF00 52%,#FFFF00 70%,#FEA900 86%,#F11501 100%); }
+  .grad-bar { display: inline-block; width: 240px; height: 12px; border-radius: 3px; border: 1px solid #2C4A6E; vertical-align: middle; background: linear-gradient(90deg,#ECFCEC 0%,#96FF78 30%,#1AFF00 55%,#FFFF00 75%,#FEA900 88%,#F11501 100%); }
   .footer { padding: 14px 24px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; color: var(--dim); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; flex-wrap: wrap; gap: 8px; background: var(--panel); }
   .lg { padding:2px 8px; border-radius:3px; font-size:10px; font-weight:700; }
   #lov { position: fixed; inset: 0; background: rgba(4,10,20,0.85); display: none; align-items: center; justify-content: center; z-index: 200; font-size: 13px; letter-spacing: 0.2em; color: var(--cyan); }
@@ -139,7 +139,7 @@ function buildCalcPage(key) {
 
 <div class="mini-wrap">
   <canvas id="mini" width="400" height="188"></canvas>
-  <div class="mini-note">Thermal overview — every flight time × every distance. Bright = higher contribution. Magenta = your hot zones. Click anywhere to jump to that cell.</div>
+  <div class="mini-note">Thermal overview — every flight time × every distance. Green → yellow → orange → red = rising contribution, scaled inside each zone. Magenta = your hot zones. Click anywhere to jump to that cell.</div>
 </div>
 
 <div class="hmap-header">
@@ -193,7 +193,12 @@ function toggleMaint(){ maint=!maint; const b=document.getElementById('mbt'); b.
 // Continuous hue: white (cold) → greens → yellow → orange → red (hot).
 // Colour = percentile rank of the cell within its zone (single-leg or stopover).
 // Dead zone (6,001–9,999km) is coloured on the same gradient as every other cell.
-const STOPS=[[0,[11,30,58]],[0.15,[68,17,219]],[0.32,[13,193,232]],[0.52,[26,255,0]],[0.70,[255,255,0]],[0.86,[254,169,0]],[1,[241,21,1]]];
+const STOPS=[[0,[236,252,236]],[0.30,[150,255,120]],[0.55,[26,255,0]],[0.75,[255,255,0]],[0.88,[254,169,0]],[1,[241,21,1]]];
+// Zone weighting (Nathan, 5 Sep): sub-6,000 heat runs cooler and smaller than the 10,000+ heat.
+// p is the cell's percentile inside its own zone; zone 1 is compressed so only its very top touches red.
+const ZONE1_MAX=0.92;  // zone 1 peak lands orange-red, never full red
+const ZONE1_GAMMA=1.35; // pushes zone 1's warm colours toward its top few cells
+function zoneP(p,sv){ return sv?p:Math.pow(p,ZONE1_GAMMA)*ZONE1_MAX; }
 function heatArr(p){
   p=Math.max(0,Math.min(1,p));
   for(let i=1;i<STOPS.length;i++){ if(p<=STOPS[i][0]){ const [p0,c0]=STOPS[i-1],[p1,c1]=STOPS[i]; const t=(p-p0)/(p1-p0);
@@ -245,7 +250,7 @@ function buildBody(grid,dists,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
       else if(typeof v==='number'){
         txt=v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
         if(v<0){cls+=' vng';}
-        else{ const p=(sv?vScale:sScale).pct(v); sty=' style="background:'+heatRGB(p)+'"'; if(p>=0.9)cls+=' hot'; if(isDark(p))cls+=' lt'; }
+        else{ const p=zoneP((sv?vScale:sScale).pct(v),sv); sty=' style="background:'+heatRGB(p)+'"'; if(p>=0.85)cls+=' hot'; if(isDark(p))cls+=' lt'; }
         if(isOpt)cls+=' opt-cell';
         if((sv?vPeak:sPeak)===ti+':'+di)cls+=' zpeak';
         // Hot-zone blob: peak cell of the selected row ±2 cols, ±1 row (yellow); peak itself bright yellow.
@@ -258,7 +263,7 @@ function buildBody(grid,dists,sScale,vScale,optRowIdx,sPeak,vPeak,topMap){
     html+='</tr>';
   });
   document.getElementById('s-body').innerHTML=html;
-  drawMini(grid,dists,sScale,optRowIdx,rbS,rbV,topMap);
+  drawMini(grid,dists,sScale,vScale,optRowIdx,rbS,rbV,topMap);
 }
 
 function populateDD(sg,sd){
@@ -294,16 +299,16 @@ function buildBestCards(res,sg,sd){
 }
 
 // Thermal mini-map: one pixel block per cell, magenta glow on hot zones, gold line on optimal row.
-function drawMini(grid,dists,scale,optRowIdx,rbS,rbV,topMap){
+function drawMini(grid,dists,sScale,vScale,optRowIdx,rbS,rbV,topMap){
   const cv=document.getElementById('mini'); if(!cv)return; const ctx=cv.getContext('2d');
   const W=cv.width,H=cv.height,nc=dists.length,nr=grid.length,cw=W/nc,ch=H/nr;
-  ctx.fillStyle='#040A14'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#0B1E3A'; ctx.fillRect(0,0,W,H);
   grid.forEach((row,ti)=>row.forEach((v,di)=>{
-    if(typeof v==='number'&&v>0){ ctx.fillStyle=heatRGB(scale.pct(v)); ctx.fillRect(di*cw,ti*ch,Math.ceil(cw),Math.ceil(ch)); }
+    if(typeof v==='number'&&v>0){ const sv=isSV(dists[di]); ctx.fillStyle=heatRGB(zoneP((sv?vScale:sScale).pct(v),sv)); ctx.fillRect(di*cw,ti*ch,Math.ceil(cw),Math.ceil(ch)); }
     else if(v==='X'){ ctx.fillStyle='#2A0A12'; ctx.fillRect(di*cw,ti*ch,Math.ceil(cw),Math.ceil(ch)); }
   }));
   // zone rules
-  ctx.strokeStyle='rgba(13,193,232,.9)'; ctx.lineWidth=1;
+  ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.lineWidth=1;
   [dists.indexOf(6500),dists.indexOf(10000)].forEach(i=>{ if(i>0){ ctx.beginPath(); ctx.moveTo(i*cw,0); ctx.lineTo(i*cw,H); ctx.stroke(); } });
   if(optRowIdx>=0){
     ctx.fillStyle='rgba(255,196,34,.35)'; ctx.fillRect(0,optRowIdx*ch,W,Math.ceil(ch));
@@ -348,7 +353,7 @@ async function loadGrid(ac,mode){
     populateDD(grid,dists);
     const fpd=parseInt(document.getElementById('opt-dd').value)||0;
     optIdx=fpd?closestRow(optMins(fpd,maint)):-1;
-    sScale=zoneScale(grid,dists,d=>true); vScale=sScale;  // one continuous scale across the whole table
+    sScale=zoneScale(grid,dists,d=>d<10000); vScale=zoneScale(grid,dists,d=>d>=10000);
     sPeak=zonePeak(grid,dists,d=>d<=6000); vPeak=zonePeak(grid,dists,d=>d>=10000);
     topMap=rowTop3(grid,optIdx,dists);
     buildHead(dists);
