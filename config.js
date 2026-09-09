@@ -96,21 +96,13 @@ const DEFAULT_DATA = {
 };
 
 // ── AM4 CONTRIBUTION CALCULATOR — aircraft table ───────────────────────────
-// base speeds from game × 1.1 = realism, × 1.65 = easy
+// base speeds from game x 1.1 = realism, x 1.65 = easy
+// ATL-78 (Nathan, 9 Sep 2026): the alliance does not fly the small narrowbodies, so
+// Superjet 100-95LR, A220-300, A318-100, A319-200, A319NEO, A320-200, A320-NEO,
+// A321-200, A321-NEO, B737-700ER, B737-900 and B737-900ER are removed. Nothing is
+// added speculatively; anything a member asks for is added on request.
 const AIRCRAFT_DATA = [
-  { name: 'Superjet 100-95LR', maxRange: 4578,  realism: 1086, easy: 1629 },
-  { name: 'A220-300',          maxRange: 6110,  realism: 958,  easy: 1437 },
-  { name: 'A318-100',          maxRange: 6020,  realism: 858,  easy: 1287 },
-  { name: 'A319-200',          maxRange: 7000,  realism: 858,  easy: 1287 },
-  { name: 'A319NEO',           maxRange: 6950,  realism: 941,  easy: 1411 },
-  { name: 'A320-200',          maxRange: 5700,  realism: 905,  easy: 1358 },
-  { name: 'A320-NEO',          maxRange: 7000,  realism: 935,  easy: 1403 },
-  { name: 'A321-200',          maxRange: 6000,  realism: 858,  easy: 1287 },
-  { name: 'A321-NEO',          maxRange: 7250,  realism: 935,  easy: 1403 },
-  { name: 'B737-700ER',        maxRange: 10200, realism: 911,  easy: 1366 },
   { name: 'B737-800',          maxRange: 7000,  realism: 858,  easy: 1287 },
-  { name: 'B737-900',          maxRange: 3815,  realism: 911,  easy: 1366 },
-  { name: 'B737-900ER',        maxRange: 5925,  realism: 905,  easy: 1358 },
   { name: 'B737 MAX 8',        maxRange: 6500,  realism: 923,  easy: 1384 },
   { name: 'A330-200',          maxRange: 12500, realism: 958,  easy: 1437 },
   { name: 'A330-300',          maxRange: 10000, realism: 958,  easy: 1437 },

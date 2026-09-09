@@ -223,9 +223,56 @@ function flightsIn48(t){ return departures48(t,maint); }
 // moves income: income ≈ 0.94 × Ycap × Y-ticket (A380 predicts $3.198M vs bot $3.192M at 16,684km).
 // Costs: fuel lb/km × price, CO₂ q/km × price, A-check $/h × ceil(flight hours at NORMAL speed), repair per flight.
 // Per-aircraft data — only aircraft listed here get a revenue lane; others rank on contributions alone.
+// Two forms of cost data live side by side and are NOT converted into one another.
+//   · cf / cc          — fuel lb/km and CO₂ q/km per seat-unit, priced by FUEL_P / CO2_P.
+//                        A380-800 and Concorde, fitted 5–6 Sep. Unchanged.
+//   · fuelKm / co2Km   — fuel $/km and CO₂ $/km per configured seat, ALREADY in dollars at
+//                        the export's own price setting. ATL-78, 9 Sep 2026: 20 am4help route
+//                        exports, AUH hub, CI 200.
+// EXPORT_PRICE_SCALE is the single knob between the export's fuel/CO₂ prices and the
+// calculator's fixed $600/1,000 lb and $135/1,000 q. It stays 1.0 until Nathan confirms the
+// export price; no conversion is invented here (ATL-78).
+const EXPORT_PRICE_SCALE = 1.0;
+// The export-derived lane stays DORMANT until Nathan confirms the export's fuel and CO2
+// prices. Flip this to true and those aircraft light up their revenue lane; until then they
+// rank on contributions only, exactly as they do today, and nothing users see changes.
+// Why it is not on yet (ATL-78 reply, 9 Sep 2026): at scale 1.0 the constants do not
+// reconcile. For A330-200 on a 7,664km / 8h CI-200 cell, using this repo's own burn figure
+// of 11,000 lb/h, the fuel constant implies an export price of ~$1,537 per 1,000 lb — fine,
+// one scale fixes that. But the CO2 constant read per configured seat implies 8.7 MILLION
+// quotas on that single flight, and read as a flat $/km it implies 30,612 against the
+// A380's fitted ~745,000. Fuel and CO2 are priced independently in-game, so ONE scale
+// cannot correct both. Turning the lane on now would put wrong dollars in front of members.
+const EXPORT_SCALE_CONFIRMED = false;
+// Revenue entry for an aircraft, honouring the dormancy flag above.
+function revFor(name){ const r=REV[name]; if(!r) return null; return (r.fuelKm!=null&&!EXPORT_SCALE_CONFIRMED)?null:r; }
+// Both CI factors below equal exactly 1.0 at CI 200 — fuel ×(200/500+0.6)=1, CO₂ ×(200/2000+0.9)=1
+// — which is the condition the exports were taken at, so the $/km figures drop straight in and
+// still scale correctly for slower cells.
+// 'spd' (export cruise, km/h) and 'priceM' (purchase price, $M) are recorded for provenance and
+// are deliberately NOT wired into any formula: contributions keep the game speeds in
+// AIRCRAFT_DATA (ATL-78: "contributions use existing formula and maxRange"), and purchase price
+// is capital cost, not per-flight cost.
 const REV={
-  'A380-800':  { ycap:600, cf:21.59, cc:0.0914, acheckH:28750.5, repair:1557 },   // cf = fuel lb/km at CI 200 · cc = CO₂ q/km per seat-unit at CI 200 · fitted from 902-route export   // 400 = typical configured seats after class layout (Nathan, 6 Sep); 600 is the raw purchase capacity
-  'Concorde':  { ycap:128, cf:32.4,  cc:0.20,   acheckH:265693,  repair:2945 }
+  'A380-800':     { ycap:600, cf:21.59, cc:0.0914, acheckH:28750.5, repair:1557 },   // cf = fuel lb/km at CI 200 · cc = CO₂ q/km per seat-unit at CI 200 · fitted from 902-route export   // 400 = typical configured seats after class layout (Nathan, 6 Sep); 600 is the raw purchase capacity
+  'Concorde':     { ycap:128, cf:32.4,  cc:0.20,   acheckH:265693,  repair:2945 },
+  // ── ATL-78 export constants ──
+  'A330-200':     { fuelKm:17.644, co2Km:0.53922, acheckH:9959,  repair:294.52, spd:958,   priceM:39 },
+  'A330-300':     { fuelKm:18.682, co2Km:0.53515, acheckH:13480, repair:292.48, spd:958,   priceM:39 },
+  'A330-900neo':  { fuelKm:12.610, co2Km:0.38816, acheckH:8574,  repair:737.88, spd:801,   priceM:98 },
+  'A340-300':     { fuelKm:20.758, co2Km:0.44524, acheckH:15343, repair:374.42, spd:1004,  priceM:50 },
+  'A340-600':     { fuelKm:20.060, co2Km:0.50014, acheckH:13674, repair:471.74, spd:871,   priceM:63 },
+  'A350-900':     { fuelKm:15.501, co2Km:0.37512, acheckH:5127,  repair:475.90, spd:860,   priceM:64 },
+  'A350-900R':    { fuelKm:15.501, co2Km:0.37512, acheckH:6363,  repair:558.38, spd:860,   priceM:75 },
+  'B737-800':     { fuelKm:9.118,  co2Km:0.31810, acheckH:985,   repair:29.75,  spd:725,   priceM:4  },
+  'B737 MAX 8':   { fuelKm:6.994,  co2Km:0.24119, acheckH:1385,  repair:121.58, spd:881,   priceM:16 },
+  'B787-8':       { fuelKm:14.744, co2Km:0.35726, acheckH:3020,  repair:131.03, spd:822,   priceM:18 },
+  'B787-9':       { fuelKm:14.744, co2Km:0.35726, acheckH:9800,  repair:472.49, spd:822,   priceM:63 },
+  'B787-10':      { fuelKm:18.061, co2Km:0.47429, acheckH:17289, repair:491.37, spd:860,   priceM:66 }
+  // B777-200 is contributions-only until an export is confirmed (ATL-78) — no entry, by design.
+  // A330-800, Il-96-400, B747SP and B747-8 carry export constants on ATL-78 but are not in
+  // AIRCRAFT_DATA, so they cannot be selected. Their constants are held on the issue rather
+  // than parked here as unreachable data; they land in the same commit as the aircraft.
 };
 let revP=null, ac_name='', gSpeed=0;
 // CI of a cell from its distance and flight time (am4help: CI = 2000d/(7uT) − 600/7, same CI the contribution formula uses)
@@ -236,6 +283,7 @@ function cellCI(d,t){ return gSpeed>0?Math.max(0,Math.min(200,(2000/7)*(d/(gSpee
 const FUEL_P=600, CO2_P=135;             // generic $/1,000 lb and $/1,000 q — prices move every half hour in-game; a fixed point value is the doctrine
 const SEATS ={ y:57,  j:143, f:85  };   // configured seats per class
 const DEMAND={ y:735, j:377, f:162 };   // route demand per day per class
+const TOTAL_SEATS=SEATS.y+SEATS.j+SEATS.f;   // 285 configured seats — the basis for the ATL-78 CO₂ $/km/seat figures
 function soldPerClass(t){
   const perDay=Math.max(0.5,flightsIn48(t)/2);
   return { y:Math.min(SEATS.y,DEMAND.y/perDay), j:Math.min(SEATS.j,DEMAND.j/perDay), f:Math.min(SEATS.f,DEMAND.f/perDay) };
@@ -248,8 +296,14 @@ function profitPerFlight(d,t){
   // Fuel and CO₂ scale with CI (am4help): fuel × (CI/500 + 0.6), CO₂ × (CI/2000 + 0.9). Slower cells burn less.
   const ci=cellCI(d,t);
   const seatUnits=(s.y+2*s.j+3*s.f)+(SEATS.y+SEATS.j+SEATS.f);
-  const fuel=revP.cf*d*(ci/500+0.6)*FUEL_P/1000;
-  const co2=revP.cc*d*seatUnits*(ci/2000+0.9)*CO2_P/1000;
+  // Export-derived entries carry dollars per km already; fitted entries carry lb/km and q/km
+  // and are priced here. Whichever form the aircraft has, the CI scaling is the same.
+  const fuel=revP.fuelKm!=null
+    ? revP.fuelKm*d*(ci/500+0.6)*EXPORT_PRICE_SCALE
+    : revP.cf*d*(ci/500+0.6)*FUEL_P/1000;
+  const co2=revP.co2Km!=null
+    ? revP.co2Km*d*TOTAL_SEATS*(ci/2000+0.9)*EXPORT_PRICE_SCALE
+    : revP.cc*d*seatUnits*(ci/2000+0.9)*CO2_P/1000;
   const chk=revP.acheckH*Math.ceil(t);
   return inc-fuel-co2-chk-revP.repair;
 }
@@ -519,8 +573,8 @@ async function loadGrid(ac,mode){
     populateDD(grid,dists);
     const fpd=parseInt(document.getElementById('opt-dd').value)||0;
     optIdx=fpd?closestRow(optMins(fpd,maint)):-1;
-    ac_name=ac; revP=REV[ac]||null; gSpeed=D.speed||0;
-    document.getElementById('revnote').textContent=revP?('Revenue lane active for '+ac+' — '+revP.cf+' lb/km @CI200, CO₂ '+revP.cc+' q/km/seat, A-check $'+Math.round(revP.acheckH).toLocaleString()+' per started hour, repair $'+revP.repair.toLocaleString()):('No revenue data for '+ac+' yet — ranking on contributions only');
+    ac_name=ac; revP=revFor(ac); gSpeed=D.speed||0;
+    document.getElementById('revnote').textContent=revP?('Revenue lane active for '+ac+' — '+(revP.fuelKm!=null?('$'+revP.fuelKm+'/km fuel @CI200, CO₂ $'+revP.co2Km+'/km/seat'):(revP.cf+' lb/km @CI200, CO₂ '+revP.cc+' q/km/seat'))+', A-check $'+Math.round(revP.acheckH).toLocaleString()+' per started hour, repair $'+revP.repair.toLocaleString()):((REV[ac]&&!EXPORT_SCALE_CONFIRMED)?('Export constants loaded for '+ac+' — profit lane held until the export fuel/CO₂ prices are confirmed; ranking on contributions only'):('No revenue data for '+ac+' yet — ranking on contributions only'));
     buildRank(grid,dists);
     sScale=zoneScale(grid,dists,d=>true); vScale=sScale;  // one continuous value scale — no zone cut in the colour
     sPeak=scorePeak(dists,d=>d<=6000); vPeak=scorePeak(dists,d=>d>=10000);
