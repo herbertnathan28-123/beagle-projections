@@ -101,6 +101,10 @@ const DEFAULT_DATA = {
 // Superjet 100-95LR, A220-300, A318-100, A319-200, A319NEO, A320-200, A320-NEO,
 // A321-200, A321-NEO, B737-700ER, B737-900 and B737-900ER are removed. Nothing is
 // added speculatively; anything a member asks for is added on request.
+// B747SP, Il-96-400 and MC-21-400 added 9 Sep 2026 from Nathan's in-game aircraft
+// detail screens. maxRange is the sheet's Range; realism/easy are the sheet's cruise
+// speed put through the same x1.1 / x1.65 as every other row (x1.1 for the speed mod
+// bought on purchase, easy mode taking a further x1.5 on top).
 const AIRCRAFT_DATA = [
   { name: 'B737-800',          maxRange: 7000,  realism: 858,  easy: 1287 },
   { name: 'B737 MAX 8',        maxRange: 6500,  realism: 923,  easy: 1384 },
@@ -112,10 +116,13 @@ const AIRCRAFT_DATA = [
   { name: 'A350-900',          maxRange: 14500, realism: 1040, easy: 1559 },
   { name: 'A350-900R',         maxRange: 14500, realism: 1040, easy: 1559 },
   { name: 'A380-800',          maxRange: 14500, realism: 1154, easy: 1731 },
+  { name: 'B747SP',            maxRange: 10800, realism: 1078, easy: 1617 },
   { name: 'B777-200',          maxRange: 9695,  realism: 996,  easy: 1493 },
   { name: 'B787-8',            maxRange: 14500, realism: 993,  easy: 1490 },
   { name: 'B787-9',            maxRange: 14500, realism: 993,  easy: 1490 },
   { name: 'B787-10',           maxRange: 12000, realism: 1040, easy: 1559 },
+  { name: 'Il-96-400',         maxRange: 10000, realism: 890,  easy: 1335 },
+  { name: 'MC-21-400',         maxRange: 5500,  realism: 1206, easy: 1808 },
 ];
 
 // ── FUEL DASHBOARD — aircraft revenue per type per day (SV-based) ──────────

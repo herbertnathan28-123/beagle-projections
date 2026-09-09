@@ -285,11 +285,20 @@ const REV={
   'B737 MAX 8':   { fuelKm:6.994,  co2Km:0.24119, acheckH:1385,  repair:121.58, spd:881,   priceM:16 },
   'B787-8':       { fuelKm:14.744, co2Km:0.35726, acheckH:3020,  repair:131.03, spd:822,   priceM:18 },
   'B787-9':       { fuelKm:14.744, co2Km:0.35726, acheckH:9800,  repair:472.49, spd:822,   priceM:63 },
-  'B787-10':      { fuelKm:18.061, co2Km:0.47429, acheckH:17289, repair:491.37, spd:860,   priceM:66 }
+  'B787-10':      { fuelKm:18.061, co2Km:0.47429, acheckH:17289, repair:491.37, spd:860,   priceM:66 },
+  'B747SP':       { fuelKm:21.127, co2Km:0.61107, acheckH:9696,  repair:275.56, spd:990,   priceM:37 },
+  'Il-96-400':    { fuelKm:26.888, co2Km:0.43004, acheckH:9671,  repair:272.98, spd:809,   priceM:36 }
   // B777-200 is contributions-only until an export is confirmed (ATL-78) — no entry, by design.
-  // A330-800, Il-96-400, B747SP and B747-8 carry export constants on ATL-78 but are not in
-  // AIRCRAFT_DATA, so they cannot be selected. Their constants are held on the issue rather
-  // than parked here as unreachable data; they land in the same commit as the aircraft.
+  // MC-21-400 likewise: its aircraft sheet gives A-check $494,428 over a 400h check
+  // (= $1,236.07 per started hour) and 19.57 lb/km, but no per-flight repair figure exists
+  // for it anywhere, so a partial entry would compute a profit that silently omits a cost.
+  // A330-800 and B747-8 carry ATL-78 constants but are not in AIRCRAFT_DATA and so cannot be
+  // selected; their constants stay on the issue rather than sitting here unreachable.
+  //
+  // The two entries above are cross-checked against Nathan's in-game aircraft sheets, and the
+  // A-check column proves out exactly: B747SP $3,878,280 / 400h = $9,695.70 -> 9,696, and
+  // Il-96-400 $4,448,548 / 460h = $9,670.76 -> 9,671. Both match ATL-78 to the dollar, which
+  // validates how the whole A-check column was derived.
 };
 let revP=null, ac_name='', gSpeed=0;
 // CI of a cell from its distance and flight time (am4help: CI = 2000d/(7uT) − 600/7, same CI the contribution formula uses)
