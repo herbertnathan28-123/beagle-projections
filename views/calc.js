@@ -60,6 +60,21 @@ function buildCalcPage(key) {
   .maint-btn.on { background: #0E2818; border-color: var(--lime); color: var(--lime); }
   #opt-dd { min-width: 320px; background: #0A1E30; color: var(--ink); border: 1px solid #2C4A6E; border-radius: 4px; padding: 6px 10px; font-size: 12px; font-family: 'Consolas', monospace; }
   .opt-result { font-size: 13px; color: var(--gold); font-weight: 700; white-space: nowrap; }
+  /* CONTRIB<->PROFIT balance slider — sized for touch (Nathan, 9 Sep 2026) */
+  .wrow { gap: 14px !important; }
+  .wgrp { display: flex; align-items: center; gap: 12px; flex: 1 1 280px; min-width: 0; }
+  #wslider { -webkit-appearance: none; appearance: none; flex: 1 1 auto; min-width: 130px; max-width: 380px; height: 36px; background: transparent; margin: 0; padding: 0; cursor: grab; touch-action: none; }
+  #wslider:active { cursor: grabbing; }
+  #wslider::-webkit-slider-runnable-track { height: 14px; border-radius: 999px; border: 1px solid #2C4A6E; background: linear-gradient(90deg, var(--lime), var(--gold)); }
+  #wslider::-moz-range-track { height: 14px; border-radius: 999px; border: 1px solid #2C4A6E; background: linear-gradient(90deg, var(--lime), var(--gold)); }
+  #wslider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 32px; height: 32px; margin-top: -9px; border-radius: 50%; background: #FFFFFF; border: 3px solid var(--gold); box-shadow: 0 0 12px rgba(255,196,34,.75); }
+  #wslider::-moz-range-thumb { width: 32px; height: 32px; border-radius: 50%; background: #FFFFFF; border: 3px solid var(--gold); box-shadow: 0 0 12px rgba(255,196,34,.75); }
+  #wslider:focus { outline: none; }
+  #wslider:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(13,193,232,.65); }
+  #wslider:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 5px rgba(13,193,232,.65); }
+  .wend { font-size: 12px; font-weight: 800; letter-spacing: .06em; cursor: pointer; user-select: none; padding: 6px 4px; }
+  .wend:hover { text-decoration: underline; }
+  #wlbl { font-size: 15px !important; min-width: 72px; text-align: center; flex: 0 0 auto; }
   /* Mini-map */
   .mini-wrap { background: var(--panel); border-bottom: 1px solid var(--line); padding: 10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
   #mini { image-rendering: pixelated; border: 1px solid #2C4A6E; border-radius: 4px; cursor: crosshair; box-shadow: 0 0 20px rgba(13,193,232,.15); }
@@ -158,13 +173,15 @@ function buildCalcPage(key) {
     </div>
   </div>
   <div id="rev" style="min-width:300px;">
-    <div class="opt-section-label">$ REVENUE LANE — GENERIC: 3-CLASS AVERAGES · FUEL $600 · CO₂ $135 · A-CHECK PER STARTED HOUR</div>
-    <div class="manual-row" style="gap:10px;margin-top:8px;">
+    <div class="opt-section-label">$ REVENUE LANE — GENERIC: 3-CLASS AVERAGES · FUEL $600 · CO₂ $130 · A-CHECK PER STARTED HOUR</div>
+    <div class="manual-row wrow" style="margin-top:8px;">
       <span class="control-label">BALANCE</span>
-      <span style="font-size:10px;color:#1AFF00;font-weight:700;">CONTRIB</span>
-      <input id="wslider" type="range" min="0" max="100" value="50" style="width:150px;accent-color:#FFC422;">
-      <span style="font-size:10px;color:#FFC422;font-weight:700;">PROFIT</span>
-      <span id="wlbl" style="font-size:11px;color:#E6F0FF;font-weight:700;">50 / 50</span>
+      <span class="wgrp">
+        <span class="wend" style="color:#1AFF00;" onclick="setBalance(0)" title="All contributions">CONTRIB</span>
+        <input id="wslider" type="range" min="0" max="100" value="50" step="1" aria-label="Contributions to profit balance">
+        <span class="wend" style="color:#FFC422;" onclick="setBalance(100)" title="All profit">PROFIT</span>
+      </span>
+      <span id="wlbl" style="color:#E6F0FF;font-weight:700;">50 / 50</span>
     </div>
     <div class="bcard-meta" id="revnote" style="margin-top:6px;">&nbsp;</div>
   </div>
@@ -223,9 +240,70 @@ function flightsIn48(t){ return departures48(t,maint); }
 // moves income: income ≈ 0.94 × Ycap × Y-ticket (A380 predicts $3.198M vs bot $3.192M at 16,684km).
 // Costs: fuel lb/km × price, CO₂ q/km × price, A-check $/h × ceil(flight hours at NORMAL speed), repair per flight.
 // Per-aircraft data — only aircraft listed here get a revenue lane; others rank on contributions alone.
+// Two shapes of per-aircraft cost data, both priced at the SAME datum (Nathan, 9 Sep 2026):
+// fuel $600 per 1,000 lb, CO2 $130 per 1,000 q. Nothing is scaled or converted.
+//   · cf   — fuel lb/km at CI 200, used by every aircraft. The A380/Concorde values were
+//            fitted 5-6 Sep; the ATL-78 values are the game's own Consumption figure, which
+//            two aircraft sheets confirmed to within 3-5% (B747SP 20.24 vs 21.127,
+//            Il-96-400 27.72 vs 26.888). That column was lb/km all along, never dollars.
+//   · cc   — CO2 q/km per SEAT-UNIT, times the sold+configured seat composite. A380-800 and
+//            Concorde only, fitted. Unchanged.
+//   · ccS  — CO2 q/km per CONFIGURED SEAT, times the fixed 285-seat config (Y 57 / J 143 /
+//            F 85), per ATL-78's own note. The ATL-78 aircraft use this.
+// Both CI factors equal exactly 1.0 at CI 200 — fuel ×(200/500+0.6), CO₂ ×(200/2000+0.9) —
+// which is the condition the exports were taken at, so the figures drop straight in and still
+// scale correctly for slower cells.
+// 'spd' (export cruise, km/h) and 'priceM' (purchase price, $M) are recorded for provenance and
+// deliberately NOT wired: contributions keep the game speeds in AIRCRAFT_DATA, and purchase
+// price is capital cost, not per-flight cost.
+// ── PROFIT LANE GATE (Codex review, 9 Sep 2026 — verified) ────────────────────
+// The generic layout Y57/J143/F85 is 285 physical seats but 57 + 143x2 + 85x3 = 598
+// CAPACITY UNITS, because J costs two units and F costs three. 598 units is an A380
+// configuration — REV['A380-800'].ycap is 600. No smaller aircraft can hold it:
+// A330-800neo 406, Il-96-400 436, B747SP 350, MC-21-400 230 are all short.
+// soldPerClass() would happily sell that layout on low-frequency cells, so an aircraft
+// that cannot physically seat it still books the income, and ccS charges its CO2 against
+// the same impossible 285 seats. Profit, and therefore any slider position off pure
+// CONTRIB, would be invalid for every aircraft except the A380.
+// So the ATL-78 aircraft keep their constants but stay off the profit lane until each
+// carries its own capacity. Flip this once every ccS entry has a real ycap and the layout
+// is scaled to it; the fitted A380/Concorde entries are untouched either way.
+const PROFIT_CAPACITY_READY = false;
+const LAYOUT_CAPACITY_UNITS = 598;   // 57 + 143*2 + 85*3
+// Revenue entry for an aircraft, honouring the gate above.
+function revFor(name){ const r=REV[name]; if(!r) return null; return (r.ccS!=null && !PROFIT_CAPACITY_READY) ? null : r; }
 const REV={
-  'A380-800':  { ycap:600, cf:21.59, cc:0.0914, acheckH:28750.5, repair:1557 },   // cf = fuel lb/km at CI 200 · cc = CO₂ q/km per seat-unit at CI 200 · fitted from 902-route export   // 400 = typical configured seats after class layout (Nathan, 6 Sep); 600 is the raw purchase capacity
-  'Concorde':  { ycap:128, cf:32.4,  cc:0.20,   acheckH:265693,  repair:2945 }
+  'A380-800':     { ycap:600, cf:21.59, cc:0.0914, acheckH:28750.5, repair:1557 },   // cf = fuel lb/km at CI 200 · cc = CO₂ q/km per seat-unit at CI 200 · fitted from 902-route export   // 400 = typical configured seats after class layout (Nathan, 6 Sep); 600 is the raw purchase capacity
+  'Concorde':     { ycap:128, cf:32.4,  cc:0.20,   acheckH:265693,  repair:2945 },
+  // ── ATL-78 export constants ──
+  'A330-200':     { cf:17.644, ccS:0.53922, acheckH:9959,  repair:294.52, spd:958,   priceM:39 },
+  'A330-300':     { cf:18.682, ccS:0.53515, acheckH:13480, repair:292.48, spd:958,   priceM:39 },
+  'A330-800neo':  { ycap:406, cf:11.640, ccS:0.26797, acheckH:6692,  repair:575.95, spd:801,   priceM:77 },   // ATL-78 calls it "A330-800"; the game sheet and the sibling row below both say neo
+  'A330-900neo':  { cf:12.610, ccS:0.38816, acheckH:8574,  repair:737.88, spd:801,   priceM:98 },
+  'A340-300':     { cf:20.758, ccS:0.44524, acheckH:15343, repair:374.42, spd:1004,  priceM:50 },
+  'A340-600':     { cf:20.060, ccS:0.50014, acheckH:13674, repair:471.74, spd:871,   priceM:63 },
+  'A350-900':     { cf:15.501, ccS:0.37512, acheckH:5127,  repair:475.90, spd:860,   priceM:64 },
+  'A350-900R':    { cf:15.501, ccS:0.37512, acheckH:6363,  repair:558.38, spd:860,   priceM:75 },
+  'B737-800':     { cf:9.118,  ccS:0.31810, acheckH:985,   repair:29.75,  spd:725,   priceM:4  },
+  'B737 MAX 8':   { cf:6.994,  ccS:0.24119, acheckH:1385,  repair:121.58, spd:881,   priceM:16 },
+  'B787-8':       { cf:14.744, ccS:0.35726, acheckH:3020,  repair:131.03, spd:822,   priceM:18 },
+  'B787-9':       { cf:14.744, ccS:0.35726, acheckH:9800,  repair:472.49, spd:822,   priceM:63 },
+  'B787-10':      { cf:18.061, ccS:0.47429, acheckH:17289, repair:491.37, spd:860,   priceM:66 },
+  'B747SP':       { ycap:350, cf:21.127, ccS:0.61107, acheckH:9696,  repair:275.56, spd:990,   priceM:37 },
+  'Il-96-400':    { ycap:436, cf:26.888, ccS:0.43004, acheckH:9671,  repair:272.98, spd:809,   priceM:36 }
+  // B777-200 is contributions-only until an export is confirmed (ATL-78) — no entry, by design.
+  // MC-21-400 likewise: its aircraft sheet gives A-check $494,428 over a 400h check
+  // (= $1,236.07 per started hour) and 19.57 lb/km, but no per-flight repair figure exists
+  // for it anywhere, so a partial entry would compute a profit that silently omits a cost.
+  // B747-8 carries ATL-78 constants but is not in AIRCRAFT_DATA and so cannot be selected;
+  // its constants stay on the issue rather than sitting here unreachable.
+  //
+  // Cross-checked against Nathan's in-game aircraft sheets. The A-check column proves out
+  // exactly on all three sheets he sent:
+  //   B747SP      $3,878,280 / 400h = $9,695.70 -> 9,696
+  //   Il-96-400   $4,448,548 / 460h = $9,670.76 -> 9,671
+  //   A330-800neo $3,413,028 / 510h = $6,692.21 -> 6,692
+  // All three match ATL-78 to the dollar, which validates the whole A-check column.
 };
 let revP=null, ac_name='', gSpeed=0;
 // CI of a cell from its distance and flight time (am4help: CI = 2000d/(7uT) − 600/7, same CI the contribution formula uses)
@@ -233,9 +311,10 @@ function cellCI(d,t){ return gSpeed>0?Math.max(0,Math.min(200,(2000/7)*(d/(gSpee
 // Demand cap (Nathan, 6 Sep): three separate demand pools (Y, J, F), each resets daily.
 // Seats sold per flight per class = min(configured seats, class demand ÷ flights that day). Contributions unaffected (15 pax).
 // Generic class numbers — averages of Nathan's 108-route sheet (Book.xlsx, 6 Sep 2026). Fixed; not player inputs.
-const FUEL_P=600, CO2_P=135;             // generic $/1,000 lb and $/1,000 q — prices move every half hour in-game; a fixed point value is the doctrine
+const FUEL_P=600, CO2_P=130;             // generic $/1,000 lb and $/1,000 q — prices move every half hour in-game; a fixed point value is the doctrine. Set by Nathan, 9 Sep 2026 (CO₂ 135 -> 130).
 const SEATS ={ y:57,  j:143, f:85  };   // configured seats per class
 const DEMAND={ y:735, j:377, f:162 };   // route demand per day per class
+const TOTAL_SEATS=SEATS.y+SEATS.j+SEATS.f;   // 285 configured seats — the basis for the ATL-78 CO₂ $/km/seat figures
 function soldPerClass(t){
   const perDay=Math.max(0.5,flightsIn48(t)/2);
   return { y:Math.min(SEATS.y,DEMAND.y/perDay), j:Math.min(SEATS.j,DEMAND.j/perDay), f:Math.min(SEATS.f,DEMAND.f/perDay) };
@@ -248,8 +327,10 @@ function profitPerFlight(d,t){
   // Fuel and CO₂ scale with CI (am4help): fuel × (CI/500 + 0.6), CO₂ × (CI/2000 + 0.9). Slower cells burn less.
   const ci=cellCI(d,t);
   const seatUnits=(s.y+2*s.j+3*s.f)+(SEATS.y+SEATS.j+SEATS.f);
+  // One fuel path: lb/km at the $600 datum, for every aircraft.
   const fuel=revP.cf*d*(ci/500+0.6)*FUEL_P/1000;
-  const co2=revP.cc*d*seatUnits*(ci/2000+0.9)*CO2_P/1000;
+  // CO2 differs only in what its per-km figure is per: a seat-unit (fitted) or a configured seat (ATL-78).
+  const co2=(revP.ccS!=null ? revP.ccS*d*TOTAL_SEATS : revP.cc*d*seatUnits)*(ci/2000+0.9)*CO2_P/1000;
   const chk=revP.acheckH*Math.ceil(t);
   return inc-fuel-co2-chk-revP.repair;
 }
@@ -519,8 +600,8 @@ async function loadGrid(ac,mode){
     populateDD(grid,dists);
     const fpd=parseInt(document.getElementById('opt-dd').value)||0;
     optIdx=fpd?closestRow(optMins(fpd,maint)):-1;
-    ac_name=ac; revP=REV[ac]||null; gSpeed=D.speed||0;
-    document.getElementById('revnote').textContent=revP?('Revenue lane active for '+ac+' — '+revP.cf+' lb/km @CI200, CO₂ '+revP.cc+' q/km/seat, A-check $'+Math.round(revP.acheckH).toLocaleString()+' per started hour, repair $'+revP.repair.toLocaleString()):('No revenue data for '+ac+' yet — ranking on contributions only');
+    ac_name=ac; revP=revFor(ac); gSpeed=D.speed||0;
+    document.getElementById('revnote').textContent=revP?('Revenue lane active for '+ac+' — '+revP.cf+' lb/km @CI200, CO₂ '+(revP.ccS!=null?(revP.ccS+' q/km/seat'):(revP.cc+' q/km/seat-unit'))+', A-check $'+Math.round(revP.acheckH).toLocaleString()+' per started hour, repair $'+revP.repair.toLocaleString()):((REV[ac]&&REV[ac].ccS!=null)?('Constants loaded for '+ac+' — profit lane held until it carries its own seat capacity; ranking on contributions only'):('No revenue data for '+ac+' yet — ranking on contributions only'));
     buildRank(grid,dists);
     sScale=zoneScale(grid,dists,d=>true); vScale=sScale;  // one continuous value scale — no zone cut in the colour
     sPeak=scorePeak(dists,d=>d<=6000); vPeak=scorePeak(dists,d=>d>=10000);
@@ -534,6 +615,7 @@ async function loadGrid(ac,mode){
 }
 
 function rerank(){ if(!gGrid)return; buildRank(gGrid,gDists); populateDD(gGrid,gDists); document.getElementById('wlbl').textContent=(100-Math.round(weightW()*100))+' / '+Math.round(weightW()*100); reOpt(); const sel=document.querySelector('td.sel'); if(sel){const [_,ti,di]=sel.id.split('-'); inspect(+ti,+di);} }
+function setBalance(v){ const w=document.getElementById('wslider'); w.value=v; rerank(); }
 document.getElementById('wslider').addEventListener('input',rerank);
 document.getElementById('boost').addEventListener('change',()=>{ if(!sGrid)return; buildRank(sGrid,sDists); populateDD(sGrid,sDists); onDDChange(); });
 
