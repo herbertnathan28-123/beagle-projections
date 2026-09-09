@@ -60,6 +60,21 @@ function buildCalcPage(key) {
   .maint-btn.on { background: #0E2818; border-color: var(--lime); color: var(--lime); }
   #opt-dd { min-width: 320px; background: #0A1E30; color: var(--ink); border: 1px solid #2C4A6E; border-radius: 4px; padding: 6px 10px; font-size: 12px; font-family: 'Consolas', monospace; }
   .opt-result { font-size: 13px; color: var(--gold); font-weight: 700; white-space: nowrap; }
+  /* CONTRIB<->PROFIT balance slider — sized for touch (Nathan, 9 Sep 2026) */
+  .wrow { gap: 14px !important; }
+  .wgrp { display: flex; align-items: center; gap: 12px; flex: 1 1 280px; min-width: 0; }
+  #wslider { -webkit-appearance: none; appearance: none; flex: 1 1 auto; min-width: 130px; max-width: 380px; height: 36px; background: transparent; margin: 0; padding: 0; cursor: grab; touch-action: none; }
+  #wslider:active { cursor: grabbing; }
+  #wslider::-webkit-slider-runnable-track { height: 14px; border-radius: 999px; border: 1px solid #2C4A6E; background: linear-gradient(90deg, var(--lime), var(--gold)); }
+  #wslider::-moz-range-track { height: 14px; border-radius: 999px; border: 1px solid #2C4A6E; background: linear-gradient(90deg, var(--lime), var(--gold)); }
+  #wslider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 32px; height: 32px; margin-top: -10px; border-radius: 50%; background: #FFFFFF; border: 3px solid var(--gold); box-shadow: 0 0 12px rgba(255,196,34,.75); }
+  #wslider::-moz-range-thumb { width: 32px; height: 32px; border-radius: 50%; background: #FFFFFF; border: 3px solid var(--gold); box-shadow: 0 0 12px rgba(255,196,34,.75); }
+  #wslider:focus { outline: none; }
+  #wslider:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(13,193,232,.65); }
+  #wslider:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 5px rgba(13,193,232,.65); }
+  .wend { font-size: 12px; font-weight: 800; letter-spacing: .06em; cursor: pointer; user-select: none; padding: 6px 4px; }
+  .wend:hover { text-decoration: underline; }
+  #wlbl { font-size: 15px !important; min-width: 72px; text-align: center; flex: 0 0 auto; }
   /* Mini-map */
   .mini-wrap { background: var(--panel); border-bottom: 1px solid var(--line); padding: 10px 24px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
   #mini { image-rendering: pixelated; border: 1px solid #2C4A6E; border-radius: 4px; cursor: crosshair; box-shadow: 0 0 20px rgba(13,193,232,.15); }
@@ -159,12 +174,14 @@ function buildCalcPage(key) {
   </div>
   <div id="rev" style="min-width:300px;">
     <div class="opt-section-label">$ REVENUE LANE — GENERIC: 3-CLASS AVERAGES · FUEL $600 · CO₂ $135 · A-CHECK PER STARTED HOUR</div>
-    <div class="manual-row" style="gap:10px;margin-top:8px;">
+    <div class="manual-row wrow" style="margin-top:8px;">
       <span class="control-label">BALANCE</span>
-      <span style="font-size:10px;color:#1AFF00;font-weight:700;">CONTRIB</span>
-      <input id="wslider" type="range" min="0" max="100" value="50" style="width:150px;accent-color:#FFC422;">
-      <span style="font-size:10px;color:#FFC422;font-weight:700;">PROFIT</span>
-      <span id="wlbl" style="font-size:11px;color:#E6F0FF;font-weight:700;">50 / 50</span>
+      <span class="wgrp">
+        <span class="wend" style="color:#1AFF00;" onclick="setBalance(0)" title="All contributions">CONTRIB</span>
+        <input id="wslider" type="range" min="0" max="100" value="50" step="1" aria-label="Contributions to profit balance">
+        <span class="wend" style="color:#FFC422;" onclick="setBalance(100)" title="All profit">PROFIT</span>
+      </span>
+      <span id="wlbl" style="color:#E6F0FF;font-weight:700;">50 / 50</span>
     </div>
     <div class="bcard-meta" id="revnote" style="margin-top:6px;">&nbsp;</div>
   </div>
@@ -588,6 +605,7 @@ async function loadGrid(ac,mode){
 }
 
 function rerank(){ if(!gGrid)return; buildRank(gGrid,gDists); populateDD(gGrid,gDists); document.getElementById('wlbl').textContent=(100-Math.round(weightW()*100))+' / '+Math.round(weightW()*100); reOpt(); const sel=document.querySelector('td.sel'); if(sel){const [_,ti,di]=sel.id.split('-'); inspect(+ti,+di);} }
+function setBalance(v){ const w=document.getElementById('wslider'); w.value=v; rerank(); }
 document.getElementById('wslider').addEventListener('input',rerank);
 document.getElementById('boost').addEventListener('change',()=>{ if(!sGrid)return; buildRank(sGrid,sDists); populateDD(sGrid,sDists); onDDChange(); });
 
