@@ -67,7 +67,7 @@ function buildCalcPage(key) {
   #wslider:active { cursor: grabbing; }
   #wslider::-webkit-slider-runnable-track { height: 14px; border-radius: 999px; border: 1px solid #2C4A6E; background: linear-gradient(90deg, var(--lime), var(--gold)); }
   #wslider::-moz-range-track { height: 14px; border-radius: 999px; border: 1px solid #2C4A6E; background: linear-gradient(90deg, var(--lime), var(--gold)); }
-  #wslider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 32px; height: 32px; margin-top: -10px; border-radius: 50%; background: #FFFFFF; border: 3px solid var(--gold); box-shadow: 0 0 12px rgba(255,196,34,.75); }
+  #wslider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 32px; height: 32px; margin-top: -9px; border-radius: 50%; background: #FFFFFF; border: 3px solid var(--gold); box-shadow: 0 0 12px rgba(255,196,34,.75); }
   #wslider::-moz-range-thumb { width: 32px; height: 32px; border-radius: 50%; background: #FFFFFF; border: 3px solid var(--gold); box-shadow: 0 0 12px rgba(255,196,34,.75); }
   #wslider:focus { outline: none; }
   #wslider:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 5px rgba(13,193,232,.65); }
@@ -250,7 +250,7 @@ function flightsIn48(t){ return departures48(t,maint); }
 //            Concorde only, fitted. Unchanged.
 //   · ccS  — CO2 q/km per CONFIGURED SEAT, times the fixed 285-seat config (Y 57 / J 143 /
 //            F 85), per ATL-78's own note. The ATL-78 aircraft use this.
-// Both CI factors equal exactly 1.0 at CI 200 - fuel x(200/500+0.6), CO2 x(200/2000+0.9) -
+// Both CI factors equal exactly 1.0 at CI 200 — fuel ×(200/500+0.6), CO₂ ×(200/2000+0.9) —
 // which is the condition the exports were taken at, so the figures drop straight in and still
 // scale correctly for slower cells.
 // 'spd' (export cruise, km/h) and 'priceM' (purchase price, $M) are recorded for provenance and
@@ -282,8 +282,8 @@ const REV={
   // B747-8 carries ATL-78 constants but is not in AIRCRAFT_DATA and so cannot be selected;
   // its constants stay on the issue rather than sitting here unreachable.
   //
-  // The two entries above are cross-checked against Nathan's in-game aircraft sheets, and the
-  // A-check column proves out exactly on all three sheets Nathan sent:
+  // Cross-checked against Nathan's in-game aircraft sheets. The A-check column proves out
+  // exactly on all three sheets he sent:
   //   B747SP      $3,878,280 / 400h = $9,695.70 -> 9,696
   //   Il-96-400   $4,448,548 / 460h = $9,670.76 -> 9,671
   //   A330-800neo $3,413,028 / 510h = $6,692.21 -> 6,692

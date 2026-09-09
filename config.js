@@ -96,15 +96,15 @@ const DEFAULT_DATA = {
 };
 
 // ── AM4 CONTRIBUTION CALCULATOR — aircraft table ───────────────────────────
-// base speeds from game x 1.1 = realism, x 1.65 = easy
+// base speeds from game × 1.1 = realism, × 1.65 = easy
 // ATL-78 (Nathan, 9 Sep 2026): the alliance does not fly the small narrowbodies, so
 // Superjet 100-95LR, A220-300, A318-100, A319-200, A319NEO, A320-200, A320-NEO,
 // A321-200, A321-NEO, B737-700ER, B737-900 and B737-900ER are removed. Nothing is
 // added speculatively; anything a member asks for is added on request.
 // A330-800neo, B747SP, Il-96-400 and MC-21-400 added 9 Sep 2026 from Nathan's in-game aircraft
 // detail screens. maxRange is the sheet's Range; realism/easy are the sheet's cruise
-// speed put through the same x1.1 / x1.65 as every other row (x1.1 for the speed mod
-// bought on purchase, easy mode taking a further x1.5 on top).
+// speed put through the same ×1.1 / ×1.65 as every other row (×1.1 for the speed mod
+// bought on purchase, easy mode taking a further ×1.5 on top).
 const AIRCRAFT_DATA = [
   { name: 'B737-800',          maxRange: 7000,  realism: 858,  easy: 1287 },
   { name: 'B737 MAX 8',        maxRange: 6500,  realism: 923,  easy: 1384 },
