@@ -256,13 +256,29 @@ function flightsIn48(t){ return departures48(t,maint); }
 // 'spd' (export cruise, km/h) and 'priceM' (purchase price, $M) are recorded for provenance and
 // deliberately NOT wired: contributions keep the game speeds in AIRCRAFT_DATA, and purchase
 // price is capital cost, not per-flight cost.
+// ── PROFIT LANE GATE (Codex review, 9 Sep 2026 — verified) ────────────────────
+// The generic layout Y57/J143/F85 is 285 physical seats but 57 + 143x2 + 85x3 = 598
+// CAPACITY UNITS, because J costs two units and F costs three. 598 units is an A380
+// configuration — REV['A380-800'].ycap is 600. No smaller aircraft can hold it:
+// A330-800neo 406, Il-96-400 436, B747SP 350, MC-21-400 230 are all short.
+// soldPerClass() would happily sell that layout on low-frequency cells, so an aircraft
+// that cannot physically seat it still books the income, and ccS charges its CO2 against
+// the same impossible 285 seats. Profit, and therefore any slider position off pure
+// CONTRIB, would be invalid for every aircraft except the A380.
+// So the ATL-78 aircraft keep their constants but stay off the profit lane until each
+// carries its own capacity. Flip this once every ccS entry has a real ycap and the layout
+// is scaled to it; the fitted A380/Concorde entries are untouched either way.
+const PROFIT_CAPACITY_READY = false;
+const LAYOUT_CAPACITY_UNITS = 598;   // 57 + 143*2 + 85*3
+// Revenue entry for an aircraft, honouring the gate above.
+function revFor(name){ const r=REV[name]; if(!r) return null; return (r.ccS!=null && !PROFIT_CAPACITY_READY) ? null : r; }
 const REV={
   'A380-800':     { ycap:600, cf:21.59, cc:0.0914, acheckH:28750.5, repair:1557 },   // cf = fuel lb/km at CI 200 · cc = CO₂ q/km per seat-unit at CI 200 · fitted from 902-route export   // 400 = typical configured seats after class layout (Nathan, 6 Sep); 600 is the raw purchase capacity
   'Concorde':     { ycap:128, cf:32.4,  cc:0.20,   acheckH:265693,  repair:2945 },
   // ── ATL-78 export constants ──
   'A330-200':     { cf:17.644, ccS:0.53922, acheckH:9959,  repair:294.52, spd:958,   priceM:39 },
   'A330-300':     { cf:18.682, ccS:0.53515, acheckH:13480, repair:292.48, spd:958,   priceM:39 },
-  'A330-800neo':  { cf:11.640, ccS:0.26797, acheckH:6692,  repair:575.95, spd:801,   priceM:77 },   // ATL-78 calls it "A330-800"; the game sheet and the sibling row below both say neo
+  'A330-800neo':  { ycap:406, cf:11.640, ccS:0.26797, acheckH:6692,  repair:575.95, spd:801,   priceM:77 },   // ATL-78 calls it "A330-800"; the game sheet and the sibling row below both say neo
   'A330-900neo':  { cf:12.610, ccS:0.38816, acheckH:8574,  repair:737.88, spd:801,   priceM:98 },
   'A340-300':     { cf:20.758, ccS:0.44524, acheckH:15343, repair:374.42, spd:1004,  priceM:50 },
   'A340-600':     { cf:20.060, ccS:0.50014, acheckH:13674, repair:471.74, spd:871,   priceM:63 },
@@ -273,8 +289,8 @@ const REV={
   'B787-8':       { cf:14.744, ccS:0.35726, acheckH:3020,  repair:131.03, spd:822,   priceM:18 },
   'B787-9':       { cf:14.744, ccS:0.35726, acheckH:9800,  repair:472.49, spd:822,   priceM:63 },
   'B787-10':      { cf:18.061, ccS:0.47429, acheckH:17289, repair:491.37, spd:860,   priceM:66 },
-  'B747SP':       { cf:21.127, ccS:0.61107, acheckH:9696,  repair:275.56, spd:990,   priceM:37 },
-  'Il-96-400':    { cf:26.888, ccS:0.43004, acheckH:9671,  repair:272.98, spd:809,   priceM:36 }
+  'B747SP':       { ycap:350, cf:21.127, ccS:0.61107, acheckH:9696,  repair:275.56, spd:990,   priceM:37 },
+  'Il-96-400':    { ycap:436, cf:26.888, ccS:0.43004, acheckH:9671,  repair:272.98, spd:809,   priceM:36 }
   // B777-200 is contributions-only until an export is confirmed (ATL-78) — no entry, by design.
   // MC-21-400 likewise: its aircraft sheet gives A-check $494,428 over a 400h check
   // (= $1,236.07 per started hour) and 19.57 lb/km, but no per-flight repair figure exists
@@ -584,8 +600,8 @@ async function loadGrid(ac,mode){
     populateDD(grid,dists);
     const fpd=parseInt(document.getElementById('opt-dd').value)||0;
     optIdx=fpd?closestRow(optMins(fpd,maint)):-1;
-    ac_name=ac; revP=REV[ac]||null; gSpeed=D.speed||0;
-    document.getElementById('revnote').textContent=revP?('Revenue lane active for '+ac+' — '+revP.cf+' lb/km @CI200, CO₂ '+(revP.ccS!=null?(revP.ccS+' q/km/seat'):(revP.cc+' q/km/seat-unit'))+', A-check $'+Math.round(revP.acheckH).toLocaleString()+' per started hour, repair $'+revP.repair.toLocaleString()):('No revenue data for '+ac+' yet — ranking on contributions only');
+    ac_name=ac; revP=revFor(ac); gSpeed=D.speed||0;
+    document.getElementById('revnote').textContent=revP?('Revenue lane active for '+ac+' — '+revP.cf+' lb/km @CI200, CO₂ '+(revP.ccS!=null?(revP.ccS+' q/km/seat'):(revP.cc+' q/km/seat-unit'))+', A-check $'+Math.round(revP.acheckH).toLocaleString()+' per started hour, repair $'+revP.repair.toLocaleString()):((REV[ac]&&REV[ac].ccS!=null)?('Constants loaded for '+ac+' — profit lane held until it carries its own seat capacity; ranking on contributions only'):('No revenue data for '+ac+' yet — ranking on contributions only'));
     buildRank(grid,dists);
     sScale=zoneScale(grid,dists,d=>true); vScale=sScale;  // one continuous value scale — no zone cut in the colour
     sPeak=scorePeak(dists,d=>d<=6000); vPeak=scorePeak(dists,d=>d>=10000);
