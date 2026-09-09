@@ -101,7 +101,7 @@ const DEFAULT_DATA = {
 // Superjet 100-95LR, A220-300, A318-100, A319-200, A319NEO, A320-200, A320-NEO,
 // A321-200, A321-NEO, B737-700ER, B737-900 and B737-900ER are removed. Nothing is
 // added speculatively; anything a member asks for is added on request.
-// B747SP, Il-96-400 and MC-21-400 added 9 Sep 2026 from Nathan's in-game aircraft
+// A330-800neo, B747SP, Il-96-400 and MC-21-400 added 9 Sep 2026 from Nathan's in-game aircraft
 // detail screens. maxRange is the sheet's Range; realism/easy are the sheet's cruise
 // speed put through the same x1.1 / x1.65 as every other row (x1.1 for the speed mod
 // bought on purchase, easy mode taking a further x1.5 on top).
@@ -110,6 +110,7 @@ const AIRCRAFT_DATA = [
   { name: 'B737 MAX 8',        maxRange: 6500,  realism: 923,  easy: 1384 },
   { name: 'A330-200',          maxRange: 12500, realism: 958,  easy: 1437 },
   { name: 'A330-300',          maxRange: 10000, realism: 958,  easy: 1437 },
+  { name: 'A330-800neo',       maxRange: 13900, realism: 881,  easy: 1322 },
   { name: 'A330-900neo',       maxRange: 12130, realism: 968,  easy: 1452 },
   { name: 'A340-300',          maxRange: 14000, realism: 986,  easy: 1478 },
   { name: 'A340-600',          maxRange: 14630, realism: 998,  easy: 1497 },

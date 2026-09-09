@@ -262,6 +262,7 @@ const REV={
   // ── ATL-78 export constants ──
   'A330-200':     { cf:17.644, ccS:0.53922, acheckH:9959,  repair:294.52, spd:958,   priceM:39 },
   'A330-300':     { cf:18.682, ccS:0.53515, acheckH:13480, repair:292.48, spd:958,   priceM:39 },
+  'A330-800neo':  { cf:11.640, ccS:0.26797, acheckH:6692,  repair:575.95, spd:801,   priceM:77 },   // ATL-78 calls it "A330-800"; the game sheet and the sibling row below both say neo
   'A330-900neo':  { cf:12.610, ccS:0.38816, acheckH:8574,  repair:737.88, spd:801,   priceM:98 },
   'A340-300':     { cf:20.758, ccS:0.44524, acheckH:15343, repair:374.42, spd:1004,  priceM:50 },
   'A340-600':     { cf:20.060, ccS:0.50014, acheckH:13674, repair:471.74, spd:871,   priceM:63 },
@@ -278,13 +279,15 @@ const REV={
   // MC-21-400 likewise: its aircraft sheet gives A-check $494,428 over a 400h check
   // (= $1,236.07 per started hour) and 19.57 lb/km, but no per-flight repair figure exists
   // for it anywhere, so a partial entry would compute a profit that silently omits a cost.
-  // A330-800 and B747-8 carry ATL-78 constants but are not in AIRCRAFT_DATA and so cannot be
-  // selected; their constants stay on the issue rather than sitting here unreachable.
+  // B747-8 carries ATL-78 constants but is not in AIRCRAFT_DATA and so cannot be selected;
+  // its constants stay on the issue rather than sitting here unreachable.
   //
   // The two entries above are cross-checked against Nathan's in-game aircraft sheets, and the
-  // A-check column proves out exactly: B747SP $3,878,280 / 400h = $9,695.70 -> 9,696, and
-  // Il-96-400 $4,448,548 / 460h = $9,670.76 -> 9,671. Both match ATL-78 to the dollar, which
-  // validates how the whole A-check column was derived.
+  // A-check column proves out exactly on all three sheets Nathan sent:
+  //   B747SP      $3,878,280 / 400h = $9,695.70 -> 9,696
+  //   Il-96-400   $4,448,548 / 460h = $9,670.76 -> 9,671
+  //   A330-800neo $3,413,028 / 510h = $6,692.21 -> 6,692
+  // All three match ATL-78 to the dollar, which validates the whole A-check column.
 };
 let revP=null, ac_name='', gSpeed=0;
 // CI of a cell from its distance and flight time (am4help: CI = 2000d/(7uT) − 600/7, same CI the contribution formula uses)
