@@ -173,7 +173,7 @@ function buildCalcPage(key) {
     </div>
   </div>
   <div id="rev" style="min-width:300px;">
-    <div class="opt-section-label">$ REVENUE LANE — GENERIC: 3-CLASS AVERAGES · FUEL $600 · CO₂ $135 · A-CHECK PER STARTED HOUR</div>
+    <div class="opt-section-label">$ REVENUE LANE — GENERIC: 3-CLASS AVERAGES · FUEL $600 · CO₂ $130 · A-CHECK PER STARTED HOUR</div>
     <div class="manual-row wrow" style="margin-top:8px;">
       <span class="control-label">BALANCE</span>
       <span class="wgrp">
@@ -297,7 +297,7 @@ function cellCI(d,t){ return gSpeed>0?Math.max(0,Math.min(200,(2000/7)*(d/(gSpee
 // Demand cap (Nathan, 6 Sep): three separate demand pools (Y, J, F), each resets daily.
 // Seats sold per flight per class = min(configured seats, class demand ÷ flights that day). Contributions unaffected (15 pax).
 // Generic class numbers — averages of Nathan's 108-route sheet (Book.xlsx, 6 Sep 2026). Fixed; not player inputs.
-const FUEL_P=600, CO2_P=135;             // generic $/1,000 lb and $/1,000 q — prices move every half hour in-game; a fixed point value is the doctrine
+const FUEL_P=600, CO2_P=130;             // generic $/1,000 lb and $/1,000 q — prices move every half hour in-game; a fixed point value is the doctrine. Set by Nathan, 9 Sep 2026 (CO₂ 135 -> 130).
 const SEATS ={ y:57,  j:143, f:85  };   // configured seats per class
 const DEMAND={ y:735, j:377, f:162 };   // route demand per day per class
 const TOTAL_SEATS=SEATS.y+SEATS.j+SEATS.f;   // 285 configured seats — the basis for the ATL-78 CO₂ $/km/seat figures
