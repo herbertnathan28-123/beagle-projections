@@ -49,6 +49,13 @@ function buildCalcPage(key) {
   #pop .h { font-size: 22px; font-weight: 800; color: #FFF; margin: 4px 0 2px; }
   #pop .m { font-size: 13px; color: var(--dim); }
   #pop .t { font-size: 18px; font-weight: 800; color: var(--lime); margin-top: 6px; text-shadow: 0 0 8px rgba(26,255,0,.5); }
+  /* Selected-cell focus — cyan so it never collides with magenta hot zones or the gold optimal row (Nathan, 10 Sep 2026) */
+  #focus { position: fixed; inset: 0; z-index: 290; pointer-events: none; display: none; }
+  #f-scrim { fill: rgba(4,10,20,.62); }
+  #f-ring { fill: none; stroke: #0DC1E8; stroke-width: 2.5; filter: url(#fglow); animation: fpulse 1.8s ease-in-out infinite; }
+  #f-lead { fill: none; stroke: #0DC1E8; stroke-width: 2; stroke-dasharray: 7 5; filter: url(#fglow); }
+  #f-cell { fill: none; stroke: #FFFFFF; stroke-width: 2.5; filter: url(#fglow); }
+  @keyframes fpulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
   .bcard.gold { border-color: transparent; background: linear-gradient(#06121E,#06121E) padding-box, linear-gradient(135deg,#FFC422,#FF2910,#FF00CE) border-box; box-shadow: 0 0 16px rgba(255,196,34,.25); }
   .bcard-rank { font-size: 9px; color: var(--gold); font-weight: 700; letter-spacing: 0.12em; margin-bottom: 3px; }
   #insp-rank { font-size: 15px; letter-spacing: .04em; }
@@ -117,6 +124,17 @@ function buildCalcPage(key) {
 <body>
 <div id="lov">CALCULATING...</div>
 <div id="pop"><div class="r" id="pop-rank"></div><div class="h" id="pop-head"></div><div class="m" id="pop-l1"></div><div class="m" id="pop-l2"></div><div class="t" id="pop-total"></div></div>
+<svg id="focus" aria-hidden="true">
+  <defs>
+    <filter id="fglow" x="-70%" y="-70%" width="240%" height="240%"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <marker id="farrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0DC1E8"/></marker>
+    <mask id="fmask"><rect id="fmask-all" fill="#FFF"/><rect id="fmask-hole" rx="7" fill="#000"/></mask>
+  </defs>
+  <rect id="f-scrim" mask="url(#fmask)"/>
+  <rect id="f-ring" rx="7"/>
+  <rect id="f-cell" rx="2"/>
+  <path id="f-lead" marker-end="url(#farrow)"/>
+</svg>
 <div class="top-bar">
   <div class="logo-block">
     <span class="logo-text">ATLAS FX</span><span class="logo-sep">|</span><span class="logo-text">BEAGLE GLOBAL</span>
@@ -365,18 +383,88 @@ function inspect(ti,di){
   ['rank','head','l1','l2','total'].forEach(k=>document.getElementById('pop-'+k).textContent=document.getElementById('insp-'+k).textContent);
   pop.className=idx===0?'gold':'';
   document.getElementById('pop-rank').className='r'+(idx>=0?'':' dz');
-  if(td){ const r=td.getBoundingClientRect(); pop.style.display='block';
-    const pw=pop.offsetWidth||220, ph=pop.offsetHeight||90;
-    let x=r.right+56, y=r.top-ph-28;                       // clear of the cell: right and above
-    if(x+pw>window.innerWidth-8) x=r.left-pw-56;
-    if(y<8) y=r.bottom+28;
-    y=Math.max(8,Math.min(window.innerHeight-ph-8,y));
-    pop.style.left=x+'px'; pop.style.top=y+'px'; }
+  selTi=ti; selDi=di; placeSel();
 }
-function hidePop(){ const p=document.getElementById('pop'); if(p)p.style.display='none'; document.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); }
+// ── SELECTED-CELL FOCUS (Nathan, 10 Sep 2026) ─────────────────────────────
+// One cell in a 2,000-cell table is unfindable on its own, so a selection draws three things:
+// a focus zone around the cell and its neighbours, the rest of the map scrimmed back, and a
+// leader line from the floating card to the zone. Zone size is ±2 columns, ±1 row — the same
+// footprint the magenta hot-zone blob uses, so the two read as the same unit of area.
+const ZONE_COLS=2, ZONE_ROWS=1;
+let selTi=-1, selDi=-1;
+// Where the segment from a (outside) to b (inside r) crosses r's border.
+function edgeHit(ax,ay,bx,by,r){
+  const dx=bx-ax, dy=by-ay; let best=1;
+  const test=u=>{ if(u<0||u>=best)return; const px=ax+dx*u, py=ay+dy*u;
+    if(px>=r.x1-1&&px<=r.x2+1&&py>=r.y1-1&&py<=r.y2+1) best=u; };
+  if(dx){ test((r.x1-ax)/dx); test((r.x2-ax)/dx); }
+  if(dy){ test((r.y1-ay)/dy); test((r.y2-ay)/dy); }
+  return {x:ax+dx*best, y:ay+dy*best};
+}
+function placeSel(){
+  const pop=document.getElementById('pop'), svg=document.getElementById('focus');
+  const td=selTi<0?null:document.getElementById('c-'+selTi+'-'+selDi);
+  if(!td){ if(pop)pop.style.display='none'; if(svg)svg.style.display='none'; return; }
+  const r=td.getBoundingClientRect();
+  pop.style.display='block';
+  const pw=pop.offsetWidth||220, ph=pop.offsetHeight||90;
+  let x=r.right+56, y=r.top-ph-28;                       // clear of the cell: right and above
+  if(x+pw>window.innerWidth-8) x=r.left-pw-56;
+  if(y<8) y=r.bottom+28;
+  y=Math.max(8,Math.min(window.innerHeight-ph-8,y));
+  pop.style.left=x+'px'; pop.style.top=y+'px';
+  drawFocus(td,r);
+}
+function drawFocus(td,cr){
+  const svg=document.getElementById('focus'); if(!svg)return;
+  const wrap=td.closest('.table-wrap'), row=td.parentElement;
+  if(!wrap){ svg.style.display='none'; return; }
+  // Visible slice of the table: inside the scroller, clear of the sticky header row and time column.
+  const wr=wrap.getBoundingClientRect();
+  const hd=document.getElementById('s-head'), lbl=row.querySelector('td.tlbl');
+  const vis={ x1:Math.max(wr.left, lbl?lbl.getBoundingClientRect().right:wr.left),
+              y1:Math.max(wr.top,  hd ?hd .getBoundingClientRect().bottom:wr.top),
+              x2:Math.min(wr.right, window.innerWidth), y2:Math.min(wr.bottom, window.innerHeight) };
+  const cx=(cr.left+cr.right)/2, cy=(cr.top+cr.bottom)/2;
+  // Scrolled out of the visible slice — the card still floats, but there is nothing to ring.
+  if(cx<vis.x1||cx>vis.x2||cy<vis.y1||cy>vis.y2){ svg.style.display='none'; return; }
+  let z={x1:cr.left,y1:cr.top,x2:cr.right,y2:cr.bottom};
+  for(let ti=selTi-ZONE_ROWS;ti<=selTi+ZONE_ROWS;ti++)
+    for(let di=selDi-ZONE_COLS;di<=selDi+ZONE_COLS;di++){
+      const n=document.getElementById('c-'+ti+'-'+di); if(!n)continue;
+      const b=n.getBoundingClientRect();
+      z.x1=Math.min(z.x1,b.left); z.y1=Math.min(z.y1,b.top); z.x2=Math.max(z.x2,b.right); z.y2=Math.max(z.y2,b.bottom);
+    }
+  z={ x1:Math.max(z.x1,vis.x1), y1:Math.max(z.y1,vis.y1), x2:Math.min(z.x2,vis.x2), y2:Math.min(z.y2,vis.y2) };
+  const W=window.innerWidth, H=window.innerHeight;
+  svg.setAttribute('width',W); svg.setAttribute('height',H); svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  const set=(id,a)=>{ const e=document.getElementById(id); for(const k in a)e.setAttribute(k,a[k]); };
+  set('fmask-all',{x:0,y:0,width:W,height:H});
+  set('fmask-hole',{x:z.x1-4,y:z.y1-4,width:(z.x2-z.x1)+8,height:(z.y2-z.y1)+8});
+  set('f-scrim',{x:vis.x1,y:vis.y1,width:Math.max(0,vis.x2-vis.x1),height:Math.max(0,vis.y2-vis.y1)});
+  set('f-ring',{x:z.x1-4,y:z.y1-4,width:(z.x2-z.x1)+8,height:(z.y2-z.y1)+8});
+  set('f-cell',{x:cr.left+1,y:cr.top+1,width:Math.max(0,cr.width-2),height:Math.max(0,cr.height-2)});
+  // Leader line: nearest point on the card's border, in to the edge of the zone. The card is
+  // normally parked right beside the cell, where a line would be a stub — it only earns its
+  // keep when the card gets pushed away by a viewport edge, so it is drawn from 26px of gap up.
+  const pr=document.getElementById('pop').getBoundingClientRect();
+  const ax=Math.max(pr.left,Math.min(pr.right,cx)), ay=Math.max(pr.top,Math.min(pr.bottom,cy));
+  const zr={x1:z.x1-4,y1:z.y1-4,x2:z.x2+4,y2:z.y2+4};
+  const inside=ax>=zr.x1&&ax<=zr.x2&&ay>=zr.y1&&ay<=zr.y2;   // card sitting on the zone — nothing to point at
+  const hit=edgeHit(ax,ay,cx,cy,zr);
+  const gap=Math.hypot(hit.x-ax,hit.y-ay);
+  set('f-lead',{d:(!inside&&gap>26)?('M'+ax+' '+ay+' L'+hit.x+' '+hit.y):''});
+  svg.style.display='block';
+}
+function hidePop(){ const p=document.getElementById('pop'); if(p)p.style.display='none';
+  const f=document.getElementById('focus'); if(f)f.style.display='none';
+  selTi=-1; selDi=-1;
+  document.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); }
 document.addEventListener('keydown',e=>{ if(e.key==='Escape')hidePop(); });
 document.addEventListener('click',e=>{ if(!e.target.closest('td.cell')&&!e.target.closest('.bcard')&&e.target.id!=='mini')hidePop(); });
-document.querySelectorAll('.table-wrap').forEach(w=>w.addEventListener('scroll',()=>{ const sel=document.querySelector('td.sel'); if(sel){ const [_,ti,di]=sel.id.split('-'); inspect(+ti,+di); } }));
+document.querySelectorAll('.table-wrap').forEach(w=>w.addEventListener('scroll',()=>{ if(selTi>=0)placeSel(); }));
+window.addEventListener('scroll',()=>{ if(selTi>=0)placeSel(); },{passive:true});
+window.addEventListener('resize',()=>{ if(selTi>=0)placeSel(); });
 function tl(h){ const hr=Math.floor(h); return hr+'h '+(h%1===0?'00m':'30m'); }
 function fmins(m){ const h=Math.floor(m/60),mn=Math.round(m%60); return h+'h '+String(mn).padStart(2,'0')+'m'; }
 function fval(v){ return typeof v==='number'?'$'+v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):String(v); }
@@ -597,6 +685,7 @@ async function loadGrid(ac,mode){
     const D=await r.json();
     const grid=D.grid, dists=D.dists, mx=D.maxRange;
     sGrid=grid; sDists=dists; gGrid=grid; gDists=dists;
+    hidePop();
     populateDD(grid,dists);
     const fpd=parseInt(document.getElementById('opt-dd').value)||0;
     optIdx=fpd?closestRow(optMins(fpd,maint)):-1;
@@ -614,7 +703,7 @@ async function loadGrid(ac,mode){
   finally{ document.getElementById('lov').style.display='none'; }
 }
 
-function rerank(){ if(!gGrid)return; buildRank(gGrid,gDists); populateDD(gGrid,gDists); document.getElementById('wlbl').textContent=(100-Math.round(weightW()*100))+' / '+Math.round(weightW()*100); reOpt(); const sel=document.querySelector('td.sel'); if(sel){const [_,ti,di]=sel.id.split('-'); inspect(+ti,+di);} }
+function rerank(){ if(!gGrid)return; buildRank(gGrid,gDists); populateDD(gGrid,gDists); document.getElementById('wlbl').textContent=(100-Math.round(weightW()*100))+' / '+Math.round(weightW()*100); reOpt(); if(selTi>=0)inspect(selTi,selDi); }
 function setBalance(v){ const w=document.getElementById('wslider'); w.value=v; rerank(); }
 document.getElementById('wslider').addEventListener('input',rerank);
 document.getElementById('boost').addEventListener('change',()=>{ if(!sGrid)return; buildRank(sGrid,sDists); populateDD(sGrid,sDists); onDDChange(); });
