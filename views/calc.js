@@ -681,6 +681,9 @@ function departures48(t,mt){
 function optMinsDep(N,mt){ let best=-1; for(let ti=TMS.length-1;ti>=0;ti--){ if(departures48(TMS[ti],mt)>=N){ best=TMS[ti]*60; break; } } return best; }
 function optMins(fpd,mt){ return optMinsDep(fpd,mt); }  // legacy name — 'fpd' now carries N departures
 function closestRow(om){ let b=0,bd=Infinity; TMS.forEach((t,i)=>{const d=Math.abs(t-om/60);if(d<bd){bd=d;b=i;}}); return b; }
+// Departures spread over the two days. Odd counts are the no-boost norm (the extra flight that
+// only has to depart); 4x speed can produce an even count, which must not render as "3.5½".
+function perDay(n){ return (n%2 ? Math.floor(n/2)+'½' : String(n/2))+' a day'; }
 function peakRow(g,ri,ds){ if(!g||ri<0||ri>=g.length)return 0; return Math.max(0,...g[ri].filter((v,di)=>typeof v==='number'&&!(ds&&isDZ(ds[di])))); }
 
 function setMode(m){
@@ -791,12 +794,18 @@ function populateDD(sg,sd){
   const none=document.createElement('option'); none.value='0'; none.textContent='— whole table —'; sel.appendChild(none);
   const res=[];
   const seen=new Set();
+  // N here is only a search key: optMinsDep(N) returns the LONGEST time that flies AT LEAST
+  // N departures. With no 4x speed that lands exactly on N, because departures fall as flight
+  // time rises. With 4x speed on it does not — a boost window lets a long flight squeeze in
+  // extra departures — so the row found for N=3 can really fly 8, and labelling or costing it
+  // as 3 understates it by a factor of nearly three. Every count shown, and every multiplier
+  // used, therefore comes from what the row ACTUALLY flies, not from N. (Nathan, 10 Sep 2026)
   for(let N=3;N<=61;N+=2){
     const om=optMinsDep(N,maint); if(om<60)break; if(seen.has(om))continue; seen.add(om);
-    const ri=closestRow(om); const pk=peakRow(sg,ri,sd); const t48=pk*N;
-    const lbl=fmins(om)+' = '+N+' departures in 48hrs | '+fval(t48);
+    const ri=closestRow(om); const dep=flightsIn48(TMS[ri]); const pk=peakRow(sg,ri,sd); const t48=pk*dep;
+    const lbl=fmins(om)+' = '+dep+' departures in 48hrs | '+fval(t48);
     const opt=document.createElement('option'); opt.value=N; opt.textContent=lbl; sel.appendChild(opt);
-    res.push({fpd:N,om,ri,pk,t48,lbl});
+    res.push({fpd:N,dep,om,ri,pk,t48,lbl});
   }
   buildBestCards(res,sg,sd);
   return res;
@@ -814,9 +823,9 @@ function buildBestCards(res,sg,sd){
     d.title='Click to jump to this cell on the chart';
     d.innerHTML='<div class="bcard-rank">'+(i===0?'#1 BEST':i===1?'#2':'#3')+'</div>'+
       '<div class="bcard-time">'+fmins(r.om)+'</div>'+
-      '<div class="bcard-meta">'+r.fpd+' departures in 48hrs · '+((r.fpd-1)/2)+'½ a day'+(boostCfg().n>0?' · 4× on':'')+'</div>'+
+      '<div class="bcard-meta">'+r.dep+' departures in 48hrs · '+perDay(r.dep)+(boostCfg().n>0?' · 4× on':'')+'</div>'+
       (bd!=='—'?'<div class="bcard-meta">Best dist: '+bd.toLocaleString()+'km</div>':'')+
-      '<div class="bcard-total">'+fval(bv*r.fpd)+' /48hrs</div>';
+      '<div class="bcard-total">'+fval(bv*r.dep)+' /48hrs</div>';
     d.onclick=()=>jumpTo(r.fpd,r.ri,bdi);
     c.appendChild(d);
   });
@@ -858,7 +867,8 @@ function onDDChange(){
   const el=document.getElementById('ores');
   if(!fpd||!sGrid){el.textContent='—';optIdx=-1;reOpt();return;}
   const om=optMins(fpd,maint); optIdx=closestRow(om);
-  const pk=peakRow(sGrid,optIdx,sDists); el.textContent=fmins(om)+' · '+fpd+' departures · '+fval(pk*fpd)+' /48hrs';
+  const dep=flightsIn48(TMS[optIdx]);   // what the row flies, not the N it was found by
+  const pk=peakRow(sGrid,optIdx,sDists); el.textContent=fmins(om)+' · '+dep+' departures · '+fval(pk*dep)+' /48hrs';
   reOpt();
 }
 
