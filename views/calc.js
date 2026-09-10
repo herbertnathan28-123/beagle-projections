@@ -118,11 +118,155 @@ function buildCalcPage(key) {
   #lov { position: fixed; inset: 0; background: rgba(4,10,20,0.85); display: none; align-items: center; justify-content: center; z-index: 200; font-size: 13px; letter-spacing: 0.2em; color: var(--cyan); }
   @keyframes flash { 0%,100%{ box-shadow: inset 0 0 0 3px #FFF, 0 0 22px #FFF; } 50%{ box-shadow: none; } }
   td.flash { animation: flash 0.6s ease-in-out 4; position: relative; z-index: 3; }
+  /* ── MEMBER GUIDE (Nathan, 10 Sep 2026) — the page explains itself, so a member
+        who opens it cold is not guessing at what the numbers mean. ───────────── */
+  .guide-btn { background: #0A1E30; border: 1px solid var(--cyan); color: var(--cyan); font-family: inherit; font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; padding: 7px 14px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+  .guide-btn:hover { background: var(--cyan); color: #041018; box-shadow: 0 0 14px rgba(13,193,232,.5); }
+  #guide { position: fixed; inset: 0; z-index: 400; display: none; background: rgba(2,6,14,.82); backdrop-filter: blur(3px); padding: 24px; }
+  #guide.open { display: flex; align-items: center; justify-content: center; }
+  .g-panel { background: var(--panel); border: 1px solid #2C4A6E; border-radius: 10px; box-shadow: 0 24px 70px rgba(0,0,0,.65); width: min(1080px,100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+  .g-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--line); background: linear-gradient(90deg,#071426,#0B1E3A 60%,#071426); }
+  .g-head::after { content:''; }
+  .g-kicker { font-size: 9px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); margin-bottom: 4px; }
+  .g-title { font-size: 17px; font-weight: 800; color: var(--ink); letter-spacing: .01em; }
+  .g-close { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 6px; border: 1px solid #2C4A6E; background: #06121E; color: var(--dim); font-size: 20px; line-height: 1; font-family: inherit; cursor: pointer; }
+  .g-close:hover { color: #FFF; border-color: var(--cyan); }
+  .g-body { display: flex; gap: 0; min-height: 0; flex: 1 1 auto; }
+  .g-index { flex: 0 0 232px; border-right: 1px solid var(--line); padding: 14px 10px 18px; overflow-y: auto; background: #06121E; }
+  .g-index .lbl { font-size: 9px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); padding: 0 10px 8px; }
+  .g-index a { display: block; padding: 7px 10px; border-radius: 4px; border-left: 2px solid transparent; color: #A9C4E0; font-size: 12px; line-height: 1.35; text-decoration: none; cursor: pointer; }
+  .g-index a:hover { background: #0A1E30; color: var(--ink); }
+  .g-index a.on { background: #0A1E30; border-left-color: var(--cyan); color: var(--cyan); font-weight: 700; }
+  .g-content { flex: 1 1 auto; overflow-y: auto; padding: 20px 26px 60px; scroll-behavior: smooth; }
+  .g-content h3 { font-size: 14px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--cyan); margin: 26px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); scroll-margin-top: 8px; }
+  .g-content h3:first-child { margin-top: 4px; }
+  .g-content p { font-size: 13px; line-height: 1.65; color: #C8DCF0; margin: 8px 0; }
+  .g-content ul { margin: 8px 0 8px 18px; }
+  .g-content li { font-size: 13px; line-height: 1.6; color: #C8DCF0; margin: 5px 0; }
+  .g-content li ul { margin: 4px 0 4px 16px; }
+  .g-content b { color: var(--ink); font-weight: 700; }
+  .g-content .lede { font-size: 13.5px; color: var(--ink); }
+  .g-note { border-left: 3px solid var(--gold); background: #14100022; padding: 9px 14px; margin: 12px 0; font-size: 12.5px; line-height: 1.6; color: #E3D9B8; border-radius: 0 4px 4px 0; }
+  .g-tag { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 11px; font-weight: 800; vertical-align: baseline; }
+  .g-foot { padding: 10px 20px; border-top: 1px solid var(--line); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  @media (max-width: 860px) {
+    #guide { padding: 10px; }
+    .g-body { flex-direction: column; }
+    .g-index { flex: 0 0 auto; max-height: 132px; border-right: none; border-bottom: 1px solid var(--line); }
+    .g-content { padding: 16px 16px 40px; }
+    .guide-btn { font-size: 9px; padding: 6px 10px; letter-spacing: .08em; }
+  }
   @media print { body { display: none !important; } }
 </style>
 </head>
 <body>
 <div id="lov">CALCULATING...</div>
+<div id="guide" role="dialog" aria-modal="true" aria-labelledby="g-title" onclick="if(event.target===this)closeGuide()">
+  <div class="g-panel">
+    <div class="g-head">
+      <div>
+        <div class="g-kicker">Beagle Global · member guide</div>
+        <div class="g-title" id="g-title">AM4 Contribution Calculator — what it is and how it works</div>
+      </div>
+      <button class="g-close" onclick="closeGuide()" aria-label="Close guide">&times;</button>
+    </div>
+    <div class="g-body">
+      <nav class="g-index" id="g-index">
+        <div class="lbl">Contents</div>
+        <a data-g="g1">1 · What it does</a>
+        <a data-g="g2">2 · Reading the table</a>
+        <a data-g="g3">3 · The hot markers</a>
+        <a data-g="g4">4 · The cell inspector</a>
+        <a data-g="g5">5 · Why 48 hours, and why departures</a>
+        <a data-g="g6">6 · What is in the contribution figure</a>
+        <a data-g="g7">7 · The profit side</a>
+        <a data-g="g8">8 · The one control — CONTRIB / PROFIT</a>
+        <a data-g="g9">9 · 4× speed</a>
+        <a data-g="g10">10 · Aircraft list</a>
+        <a data-g="g11">11 · What it does not do</a>
+      </nav>
+      <article class="g-content" id="g-content">
+
+        <h3 id="g1">1 · What it does</h3>
+        <p class="lede">This tool answers one question for Beagle Global members: <b>for the aircraft you fly, which route length and flight time gives the alliance the most contribution in 48 hours</b> — without bankrupting you doing it.</p>
+        <p>It is built on Nathan's flight-tested numbers, not on theory. Everything in the table has been checked against real routes flown in the game.</p>
+
+        <h3 id="g2">2 · Reading the table</h3>
+        <ul>
+          <li><b>One continuous table, 500km to 20,000km, for every aircraft.</b> 20,000km is the practical maximum route length in AM4 — nothing useful exists beyond it.</li>
+          <li><b>Rows are flight times, columns are distances.</b> Each cell shows <b>contribution per day (C/D)</b> for that aircraft on that route — the same figure the game shows in your alliance member list. (am4help shows contribution per <i>flight</i>, which is double this number.)</li>
+          <li><b>Three distance zones</b>, marked by vertical rules:
+            <ul>
+              <li><b>500 – 6,000km</b> — single-leg routes.</li>
+              <li><b>6,001 – 9,999km</b> — <b>dead zone</b>. The numbers are shown, but this range never ranks and never gets a hot marker. Do not fly here for contributions.</li>
+              <li><b>10,000 – 20,000km</b> — stopover routes. The <b>full route distance</b> counts for contribution, not the individual legs.</li>
+            </ul>
+          </li>
+          <li><b>Colour runs green &rarr; yellow &rarr; orange &rarr; red</b>, hottest is best. The two live zones are heat-scaled independently: the 10,000+ zone is the dominant one and reaches full red; the sub-6,000 zone runs smaller and cooler by design.</li>
+        </ul>
+
+        <h3 id="g3">3 · The hot markers</h3>
+        <p>Pick a flight-time row and the table marks three things on that row:</p>
+        <ul>
+          <li><span class="g-tag" style="box-shadow:inset 0 0 0 2px #FF00CE;color:#FF00CE;">SHORT</span> — best single-leg cell under 6,000km.</li>
+          <li><span class="g-tag" style="box-shadow:inset 0 0 0 2px #FF00CE;color:#FF00CE;">LONG</span> — best stopover cell at 10,000km and above.</li>
+          <li><span class="g-tag" style="background:linear-gradient(135deg,#9F00D0,#FF00CE);color:#FFF;">1 2 3</span> <b>BEST OVERALL</b> — the three best cells across the row, ranked by <b>48-hour total</b>, not per flight. Click a card and it jumps to the cell.</li>
+        </ul>
+        <p>The <b>thermal overview</b> above the table is the same picture in miniature — every flight time against every distance, magenta where your hot zones are, cold through the dead zone. Click anywhere on it to jump to that cell.</p>
+
+        <h3 id="g4">4 · The cell inspector</h3>
+        <p>Click any number on the chart and the inspector opens: <b>contribution per flight</b>, <b>how many departures fit in 48 hours</b>, the <b>48-hour total</b>, and its <b>rank</b> out of every ranked cell.</p>
+        <p>The chosen cell is ringed on the map, with its immediate neighbours lit inside the ring and the rest of the map dimmed back, so a single number in a table this wide is still findable. Press <b>Esc</b>, or click away, to clear it.</p>
+
+        <h3 id="g5">5 · Why 48 hours, and why departures</h3>
+        <p>A flight earns contribution for the alliance <b>the moment it departs</b> — it does not have to land inside the window.</p>
+        <p>The calculator counts how many full cycles (flight time plus 3 minutes turnaround) fit into 48 hours after a 30-minute maintenance allowance and a 26-minute safety buffer, <b>plus one more departure</b> that leaves before the window closes.</p>
+        <div class="g-note">That extra departure is the whole point. It is why departure counts are always <b>odd</b> — 3, 5, 7, 9 … — and why "flights per day" is the wrong unit. It is also why ~11h40 has always been the recommended A380 setting: five departures in 48 hours with the buffers intact.</div>
+
+        <h3 id="g6">6 · What is in the contribution figure</h3>
+        <ul>
+          <li><b>Route distance</b> — the full distance on stopover routes.</li>
+          <li><b>Aircraft type and its speed.</b> Speed modifiers use the same rule as the game: &times;1.1 for the speed mod bought on purchase, &times;1.5 on top for Easy mode.</li>
+          <li><b>Contribution Index (CI).</b> The table assumes <b>CI 200</b>, which is what you should be running.</li>
+          <li><b>Aircraft type matters</b> — each type carries its own multiplier, which is why an A380 and a Concorde on the same route do not score the same.</li>
+        </ul>
+
+        <h3 id="g7">7 · The profit side</h3>
+        <p>Contributions alone would tell you to fly 1-hour hops all day. Nobody does that, because it does not make money. So each cell also carries an <b>estimated 48-hour profit</b> for the aircraft, built from:</p>
+        <ul>
+          <li><b>Ticket income by class</b>, from a fitted model of real route exports at CI 200.</li>
+          <li><b>Seats sold capped by realistic daily demand per class</b> — routes reset daily and rarely exceed ~2,000 passengers a day even with full marketing.</li>
+          <li><b>Fuel and CO&#8322; burn</b> per kilometre for the aircraft.</li>
+          <li><b>A-check cost</b> per flight hour and <b>repair cost</b> per flight.</li>
+        </ul>
+        <p>The profit inputs use fixed, typical values — fuel price, CO&#8322; price, seat layout, demand per class — taken from averages across a large sample of real routes. There are deliberately <b>no dials</b> for these: they change constantly in-game, and a dial would just let you fool yourself.</p>
+
+        <h3 id="g8">8 · The one control — CONTRIB / PROFIT</h3>
+        <p>A single slider, default <b>50/50</b>, sets how the ranking weighs alliance contribution against your own profit. Slide it towards <b style="color:#1AFF00;">CONTRIB</b> to rank purely on what the alliance gets; towards <b style="color:#FFC422;">PROFIT</b> to rank on what you keep. The hot markers and the best-setup cards re-rank as you move it.</p>
+        <p>The departure count is the same for both sides — <b>one number serves money and contributions.</b></p>
+
+        <h3 id="g9">9 · 4&times; speed</h3>
+        <p>The dropdown reflects the in-game mechanic: a bought lot gives <b>4&times; speed for 4 hours</b>, and applies to aircraft that <b>depart after purchase</b>, for the whole flight. Options are Off, 4-hour lots &times;1–6 per day, the one-off 1-hour bonus, and the one-off 24-hour bonus.</p>
+        <p><b>Contribution per flight does not change</b> — only the number of departures you can fit into 48 hours does.</p>
+
+        <h3 id="g10">10 · Aircraft list</h3>
+        <p>Only aircraft the alliance actually flies are listed. Small narrowbodies are not there on purpose. If you fly something that is not in the list, ask and it gets added.</p>
+
+        <h3 id="g11">11 · What it does not do</h3>
+        <ul>
+          <li>It does not know <b>your</b> hubs, <b>your</b> routes or <b>your</b> actual demand — it uses typical values.</li>
+          <li>It does not net <b>maintenance wear</b> (0.75% per take-off) against contributions. Many-short-flight setups carry that hidden cost — be aware of it.</li>
+          <li><b>It does not tell you what to do.</b> It shows you the numbers so you can decide.</li>
+        </ul>
+
+      </article>
+    </div>
+    <div class="g-foot">
+      <span>Beagle Global · figures flight-tested, not theoretical</span>
+      <span>Press ESC to close</span>
+    </div>
+  </div>
+</div>
 <div id="pop"><div class="r" id="pop-rank"></div><div class="h" id="pop-head"></div><div class="m" id="pop-l1"></div><div class="m" id="pop-l2"></div><div class="t" id="pop-total"></div></div>
 <svg id="focus" aria-hidden="true">
   <defs>
@@ -140,7 +284,7 @@ function buildCalcPage(key) {
     <span class="logo-text">ATLAS FX</span><span class="logo-sep">|</span><span class="logo-text">BEAGLE GLOBAL</span>
   </div>
   <span class="page-title">AM4 CONTRIBUTION CALCULATOR</span>
-  <span style="width:160px"></span>
+  <button class="guide-btn" id="guide-btn" onclick="openGuide()" aria-haspopup="dialog">? &nbsp;HOW TO READ THIS</button>
 </div>
 <div class="control-bar">
   <div class="control-group">
@@ -460,8 +604,38 @@ function hidePop(){ const p=document.getElementById('pop'); if(p)p.style.display
   const f=document.getElementById('focus'); if(f)f.style.display='none';
   selTi=-1; selDi=-1;
   document.querySelectorAll('td.sel').forEach(x=>x.classList.remove('sel')); }
-document.addEventListener('keydown',e=>{ if(e.key==='Escape')hidePop(); });
-document.addEventListener('click',e=>{ if(!e.target.closest('td.cell')&&!e.target.closest('.bcard')&&e.target.id!=='mini')hidePop(); });
+// ── MEMBER GUIDE ──────────────────────────────────────────────────────────
+// Opens itself once per browser on a first visit, so a member who has never seen the
+// table gets the explanation without having to know to ask for it; after that it is
+// the ? button in the top bar. Clearing site data brings the first visit back.
+const GUIDE_SEEN='bg_am4_guide_v1';
+function guideOpen(){ const g=document.getElementById('guide'); return !!g&&g.classList.contains('open'); }
+function openGuide(){ const g=document.getElementById('guide'); if(!g)return; g.classList.add('open');
+  const c=document.getElementById('g-content'); if(c)c.scrollTop=0; gSpy();
+  try{ localStorage.setItem(GUIDE_SEEN,'1'); }catch(e){}
+  const b=document.querySelector('.g-close'); if(b)b.focus(); }
+function closeGuide(){ const g=document.getElementById('guide'); if(g)g.classList.remove('open');
+  const b=document.getElementById('guide-btn'); if(b)b.focus(); }
+// Index click -> scroll the article, not the page.
+document.querySelectorAll('#g-index a').forEach(a=>a.addEventListener('click',()=>{
+  const h=document.getElementById(a.dataset.g), c=document.getElementById('g-content');
+  if(h&&c) c.scrollTop += h.getBoundingClientRect().top - c.getBoundingClientRect().top - 8;
+}));
+// Mark the section you are actually reading.
+function gSpy(){
+  const c=document.getElementById('g-content'); if(!c)return;
+  const top=c.getBoundingClientRect().top+30; let on=null;
+  c.querySelectorAll('h3').forEach(h=>{ if(h.getBoundingClientRect().top<=top) on=h.id; });
+  if(!on){ const f=c.querySelector('h3'); on=f?f.id:null; }
+  document.querySelectorAll('#g-index a').forEach(a=>a.classList.toggle('on',a.dataset.g===on));
+}
+(function(){ const c=document.getElementById('g-content'); if(c)c.addEventListener('scroll',gSpy,{passive:true}); })();
+(function(){ let seen=true; try{ seen=!!localStorage.getItem(GUIDE_SEEN); }catch(e){}
+  if(!seen) setTimeout(openGuide,400); })();
+
+document.addEventListener('keydown',e=>{ if(e.key!=='Escape')return; if(guideOpen()){closeGuide();return;} hidePop(); });
+document.addEventListener('click',e=>{ if(e.target.closest('#guide')||e.target.closest('.guide-btn'))return;
+  if(!e.target.closest('td.cell')&&!e.target.closest('.bcard')&&e.target.id!=='mini')hidePop(); });
 document.querySelectorAll('.table-wrap').forEach(w=>w.addEventListener('scroll',()=>{ if(selTi>=0)placeSel(); }));
 window.addEventListener('scroll',()=>{ if(selTi>=0)placeSel(); },{passive:true});
 window.addEventListener('resize',()=>{ if(selTi>=0)placeSel(); });
