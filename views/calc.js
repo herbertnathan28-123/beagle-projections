@@ -876,12 +876,17 @@ async function loadGrid(ac,mode){
     const grid=D.grid, dists=D.dists, mx=D.maxRange;
     sGrid=grid; sDists=dists; gGrid=grid; gDists=dists;
     hidePop();
-    populateDD(grid,dists);
-    const fpd=parseInt(document.getElementById('opt-dd').value)||0;
-    optIdx=fpd?closestRow(optMins(fpd,maint)):-1;
+    // Order matters, and used to be wrong: populateDD() builds the BEST SETUP cards out of
+    // rankList, so on a first load it ran against an empty list and every card showed
+    // $0.00 with no best distance until the slider was nudged. The aircraft's revenue
+    // constants and speed have to be in place before buildRank() can score profit, and
+    // buildRank() has to have run before the cards are built from it.
     ac_name=ac; revP=revFor(ac); gSpeed=D.speed||0;
     document.getElementById('revnote').textContent=revP?('Revenue lane active for '+ac+' — '+revP.cf+' lb/km @CI200, CO₂ '+(revP.ccS!=null?(revP.ccS+' q/km/seat'):(revP.cc+' q/km/seat-unit'))+', A-check $'+Math.round(revP.acheckH).toLocaleString()+' per started hour, repair $'+revP.repair.toLocaleString()):((REV[ac]&&REV[ac].ccS!=null)?('Constants loaded for '+ac+' — profit lane held until it carries its own seat capacity; ranking on contributions only'):('No revenue data for '+ac+' yet — ranking on contributions only'));
     buildRank(grid,dists);
+    populateDD(grid,dists);
+    const fpd=parseInt(document.getElementById('opt-dd').value)||0;   // read after populateDD rebuilds the options
+    optIdx=fpd?closestRow(optMins(fpd,maint)):-1;
     sScale=zoneScale(grid,dists,d=>true); vScale=sScale;  // one continuous value scale — no zone cut in the colour
     sPeak=scorePeak(dists,d=>d<=6000); vPeak=scorePeak(dists,d=>d>=10000);
     buildHead(dists);
