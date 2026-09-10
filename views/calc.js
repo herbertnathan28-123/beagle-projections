@@ -120,8 +120,17 @@ function buildCalcPage(key) {
   td.flash { animation: flash 0.6s ease-in-out 4; position: relative; z-index: 3; }
   /* ── MEMBER GUIDE (Nathan, 10 Sep 2026) — the page explains itself, so a member
         who opens it cold is not guessing at what the numbers mean. ───────────── */
-  .guide-btn { background: #0A1E30; border: 1px solid var(--cyan); color: var(--cyan); font-family: inherit; font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; padding: 7px 14px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
-  .guide-btn:hover { background: var(--cyan); color: #041018; box-shadow: 0 0 14px rgba(13,193,232,.5); }
+  /* Sits under the balance slider rather than in the top bar (Nathan, 10 Sep 2026):
+     a member reading the ranking is already looking here, and a corner button was missed. */
+  .guide-btn { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 10px; padding: 10px 14px; border-radius: 6px; cursor: pointer; text-align: left; font-family: inherit; background: linear-gradient(90deg,#0A2436,#0A1E30); border: 1px solid var(--cyan); color: var(--ink); box-shadow: 0 0 0 rgba(13,193,232,0); animation: gpulse 2.6s ease-in-out 3; }
+  .guide-btn:hover { background: linear-gradient(90deg,#103449,#0A2436); box-shadow: 0 0 18px rgba(13,193,232,.45); }
+  .guide-btn:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  .g-q { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; background: var(--cyan); color: #041018; font-size: 15px; font-weight: 900; line-height: 26px; text-align: center; }
+  .g-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .g-t1 { font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--cyan); }
+  .g-t2 { font-size: 11px; color: var(--dim); line-height: 1.35; }
+  .g-go { flex: 0 0 auto; margin-left: auto; font-size: 10px; font-weight: 800; letter-spacing: .12em; color: var(--cyan); white-space: nowrap; }
+  @keyframes gpulse { 0%,100% { box-shadow: 0 0 0 rgba(13,193,232,0); } 50% { box-shadow: 0 0 16px rgba(13,193,232,.5); } }
   #guide { position: fixed; inset: 0; z-index: 400; display: none; background: rgba(2,6,14,.82); backdrop-filter: blur(3px); padding: 24px; }
   #guide.open { display: flex; align-items: center; justify-content: center; }
   .g-panel { background: var(--panel); border: 1px solid #2C4A6E; border-radius: 10px; box-shadow: 0 24px 70px rgba(0,0,0,.65); width: min(1080px,100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden; }
@@ -154,7 +163,9 @@ function buildCalcPage(key) {
     .g-body { flex-direction: column; }
     .g-index { flex: 0 0 auto; max-height: 132px; border-right: none; border-bottom: 1px solid var(--line); }
     .g-content { padding: 16px 16px 40px; }
-    .guide-btn { font-size: 9px; padding: 6px 10px; letter-spacing: .08em; }
+    .guide-btn { padding: 9px 11px; gap: 9px; }
+    .g-go { display: none; }
+    .g-t2 { font-size: 10.5px; }
   }
   @media print { body { display: none !important; } }
 </style>
@@ -284,7 +295,7 @@ function buildCalcPage(key) {
     <span class="logo-text">ATLAS FX</span><span class="logo-sep">|</span><span class="logo-text">BEAGLE GLOBAL</span>
   </div>
   <span class="page-title">AM4 CONTRIBUTION CALCULATOR</span>
-  <button class="guide-btn" id="guide-btn" onclick="openGuide()" aria-haspopup="dialog">? &nbsp;HOW TO READ THIS</button>
+  <span style="width:160px"></span>
 </div>
 <div class="control-bar">
   <div class="control-group">
@@ -346,6 +357,11 @@ function buildCalcPage(key) {
       <span id="wlbl" style="color:#E6F0FF;font-weight:700;">50 / 50</span>
     </div>
     <div class="bcard-meta" id="revnote" style="margin-top:6px;">&nbsp;</div>
+    <button class="guide-btn" id="guide-btn" onclick="openGuide()" aria-haspopup="dialog">
+      <span class="g-q">?</span>
+      <span class="g-txt"><span class="g-t1">How to read this calculator</span><span class="g-t2">What the numbers mean, why 48 hours, and what it does not tell you</span></span>
+      <span class="g-go">OPEN &rsaquo;</span>
+    </button>
   </div>
   <div id="insp" style="min-width:300px;">
     <div class="opt-section-label">◎ CELL INSPECTOR — click any number on the chart</div>
