@@ -118,7 +118,7 @@ function buildCalcPage(key) {
   #lov { position: fixed; inset: 0; background: rgba(4,10,20,0.85); display: none; align-items: center; justify-content: center; z-index: 200; font-size: 15px; letter-spacing: 0.2em; color: var(--cyan); }
   @keyframes flash { 0%,100%{ box-shadow: inset 0 0 0 3px #FFF, 0 0 22px #FFF; } 50%{ box-shadow: none; } }
   td.flash { animation: flash 0.6s ease-in-out 4; position: relative; z-index: 3; }
-  /* ── MEMBER GUIDE (Nathan, 10 Sep 2026) — the page explains itself, so a member
+  /* ── MEMBER GUIDE (Nathan, 12 Sep 2026 rewrite) — the page explains itself, so a member
         who opens it cold is not guessing at what the numbers mean. ───────────── */
   /* Sits under the balance slider rather than in the top bar (Nathan, 10 Sep 2026):
      a member reading the ranking is already looking here, and a corner button was missed. */
@@ -187,7 +187,7 @@ function buildCalcPage(key) {
         <a data-g="g1">1 · What it does</a>
         <a data-g="g2">2 · Reading the table</a>
         <a data-g="g3">3 · The hot markers</a>
-        <a data-g="g4">4 · Why 48 hours and why departures</a>
+        <a data-g="g4">4 · Why 48 hours and why X amount of departures</a>
         <a data-g="g5">5 · What's factored into contribution</a>
         <a data-g="g6">6 · The profit side</a>
         <a data-g="g7">7 · The one control: CONTRIB ↔ PROFIT</a>
@@ -199,66 +199,53 @@ function buildCalcPage(key) {
 
         <h3 id="g1">What it does</h3>
         <p>This spreadsheet has been put together after many years of data so it's like a master spreadsheet of every conceivable flight time and distance all on one sheet and depending on your selection where it actually shows you the value of setting your fleets up to achieve best contributions or best profit some 6000 and above 10,000 plus the three best overall setups for revenue and contributions.</p>
-        <p>It is built off my flight-tested numbers, not only testing but theory and formulas aswell Everything in the table has been checked against real routes flown in the game.</p>
+        <p>It has been built off my own extensive flight-tested numbers, not only from testing but theory and developed formulas aswell. Everything in the table has been checked against various routes, flight times, distances and multiple aircraft routes flown many times to cross check the data.</p>
 
         <h3 id="g2">Reading the table</h3>
         <ul>
-          <li>One continuous table, <b>500 km to 20,000 km</b>, for every aircraft. 20,000 km is the practical maximum route length in AM4 — nothing useful really exists beyond it even though I have seen a few 21,000km routes they aren’t really practical.
-          </li>
-          <li>Rows are flight times, columns are distances. Each cell shows <b>contribution per day (C/D)</b> for the aircraft you have selected from the dropdown menu given a certain flight time and distance (am4help shows C/F (contribution per <i>flight</i>, which is double this number and really is not relevant for the 48 hr contributions window as it measures something different.
-          </li>
+          <li>One continuous table, <b>500 km to 20,000 km</b>, for every aircraft. 20,000 km is the practical maximum route length in AM4 — nothing useful really exists beyond it even though I have seen a few 21,000km routes they aren’t really practical.</li>
+          <li>Rows are flight times, columns are distances. Each cell shows <b>contribution per day (C/D)</b> for the aircraft you have selected from the dropdown menu given a certain flight time and distance (am4help shows C/F (contribution per <i>flight</i>, which is double this number and really is not relevant for the 48 hr contributions window as it measures something different ie a Fleets Overall Efficiency.</li>
           <li>Three distance zones, marked by vertical rules:
             <ul>
-              <li><b>500–6,000 km</b> — single-leg routes.</li>
-              <li><b>6,001–9,999 km</b> — dead zone. The numbers are shown but this range never ranks and never gets a hot marker. Don't foForget not to utilise anything between 6001 and 9999 km as the developers have made that the dead zone and the dead zone was set to force players to choose between a short strategy or long strategy.</li>
-              <li><b>10,000–20,000 km</b> — stopover routes. The full route distance counts for contribution, not the individual legs. Because the contributions formulaBecause the contributions formula is based off distance and speed and also an element of cost index stopovers don't really affect the total contributions because it again looking at speed and distance so in actual fact you can have a route that is bent substantially off its straight line and still contribute fantastically but of course you will hurt revenue wise because of the extract recognise that you're going does actually affect your total profit after ticket sales.</li>
+              <li><b>500–6,000 km</b> — Sub 6000km routes.</li>
+              <li><b>6,001–9,999 km</b> — Developer imposed dead zone. The numbers are shown but this range never displays a ranking and never gets a heat zone displayed in it. Don't forget not to utilise anything between 6001 and 9999 km as the developers have made that the dead zone and the dead zone was set to force players to choose between a short strategy or long strategy.</li>
+              <li><b>10,000–20,000 km</b> — stopover routes. The full route distance counts for contribution, not the individual legs. Because the contributions formula is based off distance and speed and also an element of cost index, stopovers don't really affect the total contributions because it again looking at speed and distance so in actual fact you can have a route that is bent substantially off its straight line and still contribute really well but of course you will hurt revenue wise because of the extra off track kms that you're adding outside the direct route distance which does actually affect your total profit after ticket sales.</li>
             </ul>
           </li>
-          <li>Colour runs <b>green → yellow → orange → red</b>, hottest is best. The two live zones are heat-scaled independently: the 10,000+ zone is the dominant one and reaches full red; the sub-6,000 zone runs smaller and cooler by design.
-          </li>
+          <li>Colour runs <b>green → yellow → orange → red</b>, hottest is best. The two live zones are heat-scaled independently: the 10,000+ zone is the dominant one and reaches full red; the sub-6,000 zone runs smaller and cooler by design.</li>
         </ul>
 
         <h3 id="g3">The hot markers</h3>
         <p>Pick a flight-time row and the table marks three things on that row:</p>
         <ul>
-          <li><b>SHORT</b> — best single-leg cell under 6,000 km.
-          </li>
-          <li><b>LONG</b> — best cell at 10,000 km and above includes using a stopover if needed. This
-          </li>
-          <li><b>BEST OVERALL 1 · 2 · 3</b> — the three best cells across the row, ranked by <b>48-hour total</b>, not per-flight. If you click on any cell it will display the results for how many flights are optimum within 48 hrs and how it ranks against all other cells on the spreadsheet.
-          </li>
+          <li><b>SHORT</b> — best set up under 6,000 km.</li>
+          <li><b>LONG</b> — best cell above 10,000 km which includes using a stopover if needed.</li>
+          <li><b>BEST OVERALL 1 · 2 · 3</b> — the three best cells across the row, ranked by <b>48-hour total</b>, considering both revenue and C/D.  If you click on any cell it will display the results for how many flights are optimum within 48 hrs and how it ranks against all other cells on the spreadsheet.</li>
         </ul>
 
-        <h3 id="g4">Why 48 hours and why departures</h3>
-        <p>You will see that there is odd numbers of departures and weird looking flight times in the drop-down menu but what that is is the end product of factoring in takeoffs and landings each time plus a buffer within the 48 hour window.  So by utilizing this spreadsheet you will be ahead of the 48 hour window and managing a bonus departure of contributions to add into your usual strategy.</p>
-        <p>So again what would be a normal say 4 flights in 48 hours now becomes 5 flights in 48 hours 6 flights becomes 7 flights and so on. That extra flight is going to boost your contributions with the amount of aircraft you depart on that last departure before the 48 hour window catches up which you have a buffer built in as over the years if not allowing for a buffer you will stuff up along the way and end up running over the 48 hr window, so a time buffer is an absolute must to ensure you remain inside the 48hr window.</p>
+        <h3 id="g4">Why 48 hours and why X amount of departures</h3>
+        <p>You will see that there is odd numbers of departures and weird looking flight times in the drop-down menu but what that is, is the end product of factoring in multiple takeoffs and landings plus a human stuff up time buffer within the 48 hour window all to be comfortably within the 48 hrs and not wasting any minutes of efficiency.  So by utilizing this spreadsheet you will be ahead of the 48 hour window and managing a bonus departure of contributions to add into your usual strategy.</p>
+        <p>So again what would be a normal say 4 flights in 48 hours now becomes 5 flights in 48 hours, or  6 flights becomes 7 flights, or 8 becomes 9 flights and so on. That extra flight is going to boost your contributions with the amount of aircraft you depart on that last departure before the 48 hour window catches up with you.</p>
+        <p>You have a buffer built in as over the years if not allowing for a buffer you will stuff up along the way and end up running over the 48hr window, so a time buffer is an absolute must to ensure you remain inside the 48hr window.</p>
         <p>Take offs, landings, daily maintenance  repairs (can be deselected if not repairing daily) and 48 hr time buffers all factored in to the flight times hence why they look a bit weird.</p>
 
         <h3 id="g5">What's factored into contribution</h3>
         <ul>
-          <li>Route distance (including stopover routes).
-          </li>
-          <li>Aircraft type and its speed. Speed modifiers use the same rule as the game: ×1.1 for the speed mod bought on purchase, ×1.5 on top for Easy mode.
-          </li>
-          <li>Cost Index (CI). The table if utilising 200 cost index Is equivalent to setting maximum profit / maximum contributions will be from shorter routes and utilising a lower cost index.
-          </li>
-          <li>Aircraft type matters: each type carries its own multiplier, which is why an A380 and a Concorde on the same route don't score the same as speed is a major factor as is distance.
-          </li>
+          <li>Route distance (including stopover routes).</li>
+          <li>Aircraft type and its speed. Speed modifiers use the same rule as the game: ×1.1 for the speed mod bought on purchase, ×1.5 on top for Easy mode.</li>
+          <li>Cost Index (CI). The table if utilising maximum profit is like setting your cost index to 200 / setting maximum contributions will be like utilizing a lesser C/I and using potential shorter routes depending on the Game Mode and settings you choose which is similar to utilising a lower cost index setting.</li>
+          <li>Aircraft type matters: each type carries its own multiplier, which is why an A380 and a Concorde on the same route don't score the same as speed is a major factor as is distance.</li>
         </ul>
 
         <h3 id="g6">The profit side</h3>
         <p>Each cell also carries an estimated <b>48-hour profit</b> for the aircraft, built from:</p>
         <ul>
-          <li>Ticket income by class, from a fitted model of real route exports at CI 200.
-          </li>
-          <li>Seats sold capped by realistic daily demand per class — routes reset daily and rarely exceed ~2,000 passengers a day even with full marketing unless running 4x the speed.
-          </li>
-          <li>Fuel and CO₂ burn per kilometre for the aircraft.
-          </li>
-          <li>A-check maintenance cost per flight hour and repair cost per flight.
-          </li>
+          <li>Ticket income by class, from a fitted model of real route exports at CI 200.</li>
+          <li>Seats sold capped by realistic daily demand per class — routes reset daily and rarely exceed ~2,000 passengers a day even with full marketing unless running 4x the speed.</li>
+          <li>Fuel and CO₂ burn per kilometre for the aircraft.</li>
+          <li>A-check maintenance cost per flight hour and repair cost per flight.</li>
         </ul>
-        <p>The profit inputs use <b>fixed, typical values</b> (fuel price, CO₂ price (ive set the generic fuel purchase cost at $600 and C02 at$130 as unless you wanted to enter those in manually each time its easier to set standard numbers for comparison purposes) Seat layout, (demand per class taken from averages across a large sample of real routes). There are deliberately no dials for these — they change constantly in-game and a dial would just let you fool yourself.</p>
+        <p>The profit inputs use <b>fixed, typical values</b> (fuel price, CO₂ price (ive set the generic fuel purchase cost at $600 and C02 at$130 as unless you wanted to enter those in manually each time its easier to set standard numbers for comparison purposes) Seat layout, (demand per class taken from averages across a large sample of real routes). There are deliberately no dials for these — they change constantly in-game and a dial would just let you fool yourself and not display an even likewise set of results across the spreadsheet</p>
 
         <h3 id="g7">The one control: CONTRIB ↔ PROFIT</h3>
         <p>A single slider, default 50/50, sets how the ranking weighs your contributions against your own profit. Slide it towards CONTRIB to display routes more designed towards contributions or slide towards PROFIT to display routes more designed towards profits. In between each of those will weight the results accordingly to what you have set on the slider. All The heat zones re-rank as you move it. The departure count is the same for both sides — one number serves money and contributions.</p>
@@ -271,12 +258,9 @@ function buildCalcPage(key) {
 
         <h3 id="g10">What it does not do</h3>
         <ul>
-          <li>It doesn't know your hubs, your routes or your actual demand — it uses typical values.
-          </li>
-          <li>It doesn't net maintenance wear (0.75% per take-off) against contributions.or if your aircraft is above 25% wear which starts to affect your contributions effectiveness.  Many-short-flight setups carry that hidden cost of excess wear as each take off incurs maintenance wear penalties. So just be aware of it.
-          </li>
-          <li>It doesn't tell you what to do. It shows you the numbers so you can decide.
-          </li>
+          <li>It doesn't know your hubs, your routes or your actual demand — it uses typical values.</li>
+          <li>It doesn't net maintenance wear (0.75% per take-off) against contributions.or if your aircraft is above 25% wear which starts to affect your contributions effectiveness.  Many-short-flight setups carry that hidden cost of excess wear as each take off incurs maintenance wear penalties. So just be aware of it.</li>
+          <li>It doesn't tell you what to do. It shows you the numbers so you can decide.</li>
         </ul>
         <p>Good luck and happy hunting!</p>
 
