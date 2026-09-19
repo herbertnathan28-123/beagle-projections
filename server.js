@@ -704,7 +704,7 @@ app.get('/calculator', (req, res) => {
 // ALL Hunter routes require HUNTER_KEY or PROJECTIONS_SECRET for access.
 // No hunter data is served without authentication.
 const HUNTER_AUTH = (req, res, next) => {
-  const key = req.query.key || req.headers['x-hunter-key'] || '';
+  const key = req.query.key || req.query.k || req.headers['x-hunter-key'] || '';
   const validKey = (process.env.HUNTER_KEY || 'A11').toUpperCase();
   if (key.toUpperCase() === validKey || key === SECRET) return next();
   return res.status(403).type('text').send('Access denied');
