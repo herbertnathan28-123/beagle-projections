@@ -711,7 +711,19 @@ const HUNTER_AUTH = (req, res, next) => {
   return res.status(403).type('text').send('Access denied');
 };
 
-app.get('/hunter', HUNTER_AUTH, (req, res) => {
+const HUNTER_KEY_PROMPT = `<!doctype html><html><head><meta charset="utf-8"><title>HUNTER</title>
+<style>body{background:#0b0f1a;color:#e6e6e6;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+form{background:#111827;padding:32px;border:1px solid #f0b429;border-radius:8px;text-align:center}
+input{width:360px;padding:10px;background:#0b0f1a;color:#e6e6e6;border:1px solid #333;font-family:monospace}
+button{margin-top:12px;padding:10px 24px;background:#f0b429;border:0;font-weight:bold;cursor:pointer}</style></head>
+<body><form method="get" action="/hunter"><div style="color:#f0b429;font-weight:bold;margin-bottom:12px">HUNTER &middot; access key</div>
+<input name="key" type="password" autofocus autocomplete="current-password"><br><button>Open</button></form></body></html>`;
+
+app.get('/hunter', (req, res, next) => {
+  const key = req.query.key || req.query.k || req.headers['x-hunter-key'] || '';
+  if (!key) return res.status(401).type('html').send(HUNTER_KEY_PROMPT);
+  next();
+}, HUNTER_AUTH, (req, res) => {
   const html = HUNTER_HTML.replace('</head>',
     '<script>window._HUNTER_KEY="' + HUNTER_KEY + '";</script></head>'
   );
