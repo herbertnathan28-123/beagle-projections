@@ -8,8 +8,8 @@ const HUNTER_HTML = `<!DOCTYPE html>
 :root{
   --bg:#06080E;--bg1:#04101E;--bg2:#0A1C32;--bg3:#080C14;
   --bg4:#0C1020;--bg5:#0E1428;--bdr:#141C2E;--bdr2:#1C2840;--bdr3:#253550;
-  --gold:#E8B84B;--gold2:#C4920A;--txt:#E2EAF4;--txt2:#8AAABB;--txt3:#4A6070;
-  --red:#E74C3C;--amber:#F9A825;--green:#00D68F;--slate:#3A6090;
+  --gold:#E8B84B;--gold2:#C4920A;--txt:#F4F8FC;--txt2:#D6E2EC;--txt3:#A8BCCC;
+  --red:#E74C3C;--amber:#F9A825;--green:#00D68F;--slate:#7FA6D0;
   --mono:'Consolas','Courier New',monospace;--sans:'Segoe UI',Calibri,sans-serif;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
