@@ -703,25 +703,24 @@ app.get('/calculator', (req, res) => {
 // ── HUNTER ELITE ROUTES ────────────────────────────────────────────────────
 // ALL Hunter routes require HUNTER_KEY or PROJECTIONS_SECRET for access.
 // No hunter data is served without authentication.
+const HUNTER_KEY = (process.env.HUNTER_KEY || '').toUpperCase();
+const hunterKeyValid = (key) => Boolean(HUNTER_KEY) && String(key).toUpperCase() === HUNTER_KEY;
 const HUNTER_AUTH = (req, res, next) => {
   const key = req.query.key || req.query.k || req.headers['x-hunter-key'] || '';
-  const validKey = (process.env.HUNTER_KEY || 'A11').toUpperCase();
-  if (key.toUpperCase() === validKey || key === SECRET) return next();
+  if (hunterKeyValid(key) || key === SECRET) return next();
   return res.status(403).type('text').send('Access denied');
 };
 
 app.get('/hunter', HUNTER_AUTH, (req, res) => {
-  const key = (process.env.HUNTER_KEY || 'A11').toUpperCase();
   const html = HUNTER_HTML.replace('</head>',
-    '<script>window._HUNTER_KEY="' + key + '";</script></head>'
+    '<script>window._HUNTER_KEY="' + HUNTER_KEY + '";</script></head>'
   );
   res.type('html').send(html);
 });
 
 app.post('/api/hunter-update', (req, res) => {
   const authKey = req.body?.key || req.headers['x-hunter-key'] || '';
-  const validKey = (process.env.HUNTER_KEY || 'A11').toUpperCase();
-  if (authKey.toUpperCase() !== validKey && authKey !== SECRET && authKey !== N8N_TOKEN) {
+  if (!hunterKeyValid(authKey) && authKey !== SECRET && authKey !== N8N_TOKEN) {
     return res.status(403).json({ ok: false, error: 'Access denied' });
   }
   try {
