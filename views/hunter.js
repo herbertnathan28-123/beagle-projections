@@ -46,6 +46,16 @@ html,body{background:var(--bg);color:var(--txt);font-family:var(--sans);}
 .modal-k{font-size:9px;color:var(--txt3);letter-spacing:1.5px;text-transform:uppercase;padding-top:2px;}
 .modal-v{font-size:13px;color:var(--txt);font-family:var(--mono);}
 .modal-rule{border:none;border-top:1px solid var(--bdr);margin:16px 0;}
+.modal.wide{max-width:960px;}
+.dl-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;}
+.dl-table th{font-size:8px;color:var(--txt3);letter-spacing:1.5px;text-transform:uppercase;text-align:left;padding:6px 8px;border-bottom:1px solid var(--bdr2);background:var(--bg3);position:sticky;top:0;cursor:pointer;white-space:nowrap;}
+.dl-table th.num,.dl-table td.num{text-align:right;}
+.dl-table td{padding:7px 8px;border-bottom:1px solid var(--bdr);color:var(--txt);white-space:nowrap;}
+.dl-table tr.click{cursor:pointer;}
+.dl-table tr.click:hover td{background:rgba(255,255,255,.03);}
+.dl-name{color:var(--txt);font-weight:700;}
+.dl-sub{font-size:9px;color:var(--txt2);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;}
+.dl-detail{white-space:normal!important;color:var(--txt2);font-family:var(--sans);font-size:11px;line-height:1.5;min-width:260px;}
 .hist-bars{display:flex;align-items:flex-end;gap:6px;height:80px;margin-bottom:6px;}
 .hist-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;}
 .hist-bar{width:100%;border-radius:2px 2px 0 0;min-height:4px;}
@@ -308,9 +318,9 @@ html,body{background:var(--bg);color:var(--txt);font-family:var(--sans);}
     <div class="cmd-cell" onclick="showModal('Scan Summary',scanHtml())">
       <div class="cmd-lbl">Scan Summary</div>
       <div class="scan-row">
-        <div><div class="scan-n" id="s-tot">—</div><div class="scan-l">Players</div></div>
-        <div><div class="scan-n" id="s-ali">—</div><div class="scan-l">Alliances</div></div>
-        <div><div class="scan-n" id="s-flags">—</div><div class="scan-l">Anomalies</div></div>
+        <div onclick="event.stopPropagation();showWide('All Players',playersTableHtml())" title="Click to list every player"><div class="scan-n" id="s-tot">—</div><div class="scan-l">Players ›</div></div>
+        <div onclick="event.stopPropagation();showWide('Alliances',alliancesTableHtml())" title="Click to list the alliances"><div class="scan-n" id="s-ali">—</div><div class="scan-l">Alliances ›</div></div>
+        <div onclick="event.stopPropagation();showWide('Active Anomalies',anomaliesTableHtml())" title="Click to list every anomaly"><div class="scan-n" id="s-flags">—</div><div class="scan-l">Anomalies ›</div></div>
       </div>
       <div class="pill-row">
         <span class="spill sp-r" id="p-red">—</span>
@@ -362,7 +372,69 @@ function sw(name,el){
 }
 
 /* MODAL */
-function showModal(t,h){document.getElementById('mtitle').textContent=t;document.getElementById('mbody').innerHTML=h;document.getElementById('modal').classList.add('on');}
+function showModal(t,h){document.getElementById('mtitle').textContent=t;document.getElementById('mbody').innerHTML=h;document.querySelector('#modal .modal').classList.remove('wide');document.getElementById('modal').classList.add('on');}
+function showWide(t,h){showModal(t,h);document.querySelector('#modal .modal').classList.add('wide');}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function jsStr(s){return String(s==null?'':s).replace(/\\\\/g,'\\\\\\\\').replace(/'/g,"\\\\'");}
+
+/* DRILL-DOWN TABLES (Scan Summary numbers) */
+function allianceOf(p){return p.alliance_name&&p.alliance_name!=='UNKNOWN'?p.alliance_name:'Independent';}
+function playersTableHtml(){
+  const all=getAllPlayers().slice().sort((a,b)=>((b.flags?.length||0)-(a.flags?.length||0))||((b.cd_value||0)-(a.cd_value||0))||a.airline_name.localeCompare(b.airline_name));
+  if(!all.length)return'<p style="color:var(--txt3)">No subjects on file yet.</p>';
+  const rows=all.map(p=>{const bi=bandInfo(p.cd_value||0);const lv=p.level||'UNRATED';
+    return\`<tr class="click" onclick="showPlayerDetail('\${jsStr(p.airline_name)}')">
+<td class="dl-name">\${esc(p.airline_name)}</td><td>\${esc(allianceOf(p))}</td>
+<td style="color:\${lvlColor(lv)};font-weight:700">\${levelLabel(lv)}</td>
+<td style="color:\${bi.color}">\${bi.label.replace(' MONITORING','')}</td>
+<td class="num">\${fm(p.cd_value)}</td><td class="num">\${fm(p.sv)}</td>
+<td class="num">\${p.snap_count||0}</td><td class="num">\${p.days_tracked>0?p.days_tracked.toFixed(1)+'d':'<1d'}</td>
+<td class="num" style="color:\${(p.flags?.length)?'var(--amber)':'var(--txt3)'}">\${p.flags?.length||0}</td>
+<td>\${esc(p.roster_status||'—')}</td></tr>\`;}).join('');
+  return\`<div class="dl-sub">\${all.length} players · sorted by anomalies, then C/D · click a row for the full assessment</div>
+<table class="dl-table"><thead><tr><th>Player</th><th>Alliance</th><th>Status</th><th>Band</th><th class="num">C/Day</th><th class="num">Share value</th><th class="num">Readings</th><th class="num">Tracked</th><th class="num">Anomalies</th><th>Roster</th></tr></thead><tbody>\${rows}</tbody></table>\`;
+}
+function alliancesTableHtml(){
+  const als=(_data?.alliances||[]);const ind=(_data?.individuals||[]);
+  const groups=als.map(a=>({name:a.allianceName,players:a.players||[],departed:a.departed||[]}));
+  if(ind.length)groups.push({name:'Independent / no alliance on paste',players:ind,departed:[],ind:true});
+  if(!groups.length)return'<p style="color:var(--txt3)">No alliances on file yet.</p>';
+  const rows=groups.map(g=>{const pl=g.players;
+    const red=pl.filter(p=>p.level==='RED').length,watch=pl.filter(p=>p.level==='AMBER'||p.level==='LOW').length,clear=pl.length-red-watch;
+    const flags=pl.reduce((s,p)=>s+(p.flags?.length||0),0);
+    const cd=pl.reduce((s,p)=>s+(p.cd_value||0),0);
+    const reads=pl.reduce((s,p)=>Math.max(s,p.snap_count||0),0);
+    const last=pl.reduce((s,p)=>(!s||(p.lastUpdated>s))?p.lastUpdated:s,null);
+    const top=pl.slice().sort((a,b)=>(b.flags?.length||0)-(a.flags?.length||0))[0];
+    return\`<tr><td class="dl-name">\${esc(g.name)}</td><td class="num">\${pl.length}</td>
+<td class="num" style="color:var(--red)">\${red}</td><td class="num" style="color:var(--amber)">\${watch}</td><td class="num" style="color:var(--green)">\${clear}</td>
+<td class="num" style="color:\${flags?'var(--amber)':'var(--txt3)'}">\${flags}</td><td class="num">\${fm(cd)}</td><td class="num">\${reads}</td>
+<td>\${top&&top.flags?.length?\`<span class="click" style="cursor:pointer;text-decoration:underline dotted" onclick="showPlayerDetail('\${jsStr(top.airline_name)}')">\${esc(top.airline_name)}</span>\`:'—'}</td>
+<td>\${ago(last)}</td><td class="num" style="color:var(--txt3)">\${g.departed.length}</td></tr>\`;}).join('');
+  return\`<div class="dl-sub">\${als.length} alliance\${als.length!==1?'s':''} scanned\${ind.length?' · plus '+ind.length+' players tracked individually':''} · the All Subjects tab lists every member under each alliance</div>
+<table class="dl-table"><thead><tr><th>Alliance</th><th class="num">Players</th><th class="num">Red</th><th class="num">Watch</th><th class="num">Clear</th><th class="num">Anomalies</th><th class="num">Total C/Day</th><th class="num">Readings</th><th>Most flagged</th><th>Last scan</th><th class="num">Departed</th></tr></thead><tbody>\${rows}</tbody></table>\`;
+}
+function anomaliesTableHtml(){
+  const all=getAllPlayers();
+  const list=[];
+  for(const p of all){const det=p.flag_details&&p.flag_details.length?p.flag_details:(p.flags||[]).map(f=>({flag:f,detail:''}));for(const fd of det)list.push({p,fd});}
+  if(!list.length)return'<p style="color:var(--txt3)">No anomalies active. Every player is within normal range.</p>';
+  const order={RED:0,AMBER:1,LOW:2,GREEN:3,UNRATED:4};
+  list.sort((a,b)=>(order[a.p.level]??5)-(order[b.p.level]??5)||a.p.airline_name.localeCompare(b.p.airline_name));
+  const byType={};for(const x of list)byType[x.fd.flag]=(byType[x.fd.flag]||0)+1;
+  const rows=list.map(({p,fd})=>{const lv=p.level||'UNRATED';const help=FLAG_HELP[fd.flag];
+    return\`<tr class="click" onclick="showPlayerDetail('\${jsStr(p.airline_name)}')">
+<td class="dl-name">\${esc(p.airline_name)}</td><td>\${esc(allianceOf(p))}</td>
+<td style="color:\${lvlColor(lv)};font-weight:700">\${levelLabel(lv)}</td>
+<td style="color:var(--amber);font-weight:700">\${flagLabel(fd.flag)}</td>
+<td class="dl-detail">\${esc(fd.detail||(help?help.what:''))}</td>
+<td class="num">\${fm(p.cd_value)}</td><td class="num">\${p.snap_count||0}</td></tr>\`;}).join('');
+  const players=new Set(list.map(x=>x.p.airline_name)).size;
+  const summary=Object.entries(byType).map(([f,n])=>n+' × '+flagLabel(f)).join(' · ');
+  return\`<div class="dl-sub">\${list.length} anomal\${list.length===1?'y':'ies'} across \${players} player\${players!==1?'s':''} · \${esc(summary)} · click a row for the full assessment</div>
+<table class="dl-table"><thead><tr><th>Player</th><th>Alliance</th><th>Status</th><th>Anomaly</th><th>What was detected</th><th class="num">C/Day</th><th class="num">Readings</th></tr></thead><tbody>\${rows}</tbody></table>
+<hr class="modal-rule"><p style="color:var(--txt3);font-size:11px;">One player can carry several anomalies. An anomaly is a pattern that stands out from the group over multiple readings — it is not a conclusion on its own.</p>\`;
+}
 function closeModal(){document.getElementById('modal').classList.remove('on');}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
