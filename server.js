@@ -621,6 +621,21 @@ app.get('/api/pace-readings', (req, res) => {
 app.post('/api/update', (req, res) => {
   const { token, timestamp, uploader, beagleSV, beagleRank, beaglePace, alliances, force } = req.body;
   if (token !== SECRET && token !== N8N_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
+  // Pace-only update: the n8n PACE workflow pushes Beagle's member-table pace
+  // (sum of C/D ÷ $1M) with no share value and no alliance table (ATL-125).
+  // Store the pace and nothing else. Moving liveData.timestamp here would stamp
+  // the last rankings upload's SVs with a later time and stretch every pace
+  // interval measured from them, and posting a confirmation would add a second
+  // member-facing message per upload — members get the AM4 Pace Bot card only.
+  if (beagleSV == null && !(Array.isArray(alliances) && alliances.length)) {
+    if (beaglePace == null || isNaN(beaglePace) || beaglePace < 1.0) {
+      return res.status(400).json({ ok: false, error: 'pace-only update needs beaglePace >= 1.0' });
+    }
+    liveData = { ...liveData, beaglePace, beaglePaceAt: timestamp || new Date().toISOString() };
+    saveState(liveData);
+    console.log('[PACE] pace-only update by ' + (uploader || 'unknown') + ': beaglePace=' + beaglePace + ' at ' + liveData.beaglePaceAt);
+    return res.json({ ok: true, paceOnly: true });
+  }
   const newSV = beagleSV ?? liveData.beagleSV;
   const newTs = timestamp || liveData.timestamp;
   const merged = (alliances || []).map(a => {
