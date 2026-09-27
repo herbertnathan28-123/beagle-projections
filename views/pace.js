@@ -702,7 +702,7 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
               </text>
               {!c.has && (
                 <text x={xFor(c.d) * view.k + view.tx} y={PAD.t + ih + 40} style={S.nilText} textAnchor="middle">
-                  no upload
+                  nil data
                 </text>
               )}
             </g>
@@ -812,7 +812,7 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
 
       <p style={S.foot}>
         Shaded columns are calendar days with no upload from anyone. Lines bridge them in the alliance's own colour and
-        the day prints "no upload" — nothing is smoothed into a value. Every pace is divided by the exact time between
+        the day prints "nil data" — nothing is smoothed into a value. Every pace is divided by the exact time between
         uploads, so an upload that lands late does not inflate or deflate the figure.
       </p>
     </div>
