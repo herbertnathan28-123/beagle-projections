@@ -475,11 +475,15 @@ app.get('/api/pace-history', (req, res) => {
     if (a.pace != null && !isNaN(a.pace)) liveByName.set(a.name, a.pace);
   }
   const latestDate = utcDate(liveData.timestamp);
+  // A pace-only update carries its own time (beaglePaceAt); pin Beagle's pace
+  // to that day only, never onto the earlier rankings day.
+  const beaglePaceDate = liveData.beaglePaceAt ? utcDate(liveData.beaglePaceAt) : latestDate;
   for (const t of series) {
     const live = liveByName.get(t.name);
     if (live == null) continue;
     const last = t.points[t.points.length - 1];
-    if (last && last.date === latestDate) {
+    const pinDate = t.name === 'Beagle Global' ? beaglePaceDate : latestDate;
+    if (last && last.date === pinDate) {
       last.y = Math.round(live * 1000) / 1000;
       last.actual = last.y;
       last.interpolated = false;
