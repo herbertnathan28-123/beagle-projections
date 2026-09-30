@@ -20,6 +20,7 @@ const calculator = require('./lib/calculator');
 const fuel       = require('./lib/fuel');
 const fuelAlerts = require('./lib/fuelAlerts');
 const hunter     = require('./lib/hunter');
+const paceLib    = require('./lib/pace');
 const { buildCalcPage }      = require('./views/calc');
 const { HQ_HTML }            = require('./views/hq');
 const { HTML_COMPILED }      = require('./views/projections');
@@ -334,7 +335,47 @@ app.get('/api/visitors', (req, res) => {
   res.json({ total: visitorLog.length, log: visitorLog });
 });
 
-app.get('/api/data', (req, res) => res.json(liveData));
+// ── Canonical pace (ATL-131) ────────────────────────────────────────────────
+// Every surface reads pace from here: /api/data (header, rows, chart, cards),
+// /api/pace, and the /api/update response the n8n projections post is written
+// from. lib/pace.js holds the one definition.
+function readingsFor(snapshots, sv) {
+  const upTo = liveData.timestamp;
+  const rs = (snapshots || [])
+    .filter(s => s && s.timestamp && (!upTo || s.timestamp <= upTo))
+    .map(s => ({ t: s.timestamp, sv: s.sv }));
+  if (sv != null && upTo) rs.push({ t: upTo, sv });
+  return rs;
+}
+function buildCanonical() {
+  const base = cfg.DEFAULT_DATA;
+  const datumByKey = new Map((base.alliances || []).map(a => [normAllianceName(a.name), { t: base.timestamp, sv: a.sv }]));
+  return paceLib.canonicalBoard({
+    asOf: liveData.timestamp || null,
+    beagle: {
+      name: 'Beagle Global', sv: liveData.beagleSV, rank: liveData.beagleRank,
+      readings: readingsFor(svHistory.snapshots, liveData.beagleSV),
+      datum: { t: base.timestamp, sv: base.beagleSV },
+      memberCdPace: liveData.beaglePace, memberCdAt: liveData.beaglePaceAt || liveData.timestamp || null,
+    },
+    alliances: (liveData.alliances || []).map(a => {
+      const key = normAllianceName(a.name);
+      return {
+        name: a.name, sv: a.sv, rank: a.rank,
+        readings: readingsFor((allianceHistory[key] && allianceHistory[key].snapshots) || [], a.sv),
+        datum: datumByKey.get(key) || null,
+      };
+    }),
+  });
+}
+function chartKeyFor(d) {
+  const M = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  return 'BEAGLE-' + M[d.getUTCMonth()] + String(d.getUTCFullYear()).slice(-2);
+}
+
+// `canonical` is additive: every field the page and n8n already read is unchanged.
+app.get('/api/data', (req, res) => res.json({ ...liveData, canonical: buildCanonical() }));
+app.get('/api/pace', (req, res) => res.json(buildCanonical()));
 
 // ── Daily top-10 alliance pace history ───────────────────────────────────────
 // 19 distinct line colours for the non-Beagle alliances, in pace order, taken
@@ -465,30 +506,11 @@ app.get('/api/pace-history', (req, res) => {
     { name: 'Beagle Global', color: '#E8B84B', points: buildPacePoints(svHistory.snapshots || [], start, end) },
     ...others.map(t => ({ name: t.name, color: t.color, points: buildPacePoints(t.snapshots, start, end) })),
   ];
-  // The two panels must not disagree about today. Historical points are
-  // reconstructed from SV history, but the live pace is whatever the latest
-  // upload carried — which is what the projected-ranking rows print. Pin the
-  // final point to that value so the end of every line equals the table.
-  const liveByName = new Map();
-  if (liveData.beaglePace != null) liveByName.set('Beagle Global', liveData.beaglePace);
-  for (const a of liveData.alliances || []) {
-    if (a.pace != null && !isNaN(a.pace)) liveByName.set(a.name, a.pace);
-  }
-  const latestDate = utcDate(liveData.timestamp);
-  // A pace-only update carries its own time (beaglePaceAt); pin Beagle's pace
-  // to that day only, never onto the earlier rankings day.
-  const beaglePaceDate = liveData.beaglePaceAt ? utcDate(liveData.beaglePaceAt) : latestDate;
-  for (const t of series) {
-    const live = liveByName.get(t.name);
-    if (live == null) continue;
-    const last = t.points[t.points.length - 1];
-    const pinDate = t.name === 'Beagle Global' ? beaglePaceDate : latestDate;
-    if (last && last.date === pinDate) {
-      last.y = Math.round(live * 1000) / 1000;
-      last.actual = last.y;
-      last.interpolated = false;
-    }
-  }
+  // Every point on this tile, including today's, is the same measurement: the
+  // SV delta over ~24 h of stored readings. The last point used to be pinned to
+  // liveData's pace, which for every rival was the n8n 4-month datum average and
+  // for Beagle the member C/D figure — a different quantity on the final day,
+  // which made the last segment and its % change fictitious (ATL-131).
   for (const t of series) {
     for (let i = 1; i < t.points.length; i++) {
       const cur = t.points[i], prev = t.points[i - 1];
@@ -584,6 +606,12 @@ app.get('/api/pace-readings', (req, res) => {
     ordered.push(beagle);
   }
 
+  // The canonical current pace for each alliance, from the full (uncollapsed)
+  // history — the /pace page prints this rather than re-deriving it from the
+  // collapsed readings below, so it can never disagree with the board (ATL-131).
+  const board = buildCanonical();
+  const canonByName = new Map(board.alliances.map(r => [r.name, r]));
+
   let colorIdx = 0;
   const series = ordered.map((e, i) => {
     const rawSnaps = e.us
@@ -616,6 +644,7 @@ app.get('/api/pace-readings', (req, res) => {
       us: e.us,
       datumSv,
       readings: readings.sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime()),
+      canonical: (() => { const c = canonByName.get(e.name); return c ? { pace: c.pace, method: c.method, windowDays: c.windowDays, label: c.label } : null; })(),
     };
   });
 
@@ -693,15 +722,25 @@ app.post('/api/update', (req, res) => {
   recalcAlliancePaces(liveData, allianceHistory);
   console.log(`[${new Date().toISOString()}] Updated by ${uploader}`);
   saveState(liveData);
+  // The canonical board and the projections post written from it, so the n8n
+  // workflow posts the same numbers the dashboard shows (ATL-131). The response
+  // fields are additive: callers that only read `ok` are unaffected.
+  let canonical = null, post = null;
+  try {
+    canonical = buildCanonical();
+    const now = new Date();
+    post = paceLib.formatProjectionsPost(canonical, { now, chartUrl: 'https://beagle-projections.onrender.com/?k=' + chartKeyFor(now) });
+  } catch (e) { console.error('[PACE] canonical board failed:', e.message); }
+  const cb = canonical && canonical.beagle;
   notifyDiscord(
     '✅ **PROJECTIONS DATA RECEIVED & LOGGED**' +
-    ' — Beagle Pace: **$' + (liveData.beaglePace || 0).toFixed(2) + '/day**' +
+    ' — Beagle Pace: **' + (cb && cb.pace != null ? '$' + cb.pace.toFixed(2) + '/day** (' + cb.label + ')' : 'not measurable yet**') +
     ' · SV: ' + (liveData.beagleSV || 0).toLocaleString() +
     ' · Rank: #' + (liveData.beagleRank || '?') +
     ' · as of ' + awstStamp(liveData.timestamp) + ' AWST' +
     ' · uploaded by ' + uploader
   );
-  res.json({ ok: true });
+  res.json({ ok: true, canonical, post });
 });
 
 // ── CALCULATOR API — must be before wildcard ───────────────────────────────

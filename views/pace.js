@@ -1,4 +1,9 @@
 const esbuild = require('esbuild');
+const fs = require('fs');
+const path = require('path');
+const PACE_LIB = '(function(){var module={exports:{}};' +
+  fs.readFileSync(path.join(__dirname, '..', 'lib', 'pace.js'), 'utf8') +
+  '\n;window.PaceLib=module.exports;})();';
 
 const HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -21,6 +26,7 @@ button{font-family:inherit}
 </head>
 <body>
 <div id="root"></div>
+<script>__PACE_LIB__</script>
 <script type="text/babel">
 const { useEffect, useLayoutEffect, useMemo, useRef, useState } = React;
 /* ============================================================================
@@ -143,9 +149,17 @@ function derive(s, datumT) {
   const prev = r.length > 1 ? r[r.length - 2] : null;
 
   // CURRENT PACE — over the exact interval between the last two uploads.
+  // The server's canonical figure (lib/pace.js canonicalPace() over the full
+  // history, sent as s.canonical) — the same number the projections page, the
+  // alliance cards and the Discord post print (ATL-131). PaceLib in the page is
+  // the same function, used only if an older server omits the field.
   let currentPace = null;
   let intervalMs = null;
-  if (prev) {
+  const cp = s.canonical || (window.PaceLib ? window.PaceLib.canonicalPace(s.readings) : null);
+  if (cp && cp.method === 'current') {
+    currentPace = cp.pace;
+    intervalMs = cp.windowDays * DAY_MS;
+  } else if (!window.PaceLib && prev) {
     intervalMs = ms(last.t) - ms(prev.t);
     currentPace = intervalMs >= MIN_INTERVAL_MS ? (last.sv - prev.sv) / (intervalMs / DAY_MS) : null;
   }
@@ -321,8 +335,11 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
   const GAP = 19;
   // Widened from 214 so the enlarged end-labels (and the "Current pace · latest
   // upload" header) fit the bigger fonts without clipping at the right edge.
-  const NAME_W = 300;
-  const PAD = { l: 72, r: GAP + NAME_W + 12, t: 46, b: 66 };
+  // Phone widths: a fixed 300 px label column left ~80 px of plot on a 390 px
+  // screen (ATL-131). Narrow screens get a proportional column and smaller type.
+  const narrow = w < 600;
+  const NAME_W = narrow ? Math.max(128, Math.round(w * 0.37)) : 300;
+  const PAD = { l: narrow ? 58 : 72, r: GAP + NAME_W + 12, t: 46, b: 66 };
   const iw = Math.max(80, w - PAD.l - PAD.r);
   const ih = Math.max(80, h - PAD.t - PAD.b);
   const xFor = (t) => PAD.l + (t1 === t0 ? iw / 2 : ((t - t0) / (t1 - t0)) * iw);
@@ -690,14 +707,14 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
           </g>
 
           {ticks.map((v, i) => (
-            <text key={"yt" + i} x={PAD.l - 12} y={yFor(v) * view.k + view.ty + 4} style={S.axisText} textAnchor="end">
+            <text key={"yt" + i} x={PAD.l - (narrow ? 6 : 12)} y={yFor(v) * view.k + view.ty + 4} style={narrow ? { ...S.axisText, fontSize: 12 } : S.axisText} textAnchor="end">
               {fmtAxis(v)}
             </text>
           ))}
 
           {dayCols.map((c) => (
             <g key={"xt" + c.d}>
-              <text x={xFor(c.d) * view.k + view.tx} y={PAD.t + ih + 22} style={S.axisText} textAnchor="middle">
+              <text x={xFor(c.d) * view.k + view.tx} y={PAD.t + ih + 22} style={narrow ? { ...S.axisText, fontSize: 12 } : S.axisText} textAnchor="middle">
                 {fmtDayShort(c.d)}
               </text>
               {!c.has && (
@@ -750,8 +767,8 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
             })}
           </g>
 
-          <text x={PAD.l + iw + GAP} y={PAD.t - 18} style={S.colHead}>
-            Current pace · latest upload
+          <text x={PAD.l + iw + GAP} y={PAD.t - 18} style={narrow ? { ...S.colHead, fontSize: 11, letterSpacing: ".06em" } : S.colHead}>
+            {narrow ? "Current pace" : "Current pace · latest upload"}
           </text>
           <line
             x1={PAD.l + iw + GAP}
@@ -787,8 +804,8 @@ function PaceDailyTrend({ series = PLACEHOLDER_SERIES, datumT = DATUM_T, placeho
                   opacity={0.85}
                 />
               )}
-              <text x={PAD.l + iw + GAP} y={l.y + 4} style={{ ...S.endText, fill: l.colour, fontWeight: l.us ? 700 : 500 }}>
-                {l.rank ? l.rank + "." : "\u2014"} {l.name} {fmtMoney(l.pace)}
+              <text x={PAD.l + iw + GAP} y={l.y + 4} style={{ ...S.endText, fontSize: narrow ? 12 : S.endText.fontSize, fill: l.colour, fontWeight: l.us ? 700 : 500 }}>
+                {l.rank ? l.rank + "." : "\u2014"} {narrow && l.name.length > 11 ? l.name.slice(0, 10) + "\u2026" : l.name} {fmtMoney(l.pace)}
               </text>
             </g>
           ))}
@@ -1232,6 +1249,6 @@ function precompileJSX(html) {
   );
 }
 
-const HTML_COMPILED = precompileJSX(HTML);
+const HTML_COMPILED = precompileJSX(HTML.replace('__PACE_LIB__', () => PACE_LIB));
 
 module.exports = { HTML, HTML_COMPILED, precompileJSX };

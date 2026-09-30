@@ -20,6 +20,8 @@ jobs:
             echo "checking $f"
             node --check "$f"
           done
+      - name: Canonical pace tests (lib/pace.js — ATL-131)
+        run: node --test test/*.test.js
       - name: Boot smoke — server must come live and serve /api/data
         env:
           PORT: '3000'
