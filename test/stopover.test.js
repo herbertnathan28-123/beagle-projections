@@ -27,7 +27,7 @@ function fakeCtx() {
 }
 
 function el(id) {
-  return {
+  const o = {
     id, value: '', textContent: '', innerHTML: '', className: '', style: {},
     children: [], clientWidth: 1000, clientHeight: 400, type: '', label: '',
     setAttribute() {}, getAttribute() { return null; },
@@ -35,6 +35,19 @@ function el(id) {
     addEventListener() {}, getContext() { return fakeCtx(); },
     click() {}, onclick: null,
   };
+  o.classList = {
+    contains: (c) => o.className.split(' ').includes(c),
+    add: (c) => {
+      const a = o.className.split(' ').filter(Boolean);
+      if (!a.includes(c)) { a.push(c); o.className = a.join(' '); }
+    },
+    remove: (c) => {
+      const a = o.className.split(' ').filter(Boolean);
+      const i = a.indexOf(c);
+      if (i >= 0) { a.splice(i, 1); o.className = a.join(' '); }
+    },
+  };
+  return o;
 }
 
 const ELS = {};
@@ -135,4 +148,47 @@ test('a freighter shows cargo demand and the best L/H split', async () => {
   assert.match(ELS.demV.textContent, /L 597,000 \/ H 222,000/);
   assert.match(ELS.cfgV.innerHTML, /L \d+% \/ H \d+% .*dep\/day \u00d7 \d+ A\/C/);
   ctx.applyAcft('A380-800', false);
+});
+
+// ATL-151: runway-short endpoints, IATA/ICAO resolution, distance displays.
+test('HKG→BCH shows a runway-short warning, not "Fly it direct" (ATL-151 regression)', async () => {
+  await flush(); ctx.applyAcft('A380-800', false);
+  const msg = drive({ from: 'HKG', to: 'BCH', range: '14,500', rwy: '9,680' });
+  assert.match(msg.className, /warn/);
+  assert.match(msg.innerHTML, /BCH runway \(8,233 ft\) is shorter than the .+ minimum \(9,680 ft\)/);
+  assert.doesNotMatch(msg.innerHTML, /Fly it direct/);
+});
+
+test('ICAO codes resolve identically to IATA (VHHH→YMML ≡ HKG→MEL)', () => {
+  drive({ from: 'HKG', to: 'MEL', range: '14,500', rwy: '9,680' });
+  const iata = { msg: ELS.msg.innerHTML, flown: ELS.sActual.innerHTML };
+  const msg = drive({ from: 'VHHH', to: 'YMML', range: '14,500', rwy: '9,680' });
+  assert.strictEqual(msg.innerHTML, iata.msg);
+  assert.strictEqual(ELS.sActual.innerHTML, iata.flown);
+  assert.match(ELS.fromHint.textContent, /HKG \/ VHHH/);
+  assert.match(ELS.toHint.textContent, /MEL \/ YMML/);
+});
+
+test('mixed IATA→ICAO search works (VHHH→BCH) and hints show both codes', () => {
+  drive({ from: 'VHHH', to: 'BCH', range: '14,500', rwy: '9,680' });
+  assert.doesNotMatch(ELS.msg.innerHTML, /Airport not found|No AM4 airport/);
+  assert.match(ELS.toHint.textContent, /BCH \/ WPEC/);
+});
+
+test('an unmatched code is reported plainly', () => {
+  drive({ from: 'HKG', to: 'ZZZZ', range: '14,500', rwy: '9,680' });
+  assert.match(ELS.toHint.textContent, /No AM4 airport with code ZZZZ/);
+  assert.match(ELS.msg.innerHTML, /No AM4 airport with code ZZZZ/);
+});
+
+test('live distance chip shows the great-circle distance once both ends resolve', () => {
+  drive({ from: 'HKG', to: 'MEL', range: '14,500', rwy: '9,680' });
+  assert.match(ELS.dchip.textContent, /7,412 km/);
+});
+
+test('a stopover result card states the total distance per leg', () => {
+  drive({ from: 'VVNB', to: 'SPIM', range: '14,500', rwy: '9,680' });
+  assert.match(ELS.msg.className, /ok/);
+  assert.match(ELS.msg.innerHTML, /Your stopover is \w{3}/);
+  assert.match(ELS.msg.innerHTML, /Total [\d,]+ km \(leg 1 [\d,]+ km \+ leg 2 [\d,]+ km\)/);
 });
