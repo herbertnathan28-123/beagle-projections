@@ -1466,6 +1466,21 @@ app.post('/api/player-manual-entry', (req, res) => {
   }
 });
 
+// ── STOPOVER DEMAND + AIRCRAFT SPECS (ATL-148) ───────────────────────────────
+// Offline dataset served by lib/stopoverData.js — see scripts/build_stopover_data.py.
+// Must sit above the wildcard GET below, which 404s every /api/* path it sees first.
+const stopoverData = require('./lib/stopoverData');
+
+app.get('/api/stopover/aircrafts', (req, res) => {
+  res.json(stopoverData.aircrafts());
+});
+
+app.get('/api/stopover/demand', (req, res) => {
+  const d = stopoverData.demand(req.query.from, req.query.to);
+  if (!d) return res.status(404).json({ ok: false, error: 'unknown airport pair' });
+  res.json(d);
+});
+
 // ── WILDCARD — catches all other routes (Alliance Projections main page) ───
 // Health check — point the Render health-check path here so a hung/unresponsive
 // instance is detected and restarted.
@@ -1528,20 +1543,6 @@ function fireImminentAlerts(did, plan, now) {
     console.log('[FUEL-ALERT] Imminent ' + did + ' @ ' + t.label + ' (' + lead + ') ' + t.type + '=' + t.qty);
   }
 }
-
-// ── STOPOVER DEMAND + AIRCRAFT SPECS (ATL-148) ───────────────────────────────
-// Offline dataset served by lib/stopoverData.js — see scripts/build_stopover_data.py.
-const stopoverData = require('./lib/stopoverData');
-
-app.get('/api/stopover/aircrafts', (req, res) => {
-  res.json(stopoverData.aircrafts());
-});
-
-app.get('/api/stopover/demand', (req, res) => {
-  const d = stopoverData.demand(req.query.from, req.query.to);
-  if (!d) return res.status(404).json({ ok: false, error: 'unknown airport pair' });
-  res.json(d);
-});
 
 storage.checkPersistence();
 app.listen(PORT, () => {
