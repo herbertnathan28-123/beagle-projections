@@ -7,6 +7,7 @@ const express = require('express');
 const stopoverData = require('./lib/stopoverData');
 
 const app = express();
+app.get('/healthz', (req, res) => res.status(200).type('text').send('OK'));
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
 app.get('/api/stopover/aircrafts', (req, res) => {
