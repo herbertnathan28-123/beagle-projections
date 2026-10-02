@@ -136,9 +136,11 @@ test('entered purchases count as supply: no double-buying around them', () => {
 });
 
 test('the forecast reserves column adds entered purchases only, never a suggestion', () => {
-  assert.match(PAGE, /const planBuy=past\?0:bought;/);
-  assert.match(PAGE, /const co2PlanBuy=past\?0:co2Bought;/);
-  assert.doesNotMatch(PAGE, /planBuy=past\?0:\(\(fPur\[i\]\|\|0\)>0\?bought:FSUG\[i\]\)/);
+  // An entered purchase or a Suggested Buy typed by hand; never the optimizer's figure.
+  const line = PAGE.match(/const planBuy=[^\n]*/)[0];
+  const co2Line = PAGE.match(/const co2PlanBuy=[^\n]*/)[0];
+  assert.doesNotMatch(line, /FSUG/);
+  assert.doesNotMatch(co2Line, /CSUG/);
 });
 
 // ── LANDED flash and DEP ─────────────────────────────────────────────────────
@@ -212,4 +214,69 @@ test('DEP on a fleet still in the air recalls it, as before', () => {
   c.NOW += 0.5 * c.H;
   vm.runInContext("toggleDepart('b1')", c);
   assert.strictEqual(c.BOXES[0].departed, false);
+});
+
+// ── Suggested Buy typed by hand ─────────────────────────────────────────────
+
+function pathwaySandbox(nowIso, schedule) {
+  const ctx = { S: schedule, Infinity };
+  vm.createContext(ctx);
+  vm.runInContext("const TIMES=Array.from({length:48},(_,i)=>String(Math.floor(i/2)).padStart(2,'0')+':'+(i%2?'30':'00'));", ctx);
+  vm.runInContext(`function getGameNow(){ return new Date('${nowIso}'); }
+    function getGameDay(){ return getGameNow().getUTCDate(); }
+    function getGameSlotIndex(){ const n=getGameNow(); return n.getUTCHours()*2+(n.getUTCMinutes()>=30?1:0); }`, ctx);
+  vm.runInContext(fnSource('monthOptimize'), ctx);
+  vm.runInContext(fnSource('monthPathway'), ctx);
+  return (...a) => vm.runInContext('monthPathway', ctx)(...a);
+}
+
+// Day 30 of a 31-day month from 22:00: two days, one cheap slot each night.
+function twoDaySchedule() {
+  const S = {};
+  for (const d of ['30', '31']) {
+    S[d] = {};
+    for (let s = 0; s < 48; s++) S[d][hhmm(s)] = [2000, 150];
+    S[d]['23:00'] = [500, 100];
+  }
+  return S;
+}
+
+test('Suggested Buy set to 0 by hand: no buy there, the reserves do not count one, the plan moves on', () => {
+  const pathway = pathwaySandbox('2026-10-30T22:00:00Z', twoDaySchedule());
+  const burn = new Array(48).fill(0); burn[slot('22:30')] = 600;
+  const none = new Array(48).fill(0);
+  const base = pathway(700, 1000, 10, burn, 0, none);
+  const s23 = slot('23:00');
+  assert.ok(base.sug[s23] > 0, 'the optimizer fills at 23:00');
+  const ov = new Array(48).fill(null); ov[s23] = 0;
+  const set = pathway(700, 1000, 10, burn, 0, none, ov);
+  assert.strictEqual(set.sug[s23], 0, 'nothing suggested at a slot the member set to 0');
+  assert.strictEqual(set.resNoSugByGlobal[s23], 100, 'reserves at 23:00: 700 − 600, nothing added');
+});
+
+test('Suggested Buy set to an amount by hand counts in the reserves and is not re-suggested', () => {
+  const pathway = pathwaySandbox('2026-10-30T22:00:00Z', twoDaySchedule());
+  const burn = new Array(48).fill(0); burn[slot('22:30')] = 600;
+  const none = new Array(48).fill(0);
+  const ov = new Array(48).fill(null); ov[slot('22:00')] = 250;   // topped up by hand at an expensive slot
+  const p = pathway(700, 1000, 10, burn, 0, none, ov);
+  assert.strictEqual(p.sug[slot('22:00')], 0);
+  assert.strictEqual(p.resNoSugByGlobal[slot('22:00')], 950, '700 + 250 by hand');
+  assert.strictEqual(p.resNoSugByGlobal[slot('22:30')], 350, 'then the 600 burn');
+});
+
+test('an entered purchase wins over a hand-set Suggested Buy at the same slot', () => {
+  const pathway = pathwaySandbox('2026-10-30T22:00:00Z', twoDaySchedule());
+  const burn = new Array(48).fill(0);
+  const bought = new Array(48).fill(0); bought[slot('22:00')] = 100;
+  const ov = new Array(48).fill(null); ov[slot('22:00')] = 400;
+  const p = pathway(500, 1000, 10, burn, 0, bought, ov);
+  assert.strictEqual(p.resNoSugByGlobal[slot('22:00')], 600);
+});
+
+test('the table reserves count a hand-set Suggested Buy, and both Suggested columns are inputs', () => {
+  assert.match(PAGE, /const planBuy=past\?0:\(\(fPur\[i\]\|\|0\)>0\?bought:fOvBuy\);/);
+  assert.match(PAGE, /const co2PlanBuy=past\?0:\(\(cPur\[i\]\|\|0\)>0\?co2Bought:cOvBuy\);/);
+  assert.match(PAGE, /onchange="setSugOv\(\$\{i\},this\.value\)"/);
+  assert.match(PAGE, /onchange="setCO2SugOv\(\$\{i\},this\.value\)"/);
 });
