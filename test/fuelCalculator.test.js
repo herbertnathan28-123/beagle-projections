@@ -32,46 +32,67 @@ const MIN_FUEL = 15000000;
 const TANK = 1801977000;
 const slot = hhmm => { const [h, m] = hhmm.split(':').map(Number); return h * 2 + m / 30; };
 
-// Day 2 (2 Oct 2026), 11:30 NOW slot, as in Nathan's screenshots. Burns are the
-// departures the screenshots imply; prices not shown there are set at $1,800 so the
-// day's cheap slots are exactly the ones named in the work order.
-function day2() {
-  const from = slot('11:30');
-  const prices = {
-    '11:30': 1110, '14:00': 1500, '14:30': 2190, '15:00': 850, '15:30': 2420,
-    '16:30': 1920, '18:00': 870, '20:00': 2340, '21:30': 720,
-  };
-  const burns = {
-    '11:30': 66348755, '14:00': 407044881, '14:30': 69858911,
-    '15:30': 69858911, '16:30': 69858911, '20:00': 69858911,
-  };
-  const price = [], burn = [];
-  for (let s = from; s < 48; s++) {
-    const t = String(Math.floor(s / 2)).padStart(2, '0') + ':' + (s % 2 ? '30' : '00');
-    price.push(prices[t] != null ? prices[t] : 1800);
-    burn.push(burns[t] || 0);
+// Day 2 (2 Oct 2026), 11:30 NOW slot, as in Nathan's screenshots. Prices are the
+// live October schedule (config.FUEL_SCHEDULE); burns are the departures the
+// screenshots imply, repeated each day as the page does.
+const { FUEL_SCHEDULE } = require('../config');
+const DEP_BURNS = {
+  '11:30': 66348755, '14:00': 407044881, '14:30': 69858911,
+  '15:30': 69858911, '16:30': 69858911, '20:00': 69858911,
+};
+const hhmm = s => String(Math.floor(s / 2)).padStart(2, '0') + ':' + (s % 2 ? '30' : '00');
+
+// Slots from Day 2 11:30 to the end of `lastDay`: fuel prices, burns, labels.
+function windowTo(lastDay) {
+  const price = [], burn = [], label = [];
+  for (let day = 2; day <= lastDay; day++) {
+    for (let s = day === 2 ? slot('11:30') : 0; s < 48; s++) {
+      price.push(FUEL_SCHEDULE[String(day)][hhmm(s)][0]);
+      burn.push(DEP_BURNS[hhmm(s)] || 0);
+      label.push(day + ' ' + hhmm(s));
+    }
   }
-  return { from, price, burn };
+  return { price, burn, label };
 }
 
-test('Day 2: reserves lasting >24 h → no fuel suggested before the $720 slot at 21:30', () => {
-  const { from, price, burn } = day2();
-  const sug = monthOptimize(TANK, TANK, MIN_FUEL, price, burn, []);
-  const at = t => sug[slot(t) - from];
-  for (const t of ['11:30', '14:00', '14:30', '15:00', '15:30', '16:30', '18:00', '20:00']) {
-    assert.strictEqual(at(t), 0, 'no buy at ' + t);
-  }
-  sug.forEach((b, i) => { if (i < slot('21:30') - from) assert.strictEqual(b, 0, 'no buy before 21:30'); });
-  // The cheapest slot in the window is where the tank is filled to full.
-  const burnBefore = burn.slice(0, slot('21:30') - from + 1).reduce((a, b) => a + b, 0);
-  assert.strictEqual(at('21:30'), burnBefore, 'fill to full at the cheapest slot');
+test('the October schedule holds the Day 2 prices in the screenshots', () => {
+  const d = FUEL_SCHEDULE['2'];
+  const want = { '11:30': 1110, '14:00': 1500, '14:30': 2190, '15:00': 850, '15:30': 2420,
+    '16:30': 1920, '18:00': 870, '20:00': 2340, '21:30': 720 };
+  for (const [t, p] of Object.entries(want)) assert.strictEqual(d[t][0], p, t);
 });
 
-test('Day 2: no buy at any expensive departure slot', () => {
-  const { from, price, burn } = day2();
+test('Day 2: reserves lasting >24 h → no fuel suggested before the $720 slot at 21:30', () => {
+  const { price, burn, label } = windowTo(2);   // the day's own window
   const sug = monthOptimize(TANK, TANK, MIN_FUEL, price, burn, []);
-  for (const [t, p] of [['11:30', 1110], ['14:00', 1500], ['14:30', 2190], ['15:30', 2420], ['16:30', 1920], ['20:00', 2340]]) {
-    assert.strictEqual(sug[slot(t) - from], 0, `$${p} at ${t}`);
+  const cut = label.indexOf('2 21:30');
+  sug.slice(0, cut).forEach((b, i) => assert.strictEqual(b, 0, 'no buy at ' + label[i]));
+  // The cheapest slot in that window is where the tank is filled to full.
+  const used = burn.slice(0, cut + 1).reduce((x, y) => x + y, 0);
+  assert.strictEqual(sug[cut], used, 'fill to full at 21:30');
+});
+
+test('Day 2 inside the full-month plan: nothing before 21:30, nothing at an expensive slot', () => {
+  const { price, burn, label } = windowTo(31);
+  const sug = monthOptimize(TANK, TANK, MIN_FUEL, price, burn, []);
+  const cut = label.indexOf('2 21:30');
+  sug.slice(0, cut).forEach((b, i) => assert.strictEqual(b, 0, 'no buy at ' + label[i]));
+  for (const t of ['11:30', '14:00', '14:30', '15:30', '16:30', '20:00']) {
+    assert.strictEqual(sug[label.indexOf('2 ' + t)], 0, 'no buy at ' + t);
+  }
+  // Across the month, never a buy where a cheaper slot is reachable on the reserve
+  // the member already holds.
+  let reserve = TANK;
+  for (let i = 0; i < sug.length; i++) {
+    reserve -= burn[i];
+    if (sug[i] > 0) {
+      let r = reserve;
+      for (let j = i + 1; j < sug.length && r - burn[j] > MIN_FUEL; j++) {
+        r -= burn[j];
+        assert.ok(price[j] >= price[i], `bought at ${label[i]} ($${price[i]}) though ${label[j]} ($${price[j]}) was reachable`);
+      }
+    }
+    reserve += sug[i];
   }
 });
 
