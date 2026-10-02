@@ -1530,4 +1530,9 @@ function fireImminentAlerts(did, plan, now) {
 }
 
 storage.checkPersistence();
-app.listen(PORT, () => console.log(`Beagle Projections live on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Beagle Projections live on port ${PORT}`);
+  // ATL-146: one-shot Stopover Finder announcement. Marker-guarded in /data, so it
+  // posts once in the service's lifetime — never again on later boots.
+  require('./scripts/announce-stopover').announceStopoverOnce();
+});
