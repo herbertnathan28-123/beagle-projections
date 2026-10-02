@@ -864,33 +864,39 @@ function applyDepartClasses(){
     if(depBtn){const dep=b.departed!==false;depBtn.classList.toggle('on',dep);depBtn.textContent=dep?'DEP ✓':'DEP';}
   }
 }
+// Milliseconds until a box next lands, or null when it is not flying. A typed ETA
+// overrides the DEP clock. One definition for the countdown and the DEP buttons, so
+// "landed" means the same thing to both (ATL-144).
+function remainingFlightMs(b){
+  if(b.etaSetTime&&b.eta) return (parseEtaHours(b.eta)||0)*3600000-(Date.now()-b.etaSetTime);
+  if(b.departed===false) return null;
+  // DEP pressed, no ETA — count down the full flight cycle. Prefer the real-clock press
+  // timestamp (survives reloads, absences and day wrap); hour-of-day math only as a
+  // fallback for states saved before depSetTime existed (it wraps every 24h and showed
+  // false LANDED after long absences).
+  const cycle=(parseFloat(b.dur)||DEFAULT_DUR)/speedMult();
+  if(b.depSetTime) return cycle*3600000-(Date.now()-b.depSetTime);
+  let elapsed=gameNowHour()-b.departed; if(elapsed<0)elapsed+=24;
+  return (cycle-elapsed)*3600000;
+}
+function isLanded(b){ const r=remainingFlightMs(b); return r!==null&&r<=0; }
+// Stamp a departure now. A typed ETA that has already run out is cleared: it described
+// the landing that just happened, and while it stood it held the fleet on LANDED
+// whatever DEP did (ATL-144). The countdown and schedule then run from this departure.
+function departNow(b,nowH,nowMs){
+  if(b.etaSetTime&&b.eta&&remainingFlightMs(b)<=0){
+    b.eta=''; b.etaSetTime=null;
+    const et=document.getElementById('eta_'+b.key); if(et) et.value='';
+  }
+  b.departed=nowH; b.depSetTime=nowMs; b.recalledAt=null;
+}
 function confirmETA(key,val){ const b=boxByKey(key); if(!b)return; b.etaSetTime=val.trim()?Date.now():null; b.eta=val; saveCards(); recalc(); updateETACountdowns(); }
 function updateETACountdowns(){
   function fmtHMS(ms){ const s=Math.max(0,Math.floor(ms/1000)); const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60; return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(sc).padStart(2,'0'); }
-  const mult=speedMult();
   for(const b of BOXES){
     const el=document.getElementById('etacd_'+b.key); if(!el) continue;
-    if(b.etaSetTime&&b.eta){
-      // ETA confirmed via Enter — always overrides DEP clock; resets countdown to entered value
-      const etaMs=(parseEtaHours(b.eta)||0)*3600000;
-      const remainingMs=etaMs-(Date.now()-b.etaSetTime);
-      if(remainingMs<=0){
-        el.textContent='00:00:00 — LANDED';
-        el.className='eta-countdown overdue';
-      } else {
-        el.textContent=fmtHMS(remainingMs);
-        el.className='eta-countdown green-active';
-      }
-    } else if(b.departed!==false){
-      // DEP pressed, no ETA — count down the full flight cycle. Prefer the real-clock press
-      // timestamp (survives reloads, absences and day wrap); hour-of-day math only as a
-      // fallback for states saved before depSetTime existed (it wraps every 24h and showed
-      // false LANDED after long absences).
-      const dur=parseFloat(b.dur)||DEFAULT_DUR;
-      const cycle=dur/mult;
-      let remainingMs;
-      if(b.depSetTime){ remainingMs=cycle*3600000-(Date.now()-b.depSetTime); }
-      else { const nowH=gameNowHour(); let elapsed=nowH-b.departed; if(elapsed<0)elapsed+=24; remainingMs=(cycle-elapsed)*3600000; }
+    const remainingMs=remainingFlightMs(b);
+    if(remainingMs!==null){
       if(remainingMs<=0){
         el.textContent='00:00:00 — LANDED';
         el.className='eta-countdown overdue';
@@ -910,10 +916,11 @@ function updateETACountdowns(){
 function toggleDepart(key){
   const b=boxByKey(key); if(!b)return;
   pushUndo(); syncBoxesFromDOM();
-  if(b.departed===false){
-    b.departed=gameNowHour();  // anchor to now; ETA field drives countdown directly
-    b.depSetTime=Date.now();   // real-clock stamp — countdown survives reloads and day wrap
-    b.recalledAt=null;
+  // Not departed, or landed: this press is a departure. Only a fleet still in the air
+  // is recalled. A landed fleet counted as departed, so DEP recalled it to orange and
+  // the LANDED flash stayed (ATL-144).
+  if(b.departed===false||isLanded(b)){
+    departNow(b,gameNowHour(),Date.now());   // real-clock stamp — countdown survives reloads and day wrap
   } else {
     b.departed=false;  // recall — pathway re-anchors from the current 30-min slot
     b.depSetTime=null;
@@ -930,13 +937,15 @@ function stepMaint(key,d){
   const el=document.getElementById('maint_'+key); if(el)el.textContent=m;
   saveCards(); recalc();
 }
-// Depart / recall ALL boxes at once. If any box is not departed, stamp the un-departed ones
-// with the current game-hour (keeping earlier anchors intact); if all are departed, recall all.
+// Depart / recall ALL boxes at once. If any box is not departed or has landed, stamp those
+// with the current game-hour (fleets still in the air keep their anchors); if every box
+// is in the air, recall all. A landed fleet counts as one to depart (ATL-144).
 function departAll(){
   pushUndo(); syncBoxesFromDOM();
-  const anyOff=BOXES.some(b=>b.departed===false);
+  const needsDep=b=>b.departed===false||isLanded(b);
+  const anyOff=BOXES.some(needsDep);
   const t=gameNowHour(), rt=Date.now();
-  for(const b of BOXES){ if(anyOff){ if(b.departed===false){ b.departed=t; b.depSetTime=rt; b.recalledAt=null; } } else { b.departed=false; b.depSetTime=null; b.recalledAt=t; } }
+  for(const b of BOXES){ if(anyOff){ if(needsDep(b)) departNow(b,t,rt); } else { b.departed=false; b.depSetTime=null; b.recalledAt=t; } }
   applyDepartClasses(); saveCards(); recalc(); updateETACountdowns();
 }
 function setFourx(on){
@@ -1296,13 +1305,21 @@ const co2ResCol=r=>r<=MIN_CO2?'#e74c3c':r<=MIN_CO2*4?'#f0b429':'#70c060';
 function lasts(res,from,burns){let r=res;for(let i=from+1;i<48;i++){r-=burns[i];if(r<=MIN_FUEL)return((i-from)*.5).toFixed(1)+'h';}return'>24h';}
 
 // ── OPTIMIZATION ──
-// ── FULL-MONTH OPTIMIZER (WO-FUEL-OPTIMIZER-CORE-DOCTRINE-001) ──
+// ── FULL-MONTH OPTIMIZER (WO-FUEL-OPTIMIZER-CORE-DOCTRINE-001; stepping stones ATL-144) ──
 // One continuous cheapest pathway from the current reserves to end of month — never
-// per day. Capacity-aware: at each slot buy enough to reach the next STRICTLY cheaper
-// slot (so cheap fuel is carried forward past expensive upcoming slots), capped by tank
-// headroom, never dropping below the floor. Linear cost + single store + known demand →
-// this greedy is the globally cheapest plan. Manual purchases are committed into the
-// reserve so the remaining pathway re-optimises around them.
+// per day. Operator algorithm (2 Oct 2026), buy only when cheap:
+//   • the cheapest slot in the window is where the tank is filled to full;
+//   • before it, buy only when the reserve would otherwise breach the floor before the
+//     next STRICTLY cheaper slot, and then only enough to carry to that slot — each
+//     stepping stone is the cheapest slot reachable before the breach;
+//   • never buy where a cheaper slot is reachable on current reserves.
+// When even a full tank cannot reach the next cheaper slot, the stone fills to full —
+// the least that carries it furthest. Manual purchases are committed into the reserve
+// so the remaining pathway re-optimises around them.
+// Until 2 Oct the rule also filled to full whenever the fuel used before the next
+// cheaper slot was at least the tank headroom. After a departure the headroom is
+// just that departure's burn, so it topped the tank back to full at every expensive
+// departure slot while reserves lasted well beyond the day.
 function monthOptimize(startRes, tank, minR, price, burn, manual){
   const N=price.length;
   const sug=new Array(N).fill(0);
@@ -1319,16 +1336,16 @@ function monthOptimize(startRes, tank, minR, price, burn, manual){
     nextCheaper[i]=st.length?st[st.length-1]:N;
     st.push(i);
   }
+  let windowMin=Infinity;                              // the cheapest slot in the window
+  for(let i=0;i<N;i++) if(price[i]<windowMin) windowMin=price[i];
   let reserve=startRes;
   for(let i=0;i<N;i++){
     if(isFinite(price[i])){
       const k=nextCheaper[i];
-      const need=pre[k]-pre[i];                         // net demand from i until the next cheaper slot
-      const want=Math.max(0,(minR+need)-reserve);       // enough to reach k above the floor
+      const need=pre[k]-pre[i];                         // net demand from i until the next cheaper slot (or window end)
+      const want=Math.max(0,(minR+need)-reserve);       // shortfall: what carries the reserve to k above the floor
       const cap=Math.max(0,tank-Math.max(0,reserve-burn[i]));   // headroom after burn, clamped — matches the table's maxBuy = tank - max(0, afterBurn); never exceeds one tank
-      // Fill to full when extra headroom would be consumed before the next cheaper slot
-      const extraCap=Math.max(0,cap-want);
-      const b=Math.min(cap,extraCap>0&&need>=extraCap?cap:want);
+      const b=(price[i]===windowMin)?cap:Math.min(cap,want);   // fill to full only at the window's cheapest slot
       if(b>1){ sug[i]=b; reserve+=b; }   // >1 (not >0): drop sub-lb floating-point dust buys that pollute the plan/PDF/QAC
     }
     reserve-=d[i];                                       // net: consume burn, credit committed purchase
@@ -1353,16 +1370,18 @@ function monthPathway(startR, tank, minR, dayBurn, priceIdx, manualToday){
     }
   }
   const sug=monthOptimize(startR,tank,minR,price,burn,manual);
-  let res=startR,totBuy=0,totCost=0,firstNeg='';
-  const rows=[], resByGlobal=new Array(sug.length);
+  let res=startR,resNoSug=startR,totBuy=0,totCost=0,firstNeg='';
+  const rows=[], resByGlobal=new Array(sug.length), resNoSugByGlobal=new Array(sug.length);
   for(let i=0;i<sug.length;i++){
     res+=(manual[i]||0)+sug[i]-burn[i];
     resByGlobal[i]=res;
+    resNoSug+=(manual[i]||0)-burn[i];                    // reserves as they stand: entered buys only
+    resNoSugByGlobal[i]=resNoSug;
     if(!firstNeg && res<0) firstNeg='Day '+dayOf[i]+' '+TIMES[slotOf[i]];
     if(sug[i]>0){ const cost=sug[i]*price[i]/1000; totBuy+=sug[i]; totCost+=cost;
       rows.push({day:dayOf[i],slot:slotOf[i],price:price[i],buy:sug[i],cost,resAfter:res}); }
   }
-  return {sug:sug.slice(0,48),sugAll:sug,rows,resByGlobal,totBuy,totCost,endRes:res,firstNeg,today,nowSlot,daysInMonth};
+  return {sug:sug.slice(0,48),sugAll:sug,rows,resByGlobal,resNoSugByGlobal,totBuy,totCost,endRes:res,firstNeg,today,nowSlot,daysInMonth};
 }
 
 // ── MAIN RECALC ──
@@ -1522,10 +1541,11 @@ function recalc(){
   const cResAfterOvV=isToday?co2ResAfterOv:new Array(48).fill(null);
   const tbody=document.getElementById('tbody');
   tbody.innerHTML='';
-  // Seed the day's opening reserve: today = the entered reserve; a future day = the plan's
-  // reserve at the end of the previous day.
-  let res=isToday?startRes:(offset>0?(fPlan.resByGlobal[offset-1]||0):startRes);
-  let co2Res=isToday?startCO2:(offset>0?(cPlan.resByGlobal[offset-1]||0):startCO2);
+  // Seed the day's opening reserve: today = the entered reserve; a future day = the
+  // reserve at the end of the previous day with only entered purchases, never the
+  // plan's suggestions (ATL-144).
+  let res=isToday?startRes:(offset>0?(fPlan.resNoSugByGlobal[offset-1]||0):startRes);
+  let co2Res=isToday?startCO2:(offset>0?(cPlan.resNoSugByGlobal[offset-1]||0):startCO2);
   let totBought=0,totCost=0,totSV=0,lastRes=res;
   let totCO2Bought=0,totCO2Cost=0,lastCO2Res=co2Res;
   let firstFuelNeg=-1,firstCO2Neg=-1;   // first slot where reserves go negative
@@ -1545,11 +1565,10 @@ function recalc(){
     const maxBuy=Math.max(0,fuelTank-Math.max(0,afterBurn));
     const bought=Math.min(fPur[i]||0,maxBuy);
     const overLimit=(fPur[i]||0)>maxBuy&&(fPur[i]||0)>0;
-    // FORECAST RESERVES follows the plan: apply the optimizer's suggested buy at slots
-    // where the player hasn't entered a manual purchase. Without this the reserve line
-    // draws down as if nothing was bought and shows a false shortfall right next to a
-    // suggested buy that would have prevented it.
-    const planBuy=past?0:((fPur[i]||0)>0?bought:FSUG[i]);
+    // FORECAST RESERVES are the reserves as they stand plus only what the player has
+    // entered as purchased (ATL-144). A suggestion is not a purchase: assuming it was
+    // bought made the column show a full tank after every departure.
+    const planBuy=past?0:bought;
     const afterPurchase=afterBurn+planBuy;
     const cost=bought*dPRICES[i]/1000,sv=cost/SV;
     const surplus=afterPurchase-MIN_FUEL;
@@ -1559,7 +1578,7 @@ function recalc(){
     const co2MaxBuy=Math.max(0,co2Tank-Math.max(0,co2AfterBurn));
     const co2Bought=Math.min(cPur[i]||0,co2MaxBuy);
     const co2OverLimit=(cPur[i]||0)>co2MaxBuy&&(cPur[i]||0)>0;
-    const co2PlanBuy=past?0:((cPur[i]||0)>0?co2Bought:CSUG[i]);   // CO2 forecast follows the plan too
+    const co2PlanBuy=past?0:co2Bought;   // CO2 forecast: entered purchases only, as fuel
     const co2AfterPurchase=co2AfterBurn+co2PlanBuy;
     const co2Cost=co2Bought*dCO2P[i]/1000;
     const co2Final=cResAfterOvV[i]!==null?cResAfterOvV[i]:co2AfterPurchase;
