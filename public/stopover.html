@@ -572,7 +572,7 @@ function readUrl(){
   $('range').value=p.get('range')||'2036'; $('rwy').value=p.get('rwy')||'';
   setMode(p.get('mode')==='realism'?'realism':'easy',false);
   setAc(p.get('ac')==='cargo'?'cargo':'pax',false);
-  const b=+p.get('buf'); setBuf([0,5,10].includes(b)?b:10,false);
+  const b=p.has('buf')?+p.get('buf'):NaN; setBuf([0,5,10].includes(b)?b:10,false);
 }
 function setMode(m,run=true){ mode=m; $('mEasy').setAttribute('aria-pressed',m==='easy'); $('mReal').setAttribute('aria-pressed',m==='realism'); if(run&&current){ syncUrl(); render(false);} }
 function setAc(a,run=true){ ac=a; $('aPax').setAttribute('aria-pressed',a==='pax'); $('aCargo').setAttribute('aria-pressed',a==='cargo'); if(run&&current){ syncUrl(); render(false);} }
