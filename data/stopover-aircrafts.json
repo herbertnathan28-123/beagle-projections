@@ -1,0 +1,182 @@
+[
+ {
+  "name": "B737-800",
+  "cat": "pax",
+  "cap": 184,
+  "rwy": 7550,
+  "range": 7000,
+  "realism": 798,
+  "easy": 1197
+ },
+ {
+  "name": "B737 MAX 8",
+  "cat": "pax",
+  "cap": 180,
+  "rwy": 7500,
+  "range": 6500,
+  "realism": 969,
+  "easy": 1454
+ },
+ {
+  "name": "A330-200",
+  "cat": "pax",
+  "cap": 253,
+  "rwy": 9090,
+  "range": 12500,
+  "realism": 1054,
+  "easy": 1581
+ },
+ {
+  "name": "A330-300",
+  "cat": "pax",
+  "cap": 335,
+  "rwy": 9090,
+  "range": 10000,
+  "realism": 1054,
+  "easy": 1581
+ },
+ {
+  "name": "A330-800neo",
+  "cat": "pax",
+  "cap": 406,
+  "rwy": 9500,
+  "range": 13900,
+  "realism": 881,
+  "easy": 1321
+ },
+ {
+  "name": "A330-900neo",
+  "cat": "pax",
+  "cap": 440,
+  "rwy": 9950,
+  "range": 12130,
+  "realism": 881,
+  "easy": 1321
+ },
+ {
+  "name": "A340-300",
+  "cat": "pax",
+  "cap": 335,
+  "rwy": 10200,
+  "range": 14000,
+  "realism": 1104,
+  "easy": 1656
+ },
+ {
+  "name": "A340-600",
+  "cat": "pax",
+  "cap": 380,
+  "rwy": 10200,
+  "range": 14630,
+  "realism": 958,
+  "easy": 1437
+ },
+ {
+  "name": "A350-900",
+  "cat": "pax",
+  "cap": 314,
+  "rwy": 8760,
+  "range": 14500,
+  "realism": 946,
+  "easy": 1419
+ },
+ {
+  "name": "A350-900R",
+  "cat": "pax",
+  "cap": 314,
+  "rwy": 8760,
+  "range": 14500,
+  "realism": 946,
+  "easy": 1419
+ },
+ {
+  "name": "A380-800",
+  "cat": "pax",
+  "cap": 600,
+  "rwy": 9680,
+  "range": 14500,
+  "realism": 1154,
+  "easy": 1731
+ },
+ {
+  "name": "B747SP",
+  "cat": "pax",
+  "cap": 350,
+  "rwy": 7545,
+  "range": 10800,
+  "realism": 1089,
+  "easy": 1634
+ },
+ {
+  "name": "B777-200",
+  "cat": "pax",
+  "cap": 400,
+  "rwy": 9000,
+  "range": 9695,
+  "realism": 1045,
+  "easy": 1568
+ },
+ {
+  "name": "B787-8",
+  "cat": "pax",
+  "cap": 250,
+  "rwy": 9000,
+  "range": 14500,
+  "realism": 904,
+  "easy": 1356
+ },
+ {
+  "name": "B787-9",
+  "cat": "pax",
+  "cap": 290,
+  "rwy": 9000,
+  "range": 14500,
+  "realism": 904,
+  "easy": 1356
+ },
+ {
+  "name": "B787-10",
+  "cat": "pax",
+  "cap": 440,
+  "rwy": 8000,
+  "range": 12000,
+  "realism": 946,
+  "easy": 1419
+ },
+ {
+  "name": "Il-96-400",
+  "cat": "pax",
+  "cap": 436,
+  "rwy": 2000,
+  "range": 10000,
+  "realism": 890,
+  "easy": 1335
+ },
+ {
+  "name": "MC-21-400",
+  "cat": "pax",
+  "cap": 230,
+  "rwy": 6800,
+  "range": 5500,
+  "realism": 1205,
+  "easy": 1808
+ },
+ {
+  "name": "A380F",
+  "cat": "cargo",
+  "cap": 330000,
+  "rwy": 9680,
+  "range": 10400,
+  "realism": 1040,
+  "easy": 1559
+ },
+ {
+  "name": "B747-8F",
+  "cat": "cargo",
+  "cap": 303700,
+  "rwy": 10250,
+  "range": 14815,
+  "realism": 1103,
+  "easy": 1654
+ }
+]
