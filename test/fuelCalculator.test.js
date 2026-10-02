@@ -119,3 +119,76 @@ test('the forecast reserves column adds entered purchases only, never a suggesti
   assert.match(PAGE, /const co2PlanBuy=past\?0:co2Bought;/);
   assert.doesNotMatch(PAGE, /planBuy=past\?0:\(\(fPur\[i\]\|\|0\)>0\?bought:FSUG\[i\]\)/);
 });
+
+// ── LANDED flash and DEP ─────────────────────────────────────────────────────
+
+function fleetSandbox() {
+  const els = {};
+  const el = id => (els[id] = els[id] || { id, value: '', textContent: '', className: '', classList: { toggle() {} } });
+  const ctx = {
+    BOXES: [], DEFAULT_DUR: 2, NOW: Date.parse('2026-10-02T11:30:00Z'),
+    document: { getElementById: el },
+    speedMult: () => 1, gameNowHour: () => 0,
+    pushUndo() {}, syncBoxesFromDOM() {}, saveCards() {}, recalc() {}, applyDepartClasses() {},
+  };
+  ctx.Date = class extends Date { static now() { return ctx.NOW; } };
+  vm.createContext(ctx);
+  for (const n of ['parseEtaHours', 'remainingFlightMs', 'isLanded', 'departNow', 'updateETACountdowns', 'toggleDepart', 'departAll']) {
+    vm.runInContext(fnSource(n), ctx);
+  }
+  vm.runInContext('function boxByKey(k){ return BOXES.find(b=>b.key===k); }', ctx);
+  ctx.flashing = key => { vm.runInContext('updateETACountdowns()', ctx); return /overdue/.test(el('etacd_' + key).className); };
+  const H = 3600000;
+  ctx.box = (key, over) => {
+    const b = Object.assign({ key, dur: 2, eta: '', etaSetTime: null, departed: false, depSetTime: null, recalledAt: null }, over);
+    ctx.BOXES.push(b); el('etacd_' + key); el('eta_' + key).value = b.eta;
+    return b;
+  };
+  ctx.H = H;
+  return ctx;
+}
+
+test('land → flashing; DEP → not flashing (DEP clock)', () => {
+  const c = fleetSandbox();
+  c.box('b1', { departed: 9, depSetTime: c.NOW });
+  c.NOW += 3 * c.H;                           // a 2 h flight has landed
+  assert.ok(c.flashing('b1'), 'landed fleet flashes');
+  vm.runInContext("toggleDepart('b1')", c);
+  assert.ok(!c.flashing('b1'), 'DEP clears the flash');
+  assert.notStrictEqual(c.BOXES[0].departed, false, 'DEP on a landed fleet departs it, it does not recall it');
+  c.NOW += 3 * c.H;
+  assert.ok(c.flashing('b1'), 'the flash returns only when the fleet lands again');
+});
+
+test('land → flashing; DEP → not flashing (typed ETA that has run out)', () => {
+  const c = fleetSandbox();
+  c.box('b1', { departed: false, eta: '01:00', etaSetTime: c.NOW });
+  c.NOW += 2 * c.H;
+  assert.ok(c.flashing('b1'));
+  vm.runInContext("toggleDepart('b1')", c);
+  assert.ok(!c.flashing('b1'), 'DEP clears the flash without typing an ETA');
+  assert.strictEqual(c.BOXES[0].eta, '', 'the expired ETA is cleared');
+  assert.strictEqual(c.document.getElementById('eta_b1').value, '', 'and its field emptied');
+});
+
+test('DEP ALL → no fleet flashing', () => {
+  const c = fleetSandbox();
+  c.box('b1', { departed: 9, depSetTime: c.NOW });
+  c.box('b2', { departed: false, eta: '00:30', etaSetTime: c.NOW });
+  c.box('b3', { departed: 9, depSetTime: c.NOW + 2 * c.H });   // still in the air afterwards
+  c.NOW += 3 * c.H;
+  assert.ok(c.flashing('b1') && c.flashing('b2'));
+  assert.ok(!c.flashing('b3'));
+  const b3Anchor = c.BOXES[2].depSetTime;
+  vm.runInContext('departAll()', c);
+  for (const k of ['b1', 'b2', 'b3']) assert.ok(!c.flashing(k), k + ' not flashing');
+  assert.strictEqual(c.BOXES[2].depSetTime, b3Anchor, 'a fleet still in the air keeps its departure');
+});
+
+test('DEP on a fleet still in the air recalls it, as before', () => {
+  const c = fleetSandbox();
+  c.box('b1', { departed: 9, depSetTime: c.NOW });
+  c.NOW += 0.5 * c.H;
+  vm.runInContext("toggleDepart('b1')", c);
+  assert.strictEqual(c.BOXES[0].departed, false);
+});
