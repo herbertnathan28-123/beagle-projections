@@ -1274,6 +1274,9 @@ function getDenmarkNow() { return getGameNow(); }
 // ── STATE ──
 let fPurchased=new Array(48).fill(0), resOv=new Array(48).fill(null);
 let co2Purchased=new Array(48).fill(0), co2ResOv=new Array(48).fill(null);
+// Suggested Buy entered by hand (null = follow the optimizer). Any number, 0 included,
+// fixes that slot's buy: the reserves count it and the optimizer plans around it.
+let fSugOv=new Array(48).fill(null), cSugOv=new Array(48).fill(null);
 let co2ResAfterOv=new Array(48).fill(null);
 // Day the table is showing: 0 = today (live, editable); +n = n days ahead (read-only plan preview).
 let VIEW_OFFSET=0;
@@ -1354,7 +1357,7 @@ function monthOptimize(startRes, tank, minR, price, burn, manual){
 }
 // Build the month sequence (current slot → end of month, one repeating daily burn
 // pattern) and run the optimizer once. Returns today's suggestions + full buy rows.
-function monthPathway(startR, tank, minR, dayBurn, priceIdx, manualToday){
+function monthPathway(startR, tank, minR, dayBurn, priceIdx, manualToday, sugOvToday){
   const den=getGameNow(), today=getGameDay();
   const daysInMonth=new Date(den.getUTCFullYear(),den.getUTCMonth()+1,0).getDate();
   const nowSlot=getGameSlotIndex();
@@ -1363,9 +1366,14 @@ function monthPathway(startR, tank, minR, dayBurn, priceIdx, manualToday){
     const dd=S[String(day)];
     for(let s=0;s<48;s++){
       const pastToday=(day===today && s<nowSlot);       // already-passed → not buyable, no burn
-      price.push(pastToday?Infinity:((dd&&dd[TIMES[s]])?dd[TIMES[s]][priceIdx]:Infinity));
+      // A Suggested Buy entered by hand is the member's decision for that slot: it counts
+      // as their buy (an entered purchase still wins) and the optimizer suggests nothing there.
+      const ov=(day===today && !pastToday && sugOvToday)?sugOvToday[s]:null;
+      const fixed=(ov!=null);
+      price.push((pastToday||fixed)?Infinity:((dd&&dd[TIMES[s]])?dd[TIMES[s]][priceIdx]:Infinity));
       burn.push(pastToday?0:(dayBurn[s]||0));
-      manual.push((day===today && !pastToday)?(manualToday[s]||0):0);   // past-slot buys already in current reserve — don't credit twice
+      const bought=(day===today && !pastToday)?(manualToday[s]||0):0;   // past-slot buys already in current reserve — don't credit twice
+      manual.push(bought>0?bought:(fixed?ov:0));
       dayOf.push(day); slotOf.push(s);
     }
   }
@@ -1492,8 +1500,8 @@ function recalc(){
   // Full-month optimizer plan (fuel + CO2). TODAY renders live and editable; a FUTURE day
   // (VIEW_OFFSET>0) renders that day's slice of the SAME plan, read-only — a visual preview
   // only. The PDF/roadmap export is untouched.
-  const fPlan=monthPathway(startRes,fuelTank,MIN_FUEL,BURNS,0,fPurchased);
-  const cPlan=monthPathway(startCO2,co2Tank,MIN_CO2,CO2B,1,co2Purchased);
+  const fPlan=monthPathway(startRes,fuelTank,MIN_FUEL,BURNS,0,fPurchased,fSugOv);
+  const cPlan=monthPathway(startCO2,co2Tank,MIN_CO2,CO2B,1,co2Purchased,cSugOv);
   const today=fPlan.today, daysInMonth=fPlan.daysInMonth;
   pushFuelPlan(fPlan.today, fPlan.sugAll, cPlan.sugAll, PRICES.slice(), CO2P.slice());   // keep the server's 15-min buy-alert plan in sync
   // ── MONTH-OPTIMIZER INTEGRITY CHECK (operator spec) ──────────────────────
@@ -1538,6 +1546,8 @@ function recalc(){
   const fPur=isToday?fPurchased:new Array(48).fill(0);
   const cPur=isToday?co2Purchased:new Array(48).fill(0);
   const fResOv=isToday?resOv:new Array(48).fill(null);
+  const fSOv=isToday?fSugOv:new Array(48).fill(null);
+  const cSOv=isToday?cSugOv:new Array(48).fill(null);
   const cResAfterOvV=isToday?co2ResAfterOv:new Array(48).fill(null);
   const tbody=document.getElementById('tbody');
   tbody.innerHTML='';
@@ -1568,7 +1578,8 @@ function recalc(){
     // FORECAST RESERVES are the reserves as they stand plus only what the player has
     // entered as purchased (ATL-144). A suggestion is not a purchase: assuming it was
     // bought made the column show a full tank after every departure.
-    const planBuy=past?0:bought;
+    const fOvBuy=fSOv[i]!=null?Math.min(fSOv[i],maxBuy):0;      // Suggested Buy entered by hand
+    const planBuy=past?0:((fPur[i]||0)>0?bought:fOvBuy);
     const afterPurchase=afterBurn+planBuy;
     const cost=bought*dPRICES[i]/1000,sv=cost/SV;
     const surplus=afterPurchase-MIN_FUEL;
@@ -1578,7 +1589,8 @@ function recalc(){
     const co2MaxBuy=Math.max(0,co2Tank-Math.max(0,co2AfterBurn));
     const co2Bought=Math.min(cPur[i]||0,co2MaxBuy);
     const co2OverLimit=(cPur[i]||0)>co2MaxBuy&&(cPur[i]||0)>0;
-    const co2PlanBuy=past?0:co2Bought;   // CO2 forecast: entered purchases only, as fuel
+    const cOvBuy=cSOv[i]!=null?Math.min(cSOv[i],co2MaxBuy):0;
+    const co2PlanBuy=past?0:((cPur[i]||0)>0?co2Bought:cOvBuy);   // CO2 forecast: entered purchases or a hand-set Suggested Buy, as fuel
     const co2AfterPurchase=co2AfterBurn+co2PlanBuy;
     const co2Cost=co2Bought*dCO2P[i]/1000;
     const co2Final=cResAfterOvV[i]!==null?cResAfterOvV[i]:co2AfterPurchase;
@@ -1613,7 +1625,12 @@ function recalc(){
         </span>
       </td>
       <td style="color:${resCol(afterBurn)};font-weight:${afterBurn<=MIN_FUEL?800:afterBurn<=MIN_FUEL*2?700:400}">${fmt(afterBurn)}</td>
-      <td style="color:${hasSug?'#23a55a':'#2a4a60'};font-style:${hasSug?'italic':'normal'};font-weight:${hasSug?700:400};background:${hasSug?'rgba(35,165,90,0.08)':'transparent'}">${fmt(FSUG[i])}</td>
+      <td style="padding:2px 4px;background:${hasSug?'rgba(35,165,90,0.08)':'transparent'}">
+        <span style="display:inline-flex;align-items:center;gap:2px">
+          <input type="number" class="cell-input sug-input ${fSOv[i]!=null?'ov-active':''}" data-slot-id="sug-${i}" value="${fSOv[i]!=null?fSOv[i]:Math.round(FSUG[i])}" min="0" step="1000000" title="Suggested Buy — type your own amount (0 = buy nothing here); ✕ returns to the suggestion" style="color:${fSOv[i]!=null?'#6ab0e0':hasSug?'#23a55a':'#2a4a60'};font-style:${fSOv[i]==null&&hasSug?'italic':'normal'};font-weight:${hasSug||fSOv[i]!=null?700:400};width:118px" ${isToday&&!past?`onchange="setSugOv(${i},this.value)"`:'readonly'}>
+          ${isToday&&fSOv[i]!=null?`<button class="clear-btn" onclick="clearSugOv(${i})">✕</button>`:''}
+        </span>
+      </td>
       <td style="color:${lc};font-weight:${parseFloat(lastsStr)<4&&lastsStr!=='>24h'?700:400}">${lastsStr}</td>
       <td style="padding:3px 5px;background:#141a0a;border-left:1px solid #2a3a10;border-right:1px solid #2a3a10">
         <input type="number" class="cell-input buy-input ${hasBought?'has-val':''} ${overLimit?'over-limit':''}" data-slot-id="buy-${i}" value="${hasBought?(fPur[i]||''):''}" placeholder="${FSUG[i]>0?(isToday?fmt(maxBuy):fmt(FSUG[i])):''}" min="0" max="${maxBuy}" step="1000000" ${isToday?`onchange="setBought(${i},this.value,${maxBuy})"`:'readonly'}>
@@ -1622,8 +1639,11 @@ function recalc(){
       <td class="c" style="border-left:3px solid #2a5a2a">
         <span style="color:${co2Col(dCO2P[i])};font-weight:800;font-size:17px;letter-spacing:0.3px">$${dCO2P[i]}</span>
       </td>
-      <td class="c" style="color:${CSUG[i]>0?'#6a9a80':'#3a5a50'};font-style:${CSUG[i]>0?'italic':'normal'}">
-        ${CSUG[i]>0?fmt(CSUG[i]):'—'}
+      <td style="padding:2px 4px">
+        <span style="display:inline-flex;align-items:center;gap:2px">
+          <input type="number" class="cell-input co2-sug-input ${cSOv[i]!=null?'ov-active':''}" data-slot-id="co2-sug-${i}" value="${cSOv[i]!=null?cSOv[i]:(CSUG[i]>0?Math.round(CSUG[i]):'')}" placeholder="—" min="0" step="1000000" title="Suggested CO2 — type your own amount (0 = buy nothing here); ✕ returns to the suggestion" style="color:${cSOv[i]!=null?'#70d070':CSUG[i]>0?'#6a9a80':'#3a5a50'};font-style:${cSOv[i]==null&&CSUG[i]>0?'italic':'normal'};width:95px" ${isToday&&!past?`onchange="setCO2SugOv(${i},this.value)"`:'readonly'}>
+          ${isToday&&cSOv[i]!=null?`<button class="clear-btn" onclick="clearCO2SugOv(${i})" style="color:#3a7a3a">✕</button>`:''}
+        </span>
       </td>
       <td style="padding:3px 4px;border-left:1px solid #1a3a1a">
         <input type="number" class="cell-input co2-buy-input ${co2Bought>0?'has-val':''} ${co2OverLimit?'over-limit':''}" data-slot-id="co2-buy-${i}" value="${co2Bought>0?(cPur[i]||''):''}" placeholder="${CSUG[i]>0?sugValC:''}" min="0" max="${co2MaxBuy}" step="1000000" ${isToday?`onchange="setCO2Bought(${i},this.value,${co2MaxBuy})"`:'readonly'} style="color:${co2Bought>0?'#90d060':'#4a7a40'};width:95px">
@@ -1686,6 +1706,13 @@ function setBought(i,v,max){
 function setCO2Bought(i,v,max){
   co2Purchased[i]=parseFloat(v)||0;deferRecalc(3000);
 }
+// Suggested Buy typed by hand. Blank returns the slot to the optimizer; any number,
+// 0 included, is the member's decision for that slot.
+function _ovVal(v){ const t=String(v).replace(/,/g,'').trim(); if(t==='')return null; const n=parseFloat(t); return isNaN(n)?null:Math.max(0,n); }
+function setSugOv(i,v){fSugOv[i]=_ovVal(v);recalc();}
+function clearSugOv(i){fSugOv[i]=null;recalc();}
+function setCO2SugOv(i,v){cSugOv[i]=_ovVal(v);recalc();}
+function clearCO2SugOv(i){cSugOv[i]=null;recalc();}
 function setResOv(i,v){const n=parseFloat(String(v).replace(/,/g,''));resOv[i]=isNaN(n)?null:Math.max(0,n);recalc();}
 function clearResOv(i){resOv[i]=null;recalc();}
 function setCO2ResAfter(i,v){const n=parseFloat(String(v).replace(/,/g,''));co2ResAfterOv[i]=isNaN(n)?null:Math.max(0,n);recalc();}
@@ -1733,6 +1760,7 @@ function restoreTanks(){try{['fuelTank','co2Tank','startRes','startCO2','avgFuel
 function resetAll(){
   fPurchased=new Array(48).fill(0);resOv=new Array(48).fill(null);
   co2Purchased=new Array(48).fill(0);co2ResOv=new Array(48).fill(null);co2ResAfterOv=new Array(48).fill(null);
+  fSugOv=new Array(48).fill(null);cSugOv=new Array(48).fill(null);
   // Note: fuelTank/co2Tank are deliberately NOT cleared — they hold until overwritten.
   ['startRes','startCO2','avgFuelBurn','co2BurnDep'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';saveTank(id);});  // clear values + their saved copies
   // Reset strategy boxes to a single blank 24h box (keep the persisted tanks).
@@ -1763,8 +1791,8 @@ function downloadPDF(period){
   // The optimizer ALWAYS plans the full month in one pass (monthPathway); a period
   // (today / week / fortnight / rest of month) is just a view — we filter its rows.
   const lastDay=days[days.length-1];
-  const plan=(startR,tank,minR,burns,idx,manualToday)=>{
-    const mp=monthPathway(startR,tank,minR,burns,idx,manualToday);
+  const plan=(startR,tank,minR,burns,idx,manualToday,sugOv)=>{
+    const mp=monthPathway(startR,tank,minR,burns,idx,manualToday,sugOv);
     const daySet=new Set(days);
     let totBuy=0,totCost=0;
     const rows=mp.rows.filter(r=>daySet.has(r.day)).map(r=>{ totBuy+=r.buy; totCost+=r.cost;
@@ -1772,8 +1800,8 @@ function downloadPDF(period){
     const endRes=mp.resByGlobal[(lastDay-mp.today)*48+47];   // reserve at end of the period
     return {rows,totBuy,totCost,endRes:(endRes==null?mp.endRes:endRes),firstNeg:mp.firstNeg};
   };
-  const fuel=plan(startRes,fuelTank,MIN_FUEL,BURNS,0,fPurchased);
-  const co2 =plan(startCO2,co2Tank,MIN_CO2,CO2B,1,co2Purchased);
+  const fuel=plan(startRes,fuelTank,MIN_FUEL,BURNS,0,fPurchased,fSugOv);
+  const co2 =plan(startCO2,co2Tank,MIN_CO2,CO2B,1,co2Purchased,cSugOv);
   const svDrop=((fuel.totCost+co2.totCost)/SV).toFixed(2);
   const fleetCnt=BOXES.reduce((s,b)=>s+boxCount(b),0);
 
