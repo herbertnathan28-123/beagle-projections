@@ -138,12 +138,12 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
     </div>
     <div>
       <label for="range">Aircraft range (km)</label>
-      <input type="number" id="range" inputmode="numeric" min="100" step="1" placeholder="2036">
+      <input type="text" id="range" inputmode="numeric" placeholder="2036">
       <div class="hint">From the aircraft's spec card</div>
     </div>
     <div>
       <label for="rwy">Minimum runway (ft)</label>
-      <input type="number" id="rwy" inputmode="numeric" min="0" step="100" placeholder="0">
+      <input type="text" id="rwy" inputmode="numeric" placeholder="0">
       <div class="hint">Leave 0 to allow any runway</div>
     </div>
     <div class="modebox">
@@ -158,7 +158,7 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
       <label>Aircraft</label>
       <div class="seg" role="group" aria-label="Aircraft type">
         <button type="button" id="aPax" aria-pressed="true">Passenger</button>
-        <button type="button" id="aCargo" aria-pressed="false">Freighter</button>
+        <button type="button" id="aCargo" aria-pressed="false">Cargo</button>
       </div>
       <div class="hint">Passenger or cargo prices</div>
     </div>
@@ -211,7 +211,7 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
   </div>
 
   <footer>
-    Airport data: 3,900+ AM4 airports. Distances are great-circle.
+    Airport data: 3,900+ AM4 airports. Distances are great-circle. All aircraft are assumed to have the +10% speed modification fitted.
     <button class="share" id="share" type="button">Copy link to this route</button>
     <span id="copied" class="sm"></span>
   </footer>
@@ -228,6 +228,7 @@ DB.forEach((r,i)=>{ byCode.set(r[0].toUpperCase(), i); if(r[1]) byCode.set(r[1].
 
 const $ = id => document.getElementById(id);
 const fmt = n => Math.round(n).toLocaleString('en-US');
+const num = v => +String(v).replace(/[,\s]/g,'')||0;
 const R = 6371, rad = Math.PI/180;
 function dist(a,b){
   const la1=a[6]*rad, la2=b[6]*rad, dla=la2-la1, dlo=(b[7]-a[7])*rad;
@@ -453,7 +454,7 @@ function clearMsg(){ $('msg').className='msg'; }
 let current=null;
 
 function solve(pickIdx){
-  const fv=$('from').value, tv=$('to').value, range=+$('range').value, minR=+$('rwy').value||0;
+  const fv=$('from').value, tv=$('to').value, range=num($('range').value), minR=num($('rwy').value);
   const O=lookup(fv), D=lookup(tv);
   $('fromHint').textContent = O ? `${O[2]}, ${O[3]}` : (fv? 'Not found — check the code' : '');
   $('toHint').textContent   = D ? `${D[2]}, ${D[3]}` : (tv? 'Not found — check the code' : '');
@@ -478,12 +479,12 @@ function solve(pickIdx){
     list.sort((a,b)=>a.tot-b.tot || b.s[5]-a.s[5]);
     list=list.slice(0,5);
   }
-  current={O,D,direct,range,list,pick:Math.min(pickIdx||0,Math.max(0,list.length-1)),warn};
+  current={O,D,direct,range,minR,list,pick:Math.min(pickIdx||0,Math.max(0,list.length-1)),warn};
   render(true);
 }
 
 function render(fly){
-  const {O,D,direct,range,list,pick,warn}=current;
+  const {O,D,direct,range,minR,list,pick,warn}=current;
   const best=list[pick];
   flap($('fO'),O[0]); flap($('fD'),D[0]);
   $('nO').textContent=O[2]; $('mO').textContent=`${O[3]} · runway ${fmt(O[4])} ft`;
@@ -520,7 +521,7 @@ function render(fly){
     $('sActual').textContent='–'; $('sExtra').textContent='–'; $('sRange').textContent='–';
     $('alts').innerHTML='<p class="note">No airport is within range of both ends.</p>';
     const half=Math.ceil(direct/2);
-    msg('err','Range too short for this route',`No airport sits within ${fmt(range)} km of both ${O[0]} and ${D[0]}${$('rwy').value>0?' with that runway length':''}. A stopover needs a range of at least about ${fmt(half)} km here.`);
+    msg('err','Range too short for this route',`No airport sits within ${fmt(range)} km of both ${O[0]} and ${D[0]}${minR>0?' with that runway length':''}. A stopover needs a range of at least about ${fmt(half)} km here.`);
     const path=gc(O,D);
     route={o:path[0],d:path[path.length-1],s:null,paths:[path],alts:[],oc:O[0],dc:D[0],cLon};
   } else {
@@ -530,7 +531,7 @@ function render(fly){
     $('sActual').innerHTML=fmt(best.tot)+'<small>km</small>';
     const ex=best.tot-direct; $('sExtra').innerHTML=(ex<1?ex.toFixed(1):fmt(ex))+'<small>km</small>';
     $('sRange').innerHTML=`${fmt(Math.max(best.d1,best.d2))}<small>/ ${fmt(range)}</small>`;
-    if(warn.length) msg('err','Check runways',warn.join('; ')+` — below your ${fmt(+$('rwy').value)} ft minimum.`);
+    if(warn.length) msg('err','Check runways',warn.join('; ')+` — below your ${fmt(minR)} ft minimum.`);
     const p1=gc(O,S), p2=gc(S,D);
     // stitch p2 longitudes onto p1's end
     let shift=0; const e=p1[p1.length-1][1], s0=p2[0][1]; shift=Math.round((e-s0)/360)*360;
@@ -560,7 +561,7 @@ function syncUrl(){
   if($('from').value)p.set('from',$('from').value.trim().toUpperCase());
   if($('to').value)p.set('to',$('to').value.trim().toUpperCase());
   if($('range').value)p.set('range',$('range').value);
-  if(+$('rwy').value)p.set('rwy',$('rwy').value);
+  if(num($('rwy').value))p.set('rwy',$('rwy').value);
   p.set('mode',mode);
   p.set('buf',buf);
   if(ac==='cargo')p.set('ac','cargo');
