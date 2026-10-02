@@ -213,6 +213,7 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
       <div class="dem">
         <div class="drow"><span class="k" id="kDem">Demand</span><span class="v" id="demV">–</span></div>
         <div class="drow"><span class="k" id="kCfg">Best seat configuration</span><span class="v" id="cfgV">–</span></div>
+        <div class="drow"><span class="k" id="kLoad">Expected load</span><span class="v" id="loadV" title="Expected share of seats filled at today's demand.">–</span></div>
       </div>
       <div class="bufbar">
         <label>Price buffer</label>
@@ -565,6 +566,7 @@ function renderDemand(){
   if(!demData){
     $('kDem').textContent='Demand'; $('demV').textContent='\u2013';
     $('kCfg').textContent='Best seat configuration'; $('cfgV').textContent='\u2013';
+    $('loadV').textContent='\u2013';
     return;
   }
   if(spec&&spec.cat==='cargo'){
@@ -573,13 +575,31 @@ function renderDemand(){
     $('kCfg').textContent='Best cargo split';
     const r=bestCargo(demData,spec,flown,current.direct);
     $('cfgV').innerHTML=r?`L ${r.l}% / H ${r.h}% <span class="sm">${r.tpd} dep/day \u00d7 ${r.numAc} A/C</span>`:'\u2013';
+    $('loadV').title='Expected share of cargo capacity used at today\'s demand.';
+    $('loadV').textContent=r?cargoLoad(r,demData,spec.cap):'\u2013';
   } else {
     $('kDem').textContent='Demand';
     $('demV').textContent=`Y ${fmt(demData.y)} / J ${fmt(demData.j)} / F ${fmt(demData.f)}`;
     $('kCfg').textContent='Best seat configuration';
     const r=spec?bestPax(demData,spec,flown,current.direct):null;
     $('cfgV').innerHTML=r?`Y ${r.y} / J ${r.j} / F ${r.f} <span class="sm">${r.tpd} dep/day \u00d7 ${r.numAc} A/C</span>`:'\u2013';
+    $('loadV').title='Expected share of seats filled at today\'s demand.';
+    $('loadV').textContent=r?paxLoad(r,demData):'\u2013';
   }
+}
+const pct=v=>Math.round(Math.min(1,v)*100)+'%';
+function paxLoad(r,dem){
+  const dep=r.tpd*r.numAc;
+  const cls=['y','j','f'].map((k,i)=>['Y','J','F'][i]+' '+(r[k]?pct((dem[k]/dep)/r[k]):'\u2014'));
+  const seats=r.y+2*r.j+3*r.f;
+  const carried=['y','j','f'].reduce((s,k,i)=>s+[1,2,3][i]*Math.min(dem[k]/dep,r[k]),0);
+  return cls.join(' \u00b7 ')+' \u00b7 overall '+pct(carried/seats);
+}
+function cargoLoad(r,dem,cap){
+  const dep=r.tpd*r.numAc;
+  const lcap=cap*0.7*r.l/100, hcap=cap*r.h/100, tot=lcap+hcap;
+  const carried=Math.min(dem.l/dep,lcap)+Math.min(dem.h/dep,hcap);
+  return 'L '+(r.l?pct((dem.l/dep)/lcap):'\u2014')+' \u00b7 H '+(r.h?pct((dem.h/dep)/hcap):'\u2014')+' \u00b7 overall '+pct(carried/tot);
 }
 function applyAcft(name,applySpec){
   spec=AC.find(a=>a.name===name)||AC[0]||null;

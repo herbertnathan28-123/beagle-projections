@@ -16,6 +16,14 @@ const ACFT = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'stop
 const DEMANDS = {
   'VVNB>SPIM': { y: 1193, j: 222, f: 277, l: 597000, h: 222000 },
   'ZGSZ>SCEL': { y: 841, j: 639, f: 220, l: 421000, h: 639000 },
+  // Remaining ATL-148 reference pairs (ICAO>ICAO keys; cargo values unused by pax tests)
+  'RPLL>SGAS': { y: 1077, j: 498, f: 161, l: 539000, h: 498000 },
+  'MROC>WIII': { y: 1523, j: 477, f: 169, l: 762000, h: 477000 },
+  'VMMC>SGAS': { y: 1881, j: 355, f: 167, l: 941000, h: 355000 },
+  'ZGSZ>SLLP': { y: 1150, j: 463, f: 216, l: 575000, h: 463000 },
+  'VMMC>SCEL': { y: 813, j: 812, f: 105, l: 407000, h: 812000 },
+  'SCEL>ZHHH': { y: 1389, j: 220, f: 88, l: 695000, h: 220000 },
+  'SVMI>WIII': { y: 966, j: 685, f: 309, l: 483000, h: 685000 },
 };
 
 // Generic canvas-2d stand-in: every method returns another stub, property sets are swallowed.
@@ -138,6 +146,40 @@ test('ZGSZ\u2192SCEL matches its WO reference too', async () => {
   await flush(); await flush();
   assert.match(ELS.demV.textContent, /Y 841 \/ J 639 \/ F 220/);
   assert.match(ELS.cfgV.innerHTML, /Y 223 \/ J 169 \/ F 13/);
+});
+
+// ATL-152: expected load factor per class + overall, all 9 WO reference cases
+// (A380-800, Realism). Expected values computed from the spec formula:
+// per-class load = (daily demand / total departures) / configured seats, capped at 100%;
+// overall = (Y + 2J + 3F carried) / (Y + 2J + 3F seats); unconfigured class shows —.
+test('load factor per class + overall for all 9 ATL-148 reference cases', async () => {
+  await flush(); await flush();
+  ctx.setMode('realism', false);
+  const cases = [
+    ['VVNB', 'SPIM', 'Y 94% \u00b7 J 94% \u00b7 F 100% \u00b7 overall 96%'],
+    ['RPLL', 'SGAS', 'Y 94% \u00b7 J 94% \u00b7 F 100% \u00b7 overall 95%'],
+    ['MROC', 'WIII', 'Y 94% \u00b7 J 94% \u00b7 F 100% \u00b7 overall 95%'],
+    ['VMMC', 'SGAS', 'Y 94% \u00b7 J 95% \u00b7 F 100% \u00b7 overall 95%'],
+    ['ZGSZ', 'SLLP', 'Y 94% \u00b7 J 94% \u00b7 F 100% \u00b7 overall 95%'],
+    ['VMMC', 'SCEL', 'Y 94% \u00b7 J 100% \u00b7 F \u2014 \u00b7 overall 98%'],
+    ['ZGSZ', 'SCEL', 'Y 94% \u00b7 J 95% \u00b7 F 100% \u00b7 overall 95%'],
+    ['SCEL', 'ZHHH', 'Y 94% \u00b7 J 100% \u00b7 F \u2014 \u00b7 overall 95%'],
+    ['SVMI', 'WIII', 'Y 94% \u00b7 J 94% \u00b7 F 100% \u00b7 overall 95%'],
+  ];
+  for (const [from, to, expected] of cases) {
+    drive({ from, to, range: '14,500', rwy: '9,680' });
+    await flush(); await flush();
+    assert.strictEqual(ELS.loadV.textContent, expected, `${from}->${to}`);
+  }
+});
+
+test('a freighter shows the L/H cargo load factor', async () => {
+  await flush();
+  ctx.applyAcft('A380F', false);
+  drive({ from: 'VVNB', to: 'SPIM', range: '14,500', rwy: '9,680' });
+  await flush(); await flush();
+  assert.match(ELS.loadV.textContent, /L \d+% \u00b7 H \d+% \u00b7 overall \d+%/);
+  ctx.applyAcft('A380-800', false);
 });
 
 test('a freighter shows cargo demand and the best L/H split', async () => {
