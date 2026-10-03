@@ -547,7 +547,7 @@ function utcShort(ts){if(!ts)return'\u2014';const d=new Date(ts),p=function(n){r
 function PaceList(props){
   const th={padding:'6px 8px',fontSize:11,letterSpacing:.6,color:'#6E8CA6',fontWeight:700,textAlign:'right'};
   const td={padding:'6px 8px'};
-  const mob=window.innerWidth<640;
+  const mob=props.mob;
   const win=function(r){return(r.windowDays!=null?window.PaceLib.fmtWindow(r.windowDays)+' \u00b7 ':'')+utcShort(r.from)+' \u2192 '+utcShort(r.to);};
   return(<div style={{background:'#050D1A',border:'1px solid #0A1E30',borderTop:'2px solid #C4920A',borderRadius:4,padding:'10px 12px'}}>
     <div style={{fontSize:15,color:'#E8B84B',fontWeight:700,letterSpacing:1,marginBottom:8}}>{props.title}</div>
@@ -568,6 +568,12 @@ function PaceList(props){
 function CurrentPace(){
   const [board,setBoard]=useState(null);
   const [err,setErr]=useState(null);
+  const [mob,setMob]=useState(window.innerWidth<640);
+  useEffect(function(){
+    const onResize=function(){setMob(window.innerWidth<640);};
+    window.addEventListener('resize',onResize);
+    return function(){window.removeEventListener('resize',onResize);};
+  },[]);
   useEffect(function(){
     fetch('/api/data').then(function(r){return r.json();}).then(function(d){setBoard(d.canonical||{alliances:[]});}).catch(function(e){setErr(String(e&&e.message||e));});
   },[]);
@@ -577,8 +583,8 @@ function CurrentPace(){
   const unread=(board.alliances||[]).filter(function(r){return r.paceRank==null;});
   return(<div style={{padding:'8px 10px 16px',background:'#030B17',display:'flex',flexDirection:'column',gap:10}}>
     <div style={{fontSize:13,color:'#9AB4C8'}}>{'Ordered by current pace from the latest upload \u00b7 data as of '+utcShort(board.asOf)+' UTC'}</div>
-    <PaceList title={'CURRENT PACE \u00b7 1 \u2014 10'} rows={ranked.slice(0,10)}/>
-    <PaceList title={'CURRENT PACE \u00b7 11 \u2014 20'} rows={ranked.slice(10,20)}/>
+    <PaceList title={'CURRENT PACE \u00b7 1 \u2014 10'} rows={ranked.slice(0,10)} mob={mob}/>
+    <PaceList title={'CURRENT PACE \u00b7 11 \u2014 20'} rows={ranked.slice(10,20)} mob={mob}/>
     {unread.length>0&&<div style={{fontSize:12,color:'#6E8CA6'}}>{'No pace reading yet: '+unread.map(function(r){return r.name;}).join(', ')}</div>}
     <div style={{fontSize:12,color:'#6E8CA6',lineHeight:1.5}}>{board.methodLabel}</div>
   </div>);
