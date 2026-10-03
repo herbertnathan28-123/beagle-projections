@@ -91,6 +91,8 @@ canvas{display:block;width:100%;height:clamp(240px,42vw,440px)}
 .drow .k{font-size:14px;color:var(--muted);white-space:nowrap}
 .drow .v{font:700 18px "Barlow Condensed",sans-serif;color:var(--gold);text-align:right}
 .drow .v .sm{font:600 12px "Barlow",sans-serif;color:var(--muted);white-space:nowrap}
+.drow.optl{background:rgba(245,166,35,.09);box-shadow:inset 3px 0 0 var(--gold);padding-left:10px;padding-right:10px;border-radius:6px}
+.drow.optl .k{color:var(--gold);font-weight:700}
 .drow select{height:34px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--text);font:600 14px "Barlow",sans-serif;padding:0 10px;cursor:pointer}
 .drow .v .qx{font:700 12px "Barlow",sans-serif;color:var(--red);margin-left:4px;white-space:nowrap}
 .plan{margin-top:16px}
@@ -260,6 +262,7 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
       </div>
       <div class="dem">
         <div class="drow"><span class="k" id="kDem">Demand</span><span class="v" id="demV">–</span></div>
+        <div class="drow optl" title="The best setup for the selected card (contributions, money or overall)."><span class="k">Optimum</span><span class="v" id="optV">–</span></div>
         <div class="drow"><label class="k" for="fpd">Flights per day</label><span class="v"><select id="fpd" title="Recommended follows the selected best-setup card. Pick 1–30 to see your own strategy."></select> <span id="fpdV">–</span></span></div>
         <div class="drow"><span class="k" id="kCfg">Best seat configuration</span><span class="v" id="cfgV">–</span></div>
         <div class="drow"><span class="k" id="kLoad">Expected load</span><span class="v" id="loadV" title="Expected share of seats filled at today's demand.">–</span></div>
@@ -587,16 +590,18 @@ function renderDemand(){
   renderPlan();
   const daily=!demData?'\u2013':cargo?`L ${fmt(demData.l)} / H ${fmt(demData.h)}`:`Y ${fmt(demData.y)} / J ${fmt(demData.j)} / F ${fmt(demData.f)}`;
   if(!r){
-    $('demV').innerHTML=daily; $('cfgV').textContent='\u2013'; $('fpdV').textContent='\u2013'; $('loadV').textContent='\u2013';
+    $('demV').innerHTML=daily; $('cfgV').textContent='\u2013'; $('fpdV').textContent='\u2013'; $('loadV').textContent='\u2013'; $('optV').textContent='\u2013';
     setFlags([]);
     return;
   }
+  const o=plan.rows.find(x=>x.t===bestOf(plan))||r, sk=sortNow(plan);
+  $('optV').innerHTML=`${perDay(o.dep48*nAc)} a day <span class="sm">${tl(o.t)} flight \u00b7 ${cfgTxt(o.cfg)} \u00b7 ${o.profitDay==null?'':money(o.profitDay)+' profit/day \u00b7 '}${fmtC(o.cdDay)} C/D${nAc>1?' per A/C':''} \u00b7 ${{cd:'best for contributions',money:'best for money',all:'best overall'}[sk]}</span>`;
   const man=fpd&&plan.manual?plan.manual:null, u=man||r;
   const pf=u.perFlight, at={...u.cfg,dep:man?man.freq:r.freq};
   $('demV').innerHTML=daily+` <span class="sm">per flight ${cargo?`L ${fmt(pf.l)} / H ${fmt(pf.h)}`:`Y ${fmt(pf.y)} / J ${fmt(pf.j)} / F ${fmt(pf.f)}`}</span>`;
   $('cfgV').innerHTML=cfgTxt(u.cfg)+` <span class="sm">${man?`at your ${fpd} a day`:`${tl(r.t)} flight`}</span>`;
   $('fpdV').innerHTML=man
-    ? `<span class="sm">your choice \u00b7 recommended ${perDay(r.dep48*nAc)} a day (${tl(r.t)} flight)</span>`
+    ? `<span class="sm">your choice \u00b7 compare with Optimum above</span>`
     : `${perDay(r.dep48*nAc)} <span class="sm">${perDay(r.dep48)} a day \u00d7 ${nAc} A/C \u00b7 ${r.dep48*nAc} in 48 h</span>`;
   $('loadV').textContent=cargo?cargoLoad(at,demData,spec.cap):paxLoad(at,demData);
   const flags=fixedFlags(cargo?cargoStats(at,demData,spec.cap):paxStats(at,demData));

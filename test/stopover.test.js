@@ -425,7 +425,13 @@ test('manual flights per day (1\u201330) drives the route numbers; cards and ran
   assert.match(ELS.cfgV.innerHTML, /^Y 266 \/ J 71 \/ F 64 <span class="sm">at your 2 a day<\/span>$/);
   assert.match(ELS.demV.innerHTML, /per flight Y 452 \/ J 71 \/ F 64/);
   assert.strictEqual(ELS.loadV.textContent, 'Y 100% \u00b7 J 100% \u00b7 F 100% \u00b7 overall 100%');
-  assert.match(ELS.fpdV.innerHTML, /your choice \u00b7 recommended 3 a day \(9h 00m flight\)/);
+  assert.match(ELS.fpdV.innerHTML, /your choice \u00b7 compare with Optimum above/);
+  const bm0 = rowAt(p.bestMoney);
+  assert.strictEqual(ELS.optV.innerHTML, `3 a day <span class="sm">9h 00m flight \u00b7 Y ${bm0.cfg.y} / J ${bm0.cfg.j} / F ${bm0.cfg.f} \u00b7 $8,354,410 profit/day \u00b7 126.51 C/D \u00b7 best for money</span>`);
+  ctx.setSort('cd'); await settle();
+  assert.match(ELS.optV.innerHTML, /^2 a day <span class="sm">15h 30m flight \u00b7 .* 157\.38 C\/D \u00b7 best for contributions<\/span>$/);
+  assert.match(ELS.cfgV.innerHTML, /^Y 266 \/ J 71 \/ F 64 <span class="sm">at your 2 a day/);
+  ctx.setSort('money'); await settle();
   assert.doesNotMatch(ELS.cfgV.innerHTML + ELS.flagV.innerHTML, /Quota exceeded|NaN/);
   assert.match(lastUrl, /[?&]fpd=2(&|$)/);
   assert.strictEqual(planNow().bestMoney, p.bestMoney);
