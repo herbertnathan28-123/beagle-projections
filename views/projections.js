@@ -516,7 +516,7 @@ function AllianceCards(){
           <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
             <span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',minWidth:30,height:24,borderRadius:4,background:c.isBeagle?'#C4920A':'#0A1E30',color:c.isBeagle?'#030B17':'#8AAABB',fontWeight:700,fontSize:13}}>{'#'+(c.rank!=null?c.rank:'?')}</span>
             <span style={{fontSize:14,fontWeight:700,color:c.isBeagle?'#E8B84B':'#E2EAF4',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.name}</span>
-            <span style={{marginLeft:'auto',fontSize:11,color:'#5A8AAB'}}>{c.sv!=null?'$'+c.sv.toLocaleString('en',{minimumFractionDigits:2})+'M':'\u2014'}</span>
+            <span style={{marginLeft:'auto',fontSize:11,color:'#5A8AAB'}}>{c.sv!=null?'$'+c.sv.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2}):'\u2014'}</span>
           </div>
           <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:8}}>
             <span style={{fontSize:22,fontWeight:700,color:c.heat}}>{c.pace!=null?fmtV(c.pace):NIL}</span>
@@ -539,10 +539,55 @@ function AllianceCards(){
   </div>);
 }
 
+/* ── Current pace 1-10 / 11-20 (ruling 5 Aug) ──────────────────────────────
+   Ranked by the canonical current pace from the latest upload (board.paceRank),
+   each with the exact window it was measured over and its share-value rank. */
+const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function utcShort(ts){if(!ts)return'\u2014';const d=new Date(ts),p=function(n){return String(n).padStart(2,'0');};return d.getUTCDate()+' '+MO[d.getUTCMonth()]+' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes());}
+function PaceList(props){
+  const th={padding:'6px 8px',fontSize:11,letterSpacing:.6,color:'#6E8CA6',fontWeight:700,textAlign:'right'};
+  const td={padding:'6px 8px'};
+  const mob=window.innerWidth<640;
+  const win=function(r){return(r.windowDays!=null?window.PaceLib.fmtWindow(r.windowDays)+' \u00b7 ':'')+utcShort(r.from)+' \u2192 '+utcShort(r.to);};
+  return(<div style={{background:'#050D1A',border:'1px solid #0A1E30',borderTop:'2px solid #C4920A',borderRadius:4,padding:'10px 12px'}}>
+    <div style={{fontSize:15,color:'#E8B84B',fontWeight:700,letterSpacing:1,marginBottom:8}}>{props.title}</div>
+    <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',fontSize:14}}>
+      <thead><tr><th style={{...th,textAlign:'left'}}>PACE #</th><th style={{...th,textAlign:'left'}}>ALLIANCE</th><th style={th}>PACE /DAY</th>{!mob&&<th style={th}>MEASURED OVER (UTC)</th>}<th style={th}>SV RANK</th></tr></thead>
+      <tbody>{props.rows.map(function(r){
+        return(<tr key={r.name} style={{borderBottom:'1px solid #0B1A2B',background:r.isBeagle?'rgba(232,184,75,.12)':'transparent',textAlign:'right'}}>
+          <td style={{...td,textAlign:'left',fontWeight:800,color:r.isBeagle?'#E8B84B':'#E2EAF4'}}>{'#'+r.paceRank}</td>
+          <td style={{...td,textAlign:'left',color:r.isBeagle?'#E8B84B':'#E2EAF4',fontWeight:r.isBeagle?800:500}}><div style={{maxWidth:mob?170:260,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.name}</div>{mob&&<div style={{fontSize:11,color:'#9AB4C8',fontWeight:400}}>{win(r)+' UTC'}</div>}</td>
+          <td style={{...td,fontWeight:700,whiteSpace:'nowrap'}}>{'$'+r.pace.toLocaleString('en-US',{minimumFractionDigits:3,maximumFractionDigits:3})+'/day'}</td>
+          {!mob&&<td style={{...td,color:'#9AB4C8',whiteSpace:'nowrap'}}>{win(r)}</td>}
+          <td style={{...td,color:'#9AB4C8'}}>{r.rank!=null?'#'+r.rank:'\u2014'}</td>
+        </tr>);
+      })}</tbody>
+    </table></div>
+  </div>);
+}
+function CurrentPace(){
+  const [board,setBoard]=useState(null);
+  const [err,setErr]=useState(null);
+  useEffect(function(){
+    fetch('/api/data').then(function(r){return r.json();}).then(function(d){setBoard(d.canonical||{alliances:[]});}).catch(function(e){setErr(String(e&&e.message||e));});
+  },[]);
+  if(err)return <div style={{padding:16,color:'#E74C3C'}}>Current pace unavailable: {err}</div>;
+  if(!board)return <div style={{padding:16,color:'#5A8ABB'}}>Loading current pace\u2026</div>;
+  const ranked=(board.alliances||[]).filter(function(r){return r.paceRank!=null&&r.pace!=null;}).sort(function(a,b){return a.paceRank-b.paceRank;});
+  const unread=(board.alliances||[]).filter(function(r){return r.paceRank==null;});
+  return(<div style={{padding:'8px 10px 16px',background:'#030B17',display:'flex',flexDirection:'column',gap:10}}>
+    <div style={{fontSize:13,color:'#9AB4C8'}}>{'Ordered by current pace from the latest upload \u00b7 data as of '+utcShort(board.asOf)+' UTC'}</div>
+    <PaceList title={'CURRENT PACE \u00b7 1 \u2014 10'} rows={ranked.slice(0,10)}/>
+    <PaceList title={'CURRENT PACE \u00b7 11 \u2014 20'} rows={ranked.slice(10,20)}/>
+    {unread.length>0&&<div style={{fontSize:12,color:'#6E8CA6'}}>{'No pace reading yet: '+unread.map(function(r){return r.name;}).join(', ')}</div>}
+    <div style={{fontSize:12,color:'#6E8CA6',lineHeight:1.5}}>{board.methodLabel}</div>
+  </div>);
+}
+
 /* Top tabs. PROJECTIONS hands the page back to the untouched dashboard in #root;
    the pace panes render here, above it, so they own the full width of the page. */
 function TopTabs(){
-  const [tab,setTab]=useState('projections');
+  const [tab,setTab]=useState('pace');
   useEffect(function(){
     const main=document.getElementById('root');
     if(main)main.style.display=tab==='projections'?'':'none';
@@ -556,11 +601,12 @@ function TopTabs(){
   const btn=function(active){return{background:active?'#1A3050':'transparent',border:'1px solid '+(active?'#4A80B0':'#162030'),color:active?'#E8B84B':'#6A9AB5',borderRadius:3,padding:'6px 16px',fontSize:13,fontWeight:700,letterSpacing:1,cursor:'pointer'};};
   return(<div>
     <div style={{display:'flex',gap:6,padding:'8px 12px',background:'#040C18',borderBottom:'1px solid #0A1E30'}}>
+      <button style={btn(tab==='pace')} onClick={function(){setTab('pace');}}>CURRENT PACE 1—20</button>
       <button style={btn(tab==='projections')} onClick={function(){setTab('projections');}}>PROJECTIONS</button>
       <button style={btn(tab==='cards')} onClick={function(){setTab('cards');}}>ALLIANCE CARDS</button>
       {tab==='trend'&&<button style={btn(true)} onClick={function(){setTab('projections');}}>PACE TREND \u00d7</button>}
     </div>
-    {tab==='trend'?<PaceDailyTrend/>:tab==='cards'?<AllianceCards/>:null}
+    {tab==='pace'?<CurrentPace/>:tab==='trend'?<PaceDailyTrend/>:tab==='cards'?<AllianceCards/>:null}
   </div>);
 }
 

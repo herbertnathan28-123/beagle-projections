@@ -32,7 +32,6 @@ const PERIODS = [
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function fmtMoney(v, dp) { if (v == null || !isFinite(v)) return '—'; return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: dp == null ? 2 : dp, maximumFractionDigits: dp == null ? 2 : dp }); }
-function fmtSvM(v) { return v == null ? '—' : v >= 1000 ? '$' + (v / 1000).toFixed(2) + 'B' : '$' + v.toFixed(0) + 'M'; }
 function fmtDate(d) { return d.getUTCDate() + ' ' + MON[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); }
 function fmtShortDate(d) { return d.getUTCDate() + ' ' + MON[d.getUTCMonth()]; }
 function fmtUtc(ts) {
@@ -105,7 +104,7 @@ function buildModel(board, opts) {
       base.series.push({
         name: r.name, rank: r.rank, isBeagle: r.isBeagle, color: colorOf(r),
         pts: xs.map(d => [d, f(d)]), lin: trend && !r.isBeagle ? xs.map(d => [d, fl(d)]) : null,
-        endFmt: v => r.isBeagle ? 'Beagle' : (v >= 0 ? '+' : '−') + '$' + Math.abs(v).toFixed(0) + 'M',
+        endFmt: v => r.isBeagle ? 'Beagle' : (v >= 0 ? '+' : '−') + fmtMoney(Math.abs(v)),
       });
       const cd = catchFor(r, trend);
       if (!r.isBeagle && cd != null && cd > 0 && cd <= days) base.markers.push({ x: cd, y: 0, color: colorOf(r), text: fmtShortDate(new Date(Date.parse(board.asOf) + cd * DAY_MS)), name: r.name });
@@ -113,7 +112,7 @@ function buildModel(board, opts) {
     const all = base.series.flatMap(s => s.pts.concat(s.lin || []).map(p => p[1]));
     const lo = Math.min(0, ...all), hi = Math.max(0, ...all), pad = (hi - lo) * 0.06 || 10;
     base.yMin = lo - pad; base.yMax = hi + pad;
-    base.yTick = v => (v > 0 ? '+' : v < 0 ? '−' : '') + '$' + Math.abs(v).toFixed(0) + 'M';
+    base.yTick = v => (v > 0 ? '+' : v < 0 ? '−' : '') + fmtMoney(Math.abs(v));
     base.zeroLine = true;
     base.title = 'Gap to Beagle (above 0 = ahead of Beagle)';
     return base;
@@ -124,7 +123,7 @@ function buildModel(board, opts) {
     base.series.push({
       name: r.name, rank: r.rank, isBeagle: r.isBeagle, color: colorOf(r),
       pts: xs.map(d => [d, svAt(r, d, trend)]), lin: trend ? xs.map(d => [d, svAt(r, d, false)]) : null,
-      endFmt: v => fmtSvM(v),
+      endFmt: v => fmtMoney(v),
     });
     const cd = catchFor(r, trend);
     if (!r.isBeagle && cd != null && cd > 0 && cd <= days) {
@@ -136,7 +135,7 @@ function buildModel(board, opts) {
   if (log) { base.yLog = true; lo *= 0.985; hi *= 1.015; }
   else { const pad = (hi - lo) * 0.05 || 10; lo -= pad; hi += pad; }
   base.yMin = lo; base.yMax = hi;
-  base.yTick = v => fmtSvM(v);
+  base.yTick = v => fmtMoney(v);
   base.title = 'Share value' + (log ? ' (log scale)' : '');
   return base;
 }
@@ -153,8 +152,11 @@ function createRenderer(canvas, hooks) {
 
   function plotRect() {
     const mob = st.w < 640;
-    const labelW = mob ? 118 : 196;
-    return { l: mob ? 46 : 64, r: st.w - labelW, t: 14, b: st.h - (mob ? 26 : 30), labelW, mob };
+    const labelW = mob ? 118 : 196, m = st.model;
+    // wide enough for the longest tick label, e.g. $10,000.00
+    const tickChars = m && m.yTick ? Math.max(String(m.yTick(m.yMin)).length, String(m.yTick(m.yMax)).length) : 0;
+    const l = Math.max(mob ? 46 : 64, Math.round(tickChars * (mob ? 6 : 7) + 10));
+    return { l, r: st.w - labelW, t: 14, b: st.h - (mob ? 26 : 30), labelW, mob };
   }
   function yMap(v) {
     const m = st.model, V = st.view, R = plotRect();
@@ -568,7 +570,7 @@ function App() {
         <div style={{ fontSize: mob ? 12 : 14, color: C.muted, marginTop: 4 }}>Rank <b style={{ color: C.text }}>#{b.rank}</b> · data as of {fmtUtc(board.asOf)}</div>
       </div>
       <div style={{ textAlign: mob ? 'left' : 'right' }}>
-        <div style={{ fontSize: mob ? 22 : 30, fontWeight: 800, color: C.gold }}>{fmtMoney(b.sv)}M</div>
+        <div style={{ fontSize: mob ? 22 : 30, fontWeight: 800, color: C.gold }}>{fmtMoney(b.sv)}</div>
         <div style={{ fontSize: mob ? 16 : 19, fontWeight: 700, color: C.text }}>Pace {fmtMoney(b.pace, 3)}/day</div>
         <div style={{ fontSize: 12, color: C.dim }}>{b.label}</div>
         <div style={{ fontSize: 12, color: C.dim }}>7-day {fmtMoney(b.weekPace, 3)} · 30-day {fmtMoney(b.longPace, 3)} · trend <span style={{ color: trendColor(b.trend), fontWeight: 700 }}>{trendArrow(b.trend)} {b.trend || 'n/a'}</span></div>
@@ -608,11 +610,11 @@ function App() {
     {selRow && !selRow.isBeagle && (<div style={{ margin: '0 10px 10px', background: C.panel, border: '1px solid ' + colorOf(selRow) + '55', borderLeft: '4px solid ' + colorOf(selRow), borderRadius: 4, padding: '12px 16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <div><div style={{ fontSize: 18, fontWeight: 700 }}>#{selRow.rank} {selRow.name}</div>
-          <div style={{ fontSize: 13, color: C.muted, marginTop: 3 }}>SV {fmtMoney(selRow.sv)}M · pace {fmtMoney(selRow.pace, 3)}/day ({selRow.label}) · 7-day {fmtMoney(selRow.weekPace, 3)} · 30-day {fmtMoney(selRow.longPace, 3)} · trend <span style={{ color: trendColor(selRow.trend) }}>{trendArrow(selRow.trend)} {selRow.trend || 'n/a'}</span></div></div>
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 3 }}>SV {fmtMoney(selRow.sv)} · pace {fmtMoney(selRow.pace, 3)}/day ({selRow.label}) · 7-day {fmtMoney(selRow.weekPace, 3)} · 30-day {fmtMoney(selRow.longPace, 3)} · trend <span style={{ color: trendColor(selRow.trend) }}>{trendArrow(selRow.trend)} {selRow.trend || 'n/a'}</span></div></div>
         <button onClick={() => setSel(null)} style={{ ...BTN, fontSize: 12 }}>CLOSE</button>
       </div>
       <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', marginTop: 10, fontSize: 13 }}>
-        <div><div style={{ color: C.dim }}>GAP TO BEAGLE</div><div style={{ fontWeight: 700, fontSize: 16 }}>{selRow.gap > 0 ? 'ahead ' : 'behind '}{fmtMoney(Math.abs(selRow.gap))}M</div></div>
+        <div><div style={{ color: C.dim }}>GAP TO BEAGLE</div><div style={{ fontWeight: 700, fontSize: 16 }}>{selRow.gap > 0 ? 'ahead ' : 'behind '}{fmtMoney(Math.abs(selRow.gap))}</div></div>
         <div><div style={{ color: C.dim }}>BEAGLE {selRow.gap > 0 ? 'GAINS' : 'PULLS AWAY'}</div><div style={{ fontWeight: 700, fontSize: 16, color: (selRow.gap > 0 ? selRow.closing > 0 : selRow.closing > 0) ? C.up : C.dn }}>{selRow.closing != null ? (selRow.closing >= 0 ? '+' : '−') + fmtMoney(Math.abs(selRow.closing), 3) + '/day' : '—'}</div></div>
         <div><div style={{ color: C.dim }}>{selRow.gap > 0 ? 'BEAGLE OVERTAKES (TREND)' : 'THEY CATCH BEAGLE (TREND)'}</div><div style={{ fontWeight: 700, fontSize: 16 }}>{etaText(selRow.catchDaysTrend)}</div></div>
         <div><div style={{ color: C.dim }}>STRAIGHT LINE</div><div style={{ fontWeight: 700, fontSize: 16 }}>{etaText(selRow.catchDaysLinear)}</div></div>
@@ -637,11 +639,11 @@ function App() {
               <td style={{ textAlign: 'left', padding: '6px', fontWeight: 800, color: c, whiteSpace: 'nowrap' }}>{r.projRank ? '#' + r.projRank : '—'} {mv > 0 ? <span style={{ color: C.up, fontSize: 12 }}>▲{mv}</span> : mv < 0 ? <span style={{ color: C.dn, fontSize: 12 }}>▼{-mv}</span> : null}</td>
               <td style={{ textAlign: 'left', color: r.isBeagle ? C.gold : C.text, fontWeight: r.isBeagle ? 800 : 500, maxWidth: mob ? 120 : 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
               <td style={{ color: C.muted }}>#{r.rank}</td>
-              {!mob && <td style={{ color: C.muted }}>{fmtMoney(r.sv)}M</td>}
+              {!mob && <td style={{ color: C.muted }}>{fmtMoney(r.sv)}</td>}
               <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{r.pace != null ? fmtMoney(r.pace, mob ? 2 : 3) : <span style={{ color: C.dim }}>no reading</span>} <span style={{ color: trendColor(r.trend) }}>{trendArrow(r.trend)}</span></td>
               {!mob && <td style={{ color: C.muted }}>{fmtMoney(r.weekPace, 3)}</td>}
               {!mob && <td style={{ color: C.muted }}>{r.paceRank ? '#' + r.paceRank : '—'}</td>}
-              {!mob && <td style={{ color: r.isBeagle ? C.dim : r.gap > 0 ? C.muted : C.up }}>{r.isBeagle ? '—' : (r.gap > 0 ? '' : '−') + fmtMoney(Math.abs(r.gap)) + 'M'}</td>}
+              {!mob && <td style={{ color: r.isBeagle ? C.dim : r.gap > 0 ? C.muted : C.up }}>{r.isBeagle ? '—' : (r.gap > 0 ? '' : '−') + fmtMoney(Math.abs(r.gap))}</td>}
               <td style={{ color: C.muted, whiteSpace: 'nowrap', fontSize: mob ? 11.5 : 13 }}>{etaCell(r)}</td>
             </tr>);
           })}</tbody>
