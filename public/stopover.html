@@ -90,7 +90,14 @@ canvas{display:block;width:100%;height:clamp(240px,42vw,440px)}
 .drow{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
 .drow .k{font-size:14px;color:var(--muted);white-space:nowrap}
 .drow .v{font:700 18px "Barlow Condensed",sans-serif;color:var(--gold);text-align:right}
-.drow .v .sm{font:600 12px "Barlow",sans-serif;color:var(--muted)}
+.drow .v .sm{font:600 12px "Barlow",sans-serif;color:var(--muted);white-space:nowrap}
+.drow select{height:34px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--text);font:600 14px "Barlow",sans-serif;padding:0 10px;cursor:pointer}
+.drow .v .qx{font:700 12px "Barlow",sans-serif;color:var(--red);margin-left:4px;white-space:nowrap}
+.flags{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.flag{font:700 12px "Barlow",sans-serif;border-radius:6px;padding:3px 8px;border:1px solid}
+.flag.red{color:var(--red);border-color:var(--red)}
+.flag.amber{color:var(--gold);border-color:var(--gold)}
+.flag.info{color:var(--muted);border-color:var(--line)}
 .note{font-size:13px;color:var(--muted);margin:12px 0 0}
 
 .alts{display:flex;flex-direction:column;gap:8px}
@@ -212,8 +219,10 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
       </div>
       <div class="dem">
         <div class="drow"><span class="k" id="kDem">Demand</span><span class="v" id="demV">–</span></div>
+        <div class="drow"><label class="k" for="fpd">Flights per day</label><select id="fpd" title="Departures per day by one aircraft on this route. Optimum lets the tool choose."></select></div>
         <div class="drow"><span class="k" id="kCfg">Best seat configuration</span><span class="v" id="cfgV">–</span></div>
         <div class="drow"><span class="k" id="kLoad">Expected load</span><span class="v" id="loadV" title="Expected share of seats filled at today's demand.">–</span></div>
+        <div class="drow" id="flagRow" style="display:none"><span class="k">Flags</span><span class="v flags" id="flagV"></span></div>
       </div>
       <div class="bufbar">
         <label>Price buffer</label>
@@ -299,6 +308,8 @@ const LOAD=0.94, TOL=0.02;
 const SP={y:1,j:2,f:3};
 const ORD={FJY:['f','j','y'],FYJ:['f','y','j'],JFY:['j','f','y'],JYF:['j','y','f'],YFJ:['y','f','j'],YJF:['y','j','f']};
 let AC=[], spec=null, acftWanted='A380-800', acftApplySpec=true;
+let fpd=0; // 0 = Optimum; 1..30 = fixed departures per day by one aircraft (ATL-153)
+const MIN_PAX=15;
 
 function fillCfg(dpf,cap,ord){
   const c={}; let rem=cap;
@@ -314,21 +325,23 @@ function optTkt(d){
   const c=PRICE[mode];
   return [Math.floor((c.y[0]*d+c.y[1])*1.10)-2,Math.floor((c.j[0]*d+c.j[1])*1.08)-2,Math.floor((c.f[0]*d+c.f[1])*1.06)-2];
 }
-function bestPax(dem,sp,flown,direct){
+function bestPax(dem,sp,flown,direct,n){
   const la={y:Math.floor(dem.y/LOAD),j:Math.floor(dem.j/LOAD),f:Math.floor(dem.f/LOAD)};
   const speed=mode==='easy'?sp.easy:sp.realism;
   const ord=ORD[paxOrder(direct)];
   const [ty,tj,tf]=optTkt(direct);
   const calc=t=>fillCfg({y:Math.floor(la.y/t),j:Math.floor(la.j/t),f:Math.floor(la.f/t)},sp.cap,ord);
   const inc=c=>c.y*ty+c.j*tj+c.f*tf;
-  let tpd=Math.min(Math.floor(24/(flown/speed)),Math.floor((la.y+2*la.j+3*la.f)/sp.cap));
+  const maxT=Math.floor(24/(flown/speed));
+  if(n>0){ const c=calc(n); return {y:c.y,j:c.j,f:c.f,tpd:n,numAc:Math.ceil(n/Math.max(1,maxT)),dep:n,maxT,fixed:true}; }
+  let tpd=Math.min(maxT,Math.floor((la.y+2*la.j+3*la.f)/sp.cap));
   let cfg=calc(tpd);
   while(!cfg.valid){ tpd--; if(tpd<=0) return null; cfg=calc(tpd); }
   const bound=inc(cfg)*(1-TOL); let numAc=1;
   for(let i=2;i<200;i++){ const ic=calc(tpd*i); if(!ic.valid) break; if(inc(ic)<bound) break; cfg=ic; numAc=i; }
-  return {y:cfg.y,j:cfg.j,f:cfg.f,tpd,numAc};
+  return {y:cfg.y,j:cfg.j,f:cfg.f,tpd,numAc,dep:tpd*numAc};
 }
-function bestCargo(dem,sp,flown,direct){
+function bestCargo(dem,sp,flown,direct,n){
   const speed=mode==='easy'?sp.easy:sp.realism;
   const c=PRICE[mode];
   const tl=Math.floor(1.10*(c.L[0]*direct+c.L[1]))/100, th=Math.floor(1.08*(c.H[0]*direct+c.H[1]))/100;
@@ -340,12 +353,14 @@ function bestCargo(dem,sp,flown,direct){
     return {l,h,valid:dh>=sp.cap*(h/100)};
   };
   const inc=c=>(c.l*0.7*tl+c.h*th)*sp.cap/100;
-  let tpd=Math.min(Math.floor(24/(flown/speed)),Math.floor(dem.l/0.7+dem.h/sp.cap));
+  const maxT=Math.floor(24/(flown/speed));
+  if(n>0){ const c=calc(n); return {l:c.l,h:c.h,tpd:n,numAc:Math.ceil(n/Math.max(1,maxT)),dep:n,maxT,fixed:true}; }
+  let tpd=Math.min(maxT,Math.floor(dem.l/0.7+dem.h/sp.cap));
   let cfg=calc(tpd);
   while(!cfg.valid){ tpd--; if(tpd<=0) return null; cfg=calc(tpd); }
   const bound=inc(cfg)*(1-TOL); let numAc=1;
   for(let i=2;i<200;i++){ const ic=calc(tpd*i); if(!ic.valid) break; if(inc(ic)<bound) break; cfg=ic; numAc=i; }
-  return {l:cfg.l,h:cfg.h,tpd,numAc};
+  return {l:cfg.l,h:cfg.h,tpd,numAc,dep:tpd*numAc};
 }
 
 // ---------- split-flap ----------
@@ -567,40 +582,76 @@ function renderDemand(){
     $('kDem').textContent='Demand'; $('demV').textContent='\u2013';
     $('kCfg').textContent='Best seat configuration'; $('cfgV').textContent='\u2013';
     $('loadV').textContent='\u2013';
+    setFlags([]);
     return;
   }
   if(spec&&spec.cat==='cargo'){
     $('kDem').textContent='Cargo demand';
     $('demV').textContent=`L ${fmt(demData.l)} / H ${fmt(demData.h)}`;
     $('kCfg').textContent='Best cargo split';
-    const r=bestCargo(demData,spec,flown,current.direct);
-    $('cfgV').innerHTML=r?`L ${r.l}% / H ${r.h}% <span class="sm">${r.tpd} dep/day \u00d7 ${r.numAc} A/C</span>`:'\u2013';
+    const r=bestCargo(demData,spec,flown,current.direct,fpd);
+    const q=r&&r.fixed?cargoQuota(r,demData,spec.cap):{};
+    $('cfgV').innerHTML=r?`L ${r.l}%${qx(q.l)} / H ${r.h}%${qx(q.h)} <span class="sm">${depText(r)}</span>`:'\u2013';
     $('loadV').title='Expected share of cargo capacity used at today\'s demand.';
     $('loadV').textContent=r?cargoLoad(r,demData,spec.cap):'\u2013';
+    setFlags(r&&r.fixed?fixedFlags(r,cargoStats(r,demData,spec.cap)):[]);
   } else {
     $('kDem').textContent='Demand';
     $('demV').textContent=`Y ${fmt(demData.y)} / J ${fmt(demData.j)} / F ${fmt(demData.f)}`;
     $('kCfg').textContent='Best seat configuration';
-    const r=spec?bestPax(demData,spec,flown,current.direct):null;
-    $('cfgV').innerHTML=r?`Y ${r.y} / J ${r.j} / F ${r.f} <span class="sm">${r.tpd} dep/day \u00d7 ${r.numAc} A/C</span>`:'\u2013';
+    const r=spec?bestPax(demData,spec,flown,current.direct,fpd):null;
+    const q=r&&r.fixed?paxQuota(r,demData):{};
+    $('cfgV').innerHTML=r?`Y ${r.y}${qx(q.y)} / J ${r.j}${qx(q.j)} / F ${r.f}${qx(q.f)} <span class="sm">${depText(r)}</span>`:'\u2013';
     $('loadV').title='Expected share of seats filled at today\'s demand.';
     $('loadV').textContent=r?paxLoad(r,demData):'\u2013';
+    setFlags(r&&r.fixed?fixedFlags(r,paxStats(r,demData)):[]);
   }
 }
 const pct=v=>Math.round(Math.min(1,v)*100)+'%';
 function paxLoad(r,dem){
-  const dep=r.tpd*r.numAc;
+  const dep=r.dep;
   const cls=['y','j','f'].map((k,i)=>['Y','J','F'][i]+' '+(r[k]?pct((dem[k]/dep)/r[k]):'\u2014'));
   const seats=r.y+2*r.j+3*r.f;
   const carried=['y','j','f'].reduce((s,k,i)=>s+[1,2,3][i]*Math.min(dem[k]/dep,r[k]),0);
   return cls.join(' \u00b7 ')+' \u00b7 overall '+pct(carried/seats);
 }
 function cargoLoad(r,dem,cap){
-  const dep=r.tpd*r.numAc;
+  const dep=r.dep;
   const lcap=cap*0.7*r.l/100, hcap=cap*r.h/100, tot=lcap+hcap;
   const carried=Math.min(dem.l/dep,lcap)+Math.min(dem.h/dep,hcap);
   return 'L '+(r.l?pct((dem.l/dep)/lcap):'\u2014')+' \u00b7 H '+(r.h?pct((dem.h/dep)/hcap):'\u2014')+' \u00b7 overall '+pct(carried/tot);
 }
+// ---------- fixed flights per day (ATL-153) ----------
+const depText=r=>!r.fixed||r.numAc===1?`${r.tpd} dep/day \u00d7 ${r.numAc} A/C`:`${r.dep} dep/day on ${r.numAc} A/C`;
+const qx=on=>on?'<span class="qx" title="Seats per flight \u00d7 flights per day exceed this class\'s daily demand.">\u25cf Quota exceeded</span>':'';
+function paxQuota(r,dem){ const q={}; ['y','j','f'].forEach(k=>{ q[k]=r[k]>0&&r[k]*r.dep>dem[k]; }); return q; }
+function cargoQuota(r,dem,cap){ return {l:r.l>0&&cap*0.7*r.l/100*r.dep>dem.l, h:r.h>0&&cap*r.h/100*r.dep>dem.h}; }
+function paxStats(r,dem){
+  const pax=['y','j','f'].reduce((s,k)=>s+Math.min(dem[k]/r.dep,r[k]),0);
+  const carried=['y','j','f'].reduce((s,k,i)=>s+[1,2,3][i]*Math.min(dem[k]/r.dep,r[k]),0);
+  return {pax, load:carried/(r.y+2*r.j+3*r.f)};
+}
+function cargoStats(r,dem,cap){
+  const lcap=cap*0.7*r.l/100, hcap=cap*r.h/100;
+  return {pax:null, load:(Math.min(dem.l/r.dep,lcap)+Math.min(dem.h/r.dep,hcap))/(lcap+hcap)};
+}
+function fixedFlags(r,st){
+  const f=[];
+  if(st.pax!=null && st.pax<MIN_PAX) f.push(['red',`Under ${MIN_PAX} pax per flight (${Math.floor(st.pax)} expected): contribution below maximum`]);
+  if(st.load<1) f.push(['amber','XP reduced']);
+  if(r.numAc>1) f.push(['info',`One aircraft flies up to ${r.maxT} a day on this distance`]);
+  return f;
+}
+function setFlags(list){
+  $('flagRow').style.display=list.length?'':'none';
+  $('flagV').innerHTML=list.map(([c,t])=>`<span class="flag ${c}">${t}</span>`).join('');
+}
+function initFpd(){
+  const sel=$('fpd'); sel.innerHTML='';
+  for(let i=0;i<=30;i++){ const o=document.createElement('option'); o.value=String(i); o.textContent=i?String(i):'Optimum'; sel.appendChild(o); }
+}
+function setFpd(n,run=true){ fpd=n; $('fpd').value=String(n); if(run&&current){ syncUrl(); renderDemand(); } }
+
 function applyAcft(name,applySpec){
   spec=AC.find(a=>a.name===name)||AC[0]||null;
   if(!spec) return;
@@ -742,6 +793,7 @@ function syncUrl(){
   p.set('buf',buf);
   if(ac==='cargo')p.set('ac','cargo');
   if(spec)p.set('acft',spec.name);
+  if(fpd)p.set('fpd',fpd);
   try{history.replaceState(null,'','?'+p.toString());}catch(e){}
 }
 function readUrl(){
@@ -753,6 +805,7 @@ function readUrl(){
   acftWanted=p.get('acft')||(ac==='cargo'?'A380F':'A380-800');
   acftApplySpec=!p.has('range');
   const b=p.has('buf')?+p.get('buf'):NaN; setBuf([0,5,10].includes(b)?b:10,false);
+  const n=/^\d+$/.test(p.get('fpd')||'')?+p.get('fpd'):0; setFpd(n>=1&&n<=30?n:0,false);
 }
 function setMode(m,run=true){ mode=m; $('mEasy').setAttribute('aria-pressed',m==='easy'); $('mReal').setAttribute('aria-pressed',m==='realism'); if(run&&current){ syncUrl(); render(false);} }
 function setBuf(b,run=true){ buf=b; $('b0').setAttribute('aria-pressed',b===0); $('b5').setAttribute('aria-pressed',b===5); $('b10').setAttribute('aria-pressed',b===10); if(run&&current){ syncUrl(); render(false);} }
@@ -764,11 +817,12 @@ $('replay').onclick=()=>{ flightT0=performance.now(); startLoop(); };
 if(reduce) $('replay').style.display='none';
 $('mEasy').onclick=()=>setMode('easy'); $('mReal').onclick=()=>setMode('realism');
 $('acft').onchange=()=>{ applyAcft($('acft').value,true); solve(0); };
+$('fpd').onchange=()=>setFpd(+$('fpd').value);
 $('b0').onclick=()=>setBuf(0); $('b5').onclick=()=>setBuf(5); $('b10').onclick=()=>setBuf(10);
 $('share').onclick=async()=>{ try{await navigator.clipboard.writeText(location.href); $('copied').textContent=' Link copied';}catch(e){$('copied').textContent=' Copy the address bar to share';} setTimeout(()=>$('copied').textContent='',2500); };
 
 let rz; addEventListener('resize',()=>{clearTimeout(rz); rz=setTimeout(()=>{ size(); view = route ? fitTo(route.all) : worldView(); draw(); },120);});
-initAircrafts(); readUrl(); size(); view=worldView(); draw();
+initAircrafts(); initFpd(); readUrl(); size(); view=worldView(); draw();
 document.fonts && document.fonts.ready.then(()=>draw());
 setTimeout(()=>{ solve(0); startLoop(); },350);
 </script>
