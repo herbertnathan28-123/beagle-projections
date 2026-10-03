@@ -93,7 +93,7 @@ canvas{display:block;width:100%;height:clamp(240px,42vw,440px)}
 .stat .k{font-size:13px;color:var(--muted)}
 .stat .v small{font-size:16px;color:var(--muted);font-weight:600;margin-left:3px}
 .extra{color:var(--green)}
-.tix{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.tix{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px}
 .tix div{background:var(--panel2);border-radius:10px;padding:10px 12px}
 .tix .k{font-size:13px;color:var(--muted)}
 .tix .v{font:700 24px "Barlow Condensed",sans-serif;color:var(--gold)}
@@ -186,7 +186,8 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
   .controls{grid-template-columns:1fr 1fr}
   .controls .modebox{grid-column:1/-1}
   .dchip{grid-column:1/-1;align-items:center;padding:0}
-  .grid2{grid-template-columns:1fr}
+  .grid2{grid-template-columns:minmax(0,1fr)}
+  .tix div{padding:10px 8px}.tix .v{font-size:20px}
   .board{grid-template-columns:1fr;gap:10px}
   .arrow{text-align:left}
   .arrow strong{display:inline;margin-right:6px}
