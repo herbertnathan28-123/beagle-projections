@@ -415,14 +415,18 @@ function esc(t){ return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 function countryOf(s){ return String(s[3]||'').replace(/^.*, United States$/,'United States'); }
 function flagOf(s){ const c=FACTS.countries[countryOf(s)]; return c&&/^[a-z]{2}$/.test(c[0])?c[0]:''; }
 const flagUrl=(cc,w)=>`https://flagcdn.com/w${w}/${cc}.png`;
+function codeHash(code,seed){ let h=seed>>>0; for(const ch of String(code)) h=(Math.imul(h,31)+ch.charCodeAt(0))>>>0; return h; }
+// Stable per airport: an airport's own fact first, else one of its country's facts, so neighbouring stops differ.
 function stopFact(s){
-  return FACTS.airports[s[0]]||(FACTS.countries[countryOf(s)]||[])[1]
-    ||`${s[2]} is one of ${fmt(DB.length)} airports in the game, and today it's the one that matters.`;
+  if(FACTS.airports[s[0]]) return FACTS.airports[s[0]];
+  const c=countryOf(s), base=(FACTS.countries[c]||[])[1];
+  const pool=(base?[base]:[]).concat((FACTS.more||{})[c]||[]);
+  return pool.length?pool[codeHash(s[0],7)%pool.length]
+    :`${s[2]} is one of ${fmt(DB.length)} airports in the game, and today it's the one that matters.`;
 }
 function stopQuip(s){
   const q=FACTS.quips||[]; if(!q.length) return '';
-  let h=0; for(const ch of s[0]) h=(h*31+ch.charCodeAt(0))>>>0;
-  return q[h%q.length];
+  return q[codeHash(s[0],0)%q.length];
 }
 let shownStop='';
 function showStop(s){
