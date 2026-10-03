@@ -427,9 +427,15 @@ test('manual flights per day (1\u201330) drives the route numbers; cards and ran
   assert.strictEqual(ELS.loadV.textContent, 'Y 100% \u00b7 J 100% \u00b7 F 100% \u00b7 overall 100%');
   assert.match(ELS.fpdV.innerHTML, /your choice \u00b7 compare with Optimum above/);
   const bm0 = rowAt(p.bestMoney);
-  assert.strictEqual(ELS.optV.innerHTML, `3 a day <span class="sm">9h 00m flight \u00b7 Y ${bm0.cfg.y} / J ${bm0.cfg.j} / F ${bm0.cfg.f} \u00b7 $8,354,410 profit/day \u00b7 126.51 C/D \u00b7 best for money</span>`);
+  const moneyTile = `<span class="h">BEST FOR MONEY</span><span class="big">3 <small>a day</small></span><span class="ln">9h 00m flight</span><span class="ln">Y ${bm0.cfg.y} / J ${bm0.cfg.j} / F ${bm0.cfg.f}</span><span class="gr">$8,354,410 profit/day \u00b7 126.51 C/D</span>`;
+  assert.strictEqual(ELS.optMoney.innerHTML, moneyTile);
+  assert.match(ELS.optCd.innerHTML, /^<span class="h">BEST FOR CONTRIBUTIONS<\/span><span class="big">2 <small>a day<\/small><\/span><span class="ln">15h 30m flight<\/span>.* 157\.38 C\/D<\/span>$/);
+  assert.match(ELS.optAll.innerHTML, /^<span class="h">BEST OVERALL<\/span><span class="big">\d+ <small>a day/);
+  assert.strictEqual(ELS.optMoney.getAttribute('aria-pressed'), 'true');
   ctx.setSort('cd'); await settle();
-  assert.match(ELS.optV.innerHTML, /^2 a day <span class="sm">15h 30m flight \u00b7 .* 157\.38 C\/D \u00b7 best for contributions<\/span>$/);
+  assert.strictEqual(ELS.optCd.getAttribute('aria-pressed'), 'true');
+  assert.strictEqual(ELS.optMoney.getAttribute('aria-pressed'), 'false');
+  assert.strictEqual(ELS.optMoney.innerHTML, moneyTile, 'all three optimums stay on screen whichever card ranks the table');
   assert.match(ELS.cfgV.innerHTML, /^Y 266 \/ J 71 \/ F 64 <span class="sm">at your 2 a day/);
   ctx.setSort('money'); await settle();
   assert.doesNotMatch(ELS.cfgV.innerHTML + ELS.flagV.innerHTML, /Quota exceeded|NaN/);
@@ -468,10 +474,10 @@ test('flights per day are whole numbers (2\u00bd \u2192 2); the optimum flight t
   const bm = rowAt(p.bestMoney);
   assert.strictEqual(bm.t, 10);
   assert.strictEqual(bm.dep48, 5);
-  const shown = ELS.optV.innerHTML + ELS.fpdV.innerHTML + ELS.planT.innerHTML + ELS.planNote.textContent +
+  const shown = ELS.optMoney.innerHTML + ELS.optCd.innerHTML + ELS.optAll.innerHTML + ELS.fpdV.innerHTML + ELS.planT.innerHTML + ELS.planNote.textContent +
     ELS.bestCd.innerHTML + ELS.bestMoney.innerHTML + ELS.bestAll.innerHTML;
   assert.doesNotMatch(shown, /\u00bd/);
-  assert.match(ELS.optV.innerHTML, /^2 a day <span class="sm">10h 00m flight/);
+  assert.match(ELS.optMoney.innerHTML, /^<span class="h">BEST FOR MONEY<\/span><span class="big">2 <small>a day<\/small><\/span><span class="ln">10h 00m flight/);
   assert.match(ELS.fpdV.innerHTML, /^2 <span class="sm">2 a day \u00d7 1 A\/C \u00b7 5 in 48 h<\/span>$/);
   assert.match(ELS.planT.innerHTML, /<tr data-t="10" [^>]*><td>10h 00m.*?<\/td><td>\d+<\/td><td>2<\/td>/);
   ctx.setFpd(10); await settle();
@@ -484,9 +490,17 @@ test('flights per day are whole numbers (2\u00bd \u2192 2); the optimum flight t
   assert.ok(f2, ELS.fpdV.innerHTML);
   assert.strictEqual(+f2[1], 2 * +f2[2], 'each aircraft flies whole flights');
   assert.strictEqual(+f2[2], Math.floor(rowAt(vm.runInContext('selT', ctx)).dep48 / 2));
-  assert.ok(ELS.optV.innerHTML.startsWith(`${f2[1]} a day `));
-  assert.doesNotMatch(ELS.optV.innerHTML + ELS.planT.innerHTML, /\u00bd/);
+  assert.ok(ELS.optMoney.innerHTML.includes(`<span class="big">${f2[1]} <small>a day`));
+  assert.doesNotMatch(ELS.optMoney.innerHTML + ELS.optCd.innerHTML + ELS.optAll.innerHTML + ELS.planT.innerHTML, /\u00bd/);
   ctx.setNac(1); await settle();
+});
+
+test('best stopovers lists the 3 shortest', async () => {
+  drive({ from: 'JFK', to: 'AKL', range: '10,000', rwy: '9,680' });
+  await settle();
+  const list = vm.runInContext('current.list.map((x) => x.tot)', ctx);
+  assert.strictEqual(list.length, 3);
+  assert.deepStrictEqual([...list], [...list].sort((a, b) => a - b));
 });
 
 test('a first visit with no link opens on JFK \u2192 SYD with the A380-800 (needs a stopover, not a short hop)', () => {
