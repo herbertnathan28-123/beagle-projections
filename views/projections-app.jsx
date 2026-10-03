@@ -76,6 +76,13 @@ function buildModel(board, opts) {
   const N = 90;
   const xs = Array.from({ length: N + 1 }, (_, i) => days * i / N);
   const base = { kind: view, xMax: days, asOf: board.asOf, series: [], markers: [], yLog: false, invert: false };
+  // Projected rank of every alliance at day d, from the whole field's projected SV —
+  // the ranking the table prints for the same horizon. The right-edge labels use it.
+  base.rankAt = d => {
+    const m = new Map();
+    rows.map(r => ({ name: r.name, v: svAt(r, d, trend) })).sort((a, b) => b.v - a.v).forEach((s, i) => m.set(s.name, i + 1));
+    return m;
+  };
 
   if (view === 'rank') {
     // Rank at every step from the whole field's projected SV (not just the shown pack).
@@ -86,8 +93,8 @@ function buildModel(board, opts) {
     for (const r of shown) {
       base.series.push({
         name: r.name, rank: r.rank, isBeagle: r.isBeagle, color: colorOf(r),
-        pts: xs.map((d, i) => [d, ranksAt[i].get(r.name)]), lin: null, noPrefix: true,
-        endFmt: v => '#' + Math.round(v) + (Math.round(v) !== r.rank ? ' (now #' + r.rank + ')' : ''),
+        pts: xs.map((d, i) => [d, ranksAt[i].get(r.name)]), lin: null,
+        endFmt: v => '#' + Math.round(v),
       });
     }
     const rk = base.series.flatMap(s => s.pts.map(p => p[1]));
@@ -98,23 +105,27 @@ function buildModel(board, opts) {
   }
 
   if (view === 'gap') {
+    // Measured against Beagle's share value NOW, so Beagle carries its own projected
+    // climb from 0 through the pack instead of being pinned flat to 0. A crossing is
+    // where a rival's line meets Beagle's line, and that is where its dot sits.
+    const b0 = beagle.sv;
     for (const r of shown) {
-      const f = d => r.isBeagle ? 0 : svAt(r, d, trend) - svAt(beagle, d, trend);
-      const fl = d => r.isBeagle ? 0 : svAt(r, d, false) - svAt(beagle, d, false);
+      const f = d => svAt(r, d, trend) - b0;
+      const fl = d => svAt(r, d, false) - b0;
       base.series.push({
         name: r.name, rank: r.rank, isBeagle: r.isBeagle, color: colorOf(r),
-        pts: xs.map(d => [d, f(d)]), lin: trend && !r.isBeagle ? xs.map(d => [d, fl(d)]) : null,
-        endFmt: v => r.isBeagle ? 'Beagle' : (v >= 0 ? '+' : '−') + fmtMoney(Math.abs(v)),
+        pts: xs.map(d => [d, f(d)]), lin: trend ? xs.map(d => [d, fl(d)]) : null,
+        endFmt: v => (v >= 0 ? '+' : '−') + fmtMoney(Math.abs(v)),
       });
       const cd = catchFor(r, trend);
-      if (!r.isBeagle && cd != null && cd > 0 && cd <= days) base.markers.push({ x: cd, y: 0, color: colorOf(r), text: fmtShortDate(new Date(Date.parse(board.asOf) + cd * DAY_MS)), name: r.name });
+      if (!r.isBeagle && cd != null && cd > 0 && cd <= days) base.markers.push({ x: cd, y: svAt(beagle, cd, trend) - b0, color: colorOf(r), text: fmtShortDate(new Date(Date.parse(board.asOf) + cd * DAY_MS)), name: r.name });
     }
     const all = base.series.flatMap(s => s.pts.concat(s.lin || []).map(p => p[1]));
     const lo = Math.min(0, ...all), hi = Math.max(0, ...all), pad = (hi - lo) * 0.06 || 10;
     base.yMin = lo - pad; base.yMax = hi + pad;
     base.yTick = v => (v > 0 ? '+' : v < 0 ? '−' : '') + fmtMoney(Math.abs(v));
     base.zeroLine = true;
-    base.title = 'Gap to Beagle (above 0 = ahead of Beagle)';
+    base.title = 'Share value against Beagle now (0 = Beagle today; Beagle climbs from 0)';
     return base;
   }
 
@@ -152,7 +163,7 @@ function createRenderer(canvas, hooks) {
 
   function plotRect() {
     const mob = st.w < 640;
-    const labelW = mob ? 118 : 196, m = st.model;
+    const labelW = mob ? 118 : 236, m = st.model;
     // wide enough for the longest tick label, e.g. $10,000.00
     const tickChars = m && m.yTick ? Math.max(String(m.yTick(m.yMin)).length, String(m.yTick(m.yMax)).length) : 0;
     const l = Math.max(mob ? 46 : 64, Math.round(tickChars * (mob ? 6 : 7) + 10));
@@ -298,6 +309,7 @@ function createRenderer(canvas, hooks) {
     // right-hand labels with two-way collision avoidance and leader lines
     const fs = R.mob ? 10.5 : 12.5, gapPx = fs + 3;
     const endX = Math.min(V.x1, m.xMax);
+    const rankMap = m.rankAt ? m.rankAt(endX) : null;
     let labels = m.series.map(s => { const v = valueAt(s.pts, endX); return { s, v, y0: yMap(v) }; })
       .filter(l => l.y0 >= R.t - 40 && l.y0 <= R.b + 40);
     const cap = Math.floor((R.b - R.t) / gapPx);
@@ -325,15 +337,19 @@ function createRenderer(canvas, hooks) {
       ctx.strokeStyle = s.isBeagle ? C.beagle : s.color; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(R.r, yl); ctx.lineTo(R.r + 6, yl); ctx.lineTo(R.r + 12, l.y); ctx.stroke();
       const nameMax = R.mob ? 11 : 17;
-      const txt = (s.rank && !s.noPrefix ? '#' + s.rank + ' ' : '') + shortName(s.name, nameMax);
+      const pr = rankMap ? rankMap.get(s.name) : null;
+      const txt = (pr ? '#' + pr + ' ' : '') + shortName(s.name, nameMax);
       ctx.font = font(s.isBeagle || s.name === focusName ? 700 : 500, fs);
       ctx.fillStyle = s.isBeagle ? C.beagle : s.color;
       ctx.fillText(txt, R.r + 15, l.y);
       if (!R.mob || s.isBeagle || s.name === focusName) {
         const tw = ctx.measureText(txt).width;
         ctx.font = font(400, fs - 1); ctx.fillStyle = s.isBeagle ? C.beagle : C.muted;
-        const val = s.endFmt(l.v);
-        if (R.r + 15 + tw + 6 + ctx.measureText(val).width < st.w - 2) ctx.fillText(val, R.r + 15 + tw + 6, l.y);
+        const nowTxt = pr && pr !== s.rank ? 'now #' + s.rank : '';
+        const endTxt = m.kind === 'rank' ? '' : s.endFmt(l.v);
+        for (const val of [[nowTxt, endTxt].filter(Boolean).join(' · '), nowTxt]) {
+          if (val && R.r + 15 + tw + 6 + ctx.measureText(val).width < st.w - 2) { ctx.fillText(val, R.r + 15 + tw + 6, l.y); break; }
+        }
       }
       ctx.globalAlpha = 1;
     }
