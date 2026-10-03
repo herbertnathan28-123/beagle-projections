@@ -24,6 +24,10 @@ const DEMANDS = {
   'VMMC>SCEL': { y: 813, j: 812, f: 105, l: 407000, h: 812000 },
   'SCEL>ZHHH': { y: 1389, j: 220, f: 88, l: 695000, h: 220000 },
   'SVMI>WIII': { y: 966, j: 685, f: 309, l: 483000, h: 685000 },
+  // ATL-153 reference route JFK→MEL (via ROW on the A380-800)
+  'KJFK>YMML': { y: 660, j: 270, f: 147, l: 330000, h: 270000 },
+  // Synthetic thin route for the contribution-floor flag
+  'VHHH>WPEC': { y: 40, j: 10, f: 5, l: 20000, h: 10000 },
 };
 
 // Generic canvas-2d stand-in: every method returns another stub, property sets are swallowed.
@@ -58,6 +62,7 @@ function el(id) {
   return o;
 }
 
+let lastUrl = '';
 const ELS = {};
 const documentStub = {
   getElementById: (id) => ELS[id] || (ELS[id] = el(id)),
@@ -78,7 +83,7 @@ const ctx = vm.createContext({
   cancelAnimationFrame() {},
   performance,
   devicePixelRatio: 1,
-  history: { replaceState() {} },
+  history: { replaceState(_s, _t, u) { lastUrl = String(u); } },
   location: { search: '' },
   navigator: { clipboard: { writeText: () => Promise.resolve() } },
   URLSearchParams,
@@ -233,4 +238,139 @@ test('a stopover result card states the total distance per leg', () => {
   assert.match(ELS.msg.className, /ok/);
   assert.match(ELS.msg.innerHTML, /Your stopover is \w{3}/);
   assert.match(ELS.msg.innerHTML, /Total [\d,]+ km \(leg 1 [\d,]+ km \+ leg 2 [\d,]+ km\)/);
+});
+
+// ATL-153: flights-per-day selector (Optimum + 1–30 departures by one aircraft).
+const QX = /<span class="qx"[^>]*>[^<]*<\/span>/g;
+const cfgText = () => ELS.cfgV.innerHTML.replace(QX, '');
+const quotaClasses = () => [...ELS.cfgV.innerHTML.matchAll(/([YJFLH]) [\d]+%?<span class="qx"/g)].map((m) => m[1]).join('');
+
+test('Optimum leaves all 9 ATL-148 reference configs exactly as before', async () => {
+  await flush(); await flush();
+  ctx.applyAcft('A380-800', false);
+  ctx.setMode('realism', false);
+  ctx.setFpd(0, false);
+  const cases = [
+    ['VVNB', 'SPIM', 'Y 317 / J 59 / F 55', '1 dep/day \u00d7 4 A/C'],
+    ['RPLL', 'SGAS', 'Y 286 / J 132 / F 16', '1 dep/day \u00d7 4 A/C'],
+    ['MROC', 'WIII', 'Y 324 / J 101 / F 24', '1 dep/day \u00d7 5 A/C'],
+    ['VMMC', 'SGAS', 'Y 400 / J 75 / F 16', '1 dep/day \u00d7 5 A/C'],
+    ['ZGSZ', 'SLLP', 'Y 305 / J 123 / F 16', '1 dep/day \u00d7 4 A/C'],
+    ['VMMC', 'SCEL', 'Y 216 / J 192 / F 0', '1 dep/day \u00d7 4 A/C'],
+    ['ZGSZ', 'SCEL', 'Y 223 / J 169 / F 13', '1 dep/day \u00d7 4 A/C'],
+    ['SCEL', 'ZHHH', 'Y 492 / J 54 / F 0', '1 dep/day \u00d7 3 A/C'],
+    ['SVMI', 'WIII', 'Y 205 / J 145 / F 35', '1 dep/day \u00d7 5 A/C'],
+  ];
+  for (const [from, to, cfg, dep] of cases) {
+    drive({ from, to, range: '14,500', rwy: '9,680' });
+    await flush(); await flush();
+    assert.strictEqual(ELS.cfgV.innerHTML, `${cfg} <span class="sm">${dep}</span>`, `${from}->${to}`);
+    assert.strictEqual(ELS.flagRow.style.display, 'none', `${from}->${to} Optimum shows no flags`);
+  }
+});
+
+test('JFK\u2192MEL via ROW on A380 (Easy): Optimum Y351/J124/F0 at 2 dep/day, fixed 2 matches it', async () => {
+  ctx.setMode('easy', false);
+  ctx.setFpd(0, false);
+  drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
+  await flush(); await flush();
+  assert.match(ELS.msg.innerHTML, /Your stopover is ROW/);
+  assert.strictEqual(ELS.cfgV.innerHTML, 'Y 351 / J 124 / F 0 <span class="sm">2 dep/day \u00d7 1 A/C</span>');
+  const optLoad = ELS.loadV.textContent;
+  assert.strictEqual(optLoad, 'Y 94% \u00b7 J 100% \u00b7 F \u2014 \u00b7 overall 96%');
+
+  ctx.setFpd(2, false);
+  drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
+  await flush(); await flush();
+  assert.strictEqual(cfgText(), 'Y 351 / J 124 / F 0 <span class="sm">2 dep/day \u00d7 1 A/C</span>');
+  assert.strictEqual(ELS.loadV.textContent, optLoad);
+  assert.strictEqual(quotaClasses(), 'Y', '351 \u00d7 2 = 702 Y seats > 660 Y demand');
+  assert.match(ELS.flagV.innerHTML, /XP reduced/);
+  ctx.setFpd(0, false);
+});
+
+test('JFK\u2192MEL fixed 1, 4 and 30 give configs, recalculated loads and aircraft counts', async () => {
+  ctx.setMode('easy', false);
+  const want = {
+    1: ['Y 600 / J 0 / F 0 <span class="sm">1 dep/day \u00d7 1 A/C</span>', 'Y 100% \u00b7 J \u2014 \u00b7 F \u2014 \u00b7 overall 100%', ''],
+    4: ['Y 175 / J 71 / F 94 <span class="sm">4 dep/day on 2 A/C</span>', 'Y 94% \u00b7 J 95% \u00b7 F 39% \u00b7 overall 68%', 'YJF'],
+    30: ['Y 23 / J 9 / F 186 <span class="sm">30 dep/day on 15 A/C</span>', 'Y 96% \u00b7 J 100% \u00b7 F 3% \u00b7 overall 9%', 'YF'],
+  };
+  for (const n of [1, 4, 30]) {
+    ctx.setFpd(n, false);
+    drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
+    await flush(); await flush();
+    assert.strictEqual(cfgText(), want[n][0], `fpd ${n}`);
+    assert.strictEqual(ELS.loadV.textContent, want[n][1], `fpd ${n}`);
+    assert.strictEqual(quotaClasses(), want[n][2], `fpd ${n}`);
+  }
+  assert.match(ELS.flagV.innerHTML, /One aircraft flies up to 2 a day on this distance/);
+  ctx.setFpd(1, false);
+  drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
+  await flush(); await flush();
+  assert.strictEqual(ELS.flagRow.style.display, 'none', '100% load, no quota breach: no flags');
+  ctx.setFpd(0, false);
+});
+
+test('ticket prices do not change with flights per day', async () => {
+  ctx.setMode('easy', false);
+  const prices = [];
+  for (const n of [0, 1, 7, 30]) {
+    ctx.setFpd(n, false);
+    drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
+    await flush();
+    prices.push([ELS.tY.textContent, ELS.tJ.textContent, ELS.tF.textContent].join());
+  }
+  assert.strictEqual(new Set(prices).size, 1);
+  ctx.setFpd(0, false);
+});
+
+test('under 15 pax per flight raises the contribution flag', async () => {
+  ctx.setMode('easy', false);
+  ctx.setFpd(30, false);
+  drive({ from: 'HKG', to: 'BCH', range: '14,500', rwy: '0' });
+  await flush(); await flush();
+  assert.match(ELS.flagV.innerHTML, /Under 15 pax per flight \(\d+ expected\): contribution below maximum/);
+  ctx.setFpd(0, false);
+});
+
+test('every aircraft (pax and cargo) gives a config and load for Optimum and 1\u201330', async () => {
+  ctx.setMode('easy', false);
+  for (const a of ACFT) {
+    ctx.applyAcft(a.name, false);
+    for (let n = 0; n <= 30; n++) {
+      ctx.setFpd(n, false);
+      drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '0' });
+      await flush(); await flush();
+      const t = ELS.cfgV.innerHTML + ' ' + ELS.loadV.textContent;
+      assert.doesNotMatch(t, /NaN|undefined|Infinity|\u2013/, `${a.name} fpd ${n}`);
+      assert.match(t, a.cat === 'cargo' ? /^L \d+%.* \/ H \d+%.*dep\/day/ : /^Y \d+.* \/ J \d+.* \/ F \d+.*dep\/day/, `${a.name} fpd ${n}`);
+      assert.match(ELS.cfgV.innerHTML, new RegExp(`>${n || '\\d+'} dep/day`), `${a.name} fpd ${n}`);
+    }
+  }
+  ctx.applyAcft('A380-800', false);
+  ctx.setFpd(0, false);
+});
+
+test('flights per day is kept across route/aircraft changes and carried in the link', async () => {
+  ctx.setFpd(4, false);
+  drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
+  assert.match(lastUrl, /[?&]fpd=4(&|$)/);
+  ctx.applyAcft('B747-8F', false);
+  drive({ from: 'VVNB', to: 'SPIM', range: '14,500', rwy: '9,680' });
+  await flush(); await flush();
+  assert.match(lastUrl, /[?&]fpd=4(&|$)/);
+  assert.match(ELS.cfgV.innerHTML, />4 dep\/day/);
+  ctx.applyAcft('A380-800', false);
+  ctx.setFpd(0, false);
+  drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
+  assert.doesNotMatch(lastUrl, /fpd=/, 'Optimum keeps the link clean');
+
+  for (const [q, v] of [['?fpd=12', '12'], ['?fpd=31', '0'], ['?fpd=abc', '0'], ['', '0']]) {
+    ctx.location.search = q;
+    ctx.readUrl();
+    assert.strictEqual(ELS.fpd.value, v, q);
+  }
+  ctx.location.search = '';
+  ctx.setFpd(0, false);
 });
