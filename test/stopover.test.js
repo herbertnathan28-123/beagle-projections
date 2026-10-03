@@ -112,6 +112,7 @@ const ctx = vm.createContext({
   addEventListener() {},
   console,
 });
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'stopover-facts.js'), 'utf8'), ctx);
 vm.runInContext(src, ctx);
 
 function drive({ from, to, range, rwy }) {
@@ -541,4 +542,48 @@ test('every aircraft gives a best setup with no NaN; money card only where cost 
     assert.match(ELS.bestMoney.innerHTML, costed ? /\/day/ : /No cost figures for this aircraft/, a.name);
   }
   ctx.applyAcft('A380-800', false);
+});
+
+// ---------- stopover banner: "Your stopover is", flag, fact, cheeky reason ----------
+const DBROWS = JSON.parse(html.match(/const DB = (\[\[[\s\S]*?\]\]);/)[1]);
+const FACTS = require('../public/stopover-facts.js');
+
+test('a stopover shows "Your stopover is" with its flag, a true fact and a quip', () => {
+  drive({ from: 'JFK', to: 'SYD', range: '14,500', rwy: '9,680' });
+  assert.strictEqual(ELS.rS.textContent, 'Your stopover is');
+  assert.match(ELS.fS.children.map((b) => b.textContent).join(''), /TUS/);
+  assert.strictEqual(ELS.flS.hidden, false);
+  assert.match(ELS.flS.src, /flagcdn\.com\/w80\/us\.png$/);
+  assert.strictEqual(ELS.xS.hidden, false);
+  assert.match(ELS.xS.innerHTML, /Boneyard/);
+  assert.ok(FACTS.quips.some((q) => ELS.xS.innerHTML.includes(q)), 'a quip is shown');
+  assert.match(ELS.msg.innerHTML, /Your stopover is TUS<img class="mflag" src="https:\/\/flagcdn\.com\/w80\/us\.png"/);
+});
+
+test('a direct route hides the stopover flag and fact', () => {
+  drive({ from: 'JFK', to: 'SYD', range: '14,500', rwy: '9,680' });
+  drive({ from: 'HKG', to: 'MEL', range: '14,500', rwy: '9,680' });
+  assert.strictEqual(ELS.rS.textContent, 'Stops at');
+  assert.strictEqual(ELS.flS.hidden, true);
+  assert.strictEqual(ELS.xS.hidden, true);
+});
+
+test('every country in the airport table has a flag code and a fact; airport facts name real airports', () => {
+  for (const r of DBROWS) {
+    const c = ctx.countryOf(r);
+    assert.ok(FACTS.countries[c], `no entry for ${c} (${r[0]})`);
+    assert.match(ctx.flagOf(r), /^[a-z]{2}$/, c);
+    assert.ok(ctx.stopFact(r).length > 20, r[0]);
+  }
+  const codes = new Set(DBROWS.map((r) => r[0]));
+  for (const k of Object.keys(FACTS.airports)) assert.ok(codes.has(k), `${k} is not in the airport table`);
+  assert.strictEqual(ctx.countryOf(['LAS', '', 'Las Vegas', 'V Int, United States']), 'United States');
+});
+
+test('an unknown country gets no flag and a safe generic fact; markup in text is escaped', () => {
+  const row = ['ZZZ', 'ZZZZ', 'Nowhere <b>', 'Atlantis', 5000, 50, 0, 0];
+  assert.strictEqual(ctx.flagOf(row), '');
+  assert.match(ctx.stopFact(row), /^Nowhere <b> is one of [\d,]+ airports in the game/);
+  assert.strictEqual(ctx.esc('<b>&"'), '&lt;b&gt;&amp;&quot;');
+  assert.strictEqual(ctx.stopQuip(row), ctx.stopQuip(row), 'quip is stable per airport');
 });
