@@ -616,3 +616,19 @@ test('Wichita and Amarillo get their own facts; Tucson keeps the Boneyard; neigh
   assert.ok(new Set(noOwn.map((r) => ctx.stopFact(r))).size >= 20, 'US fallback facts barely vary');
   for (const r of near) assert.strictEqual(ctx.stopFact(r), ctx.stopFact(r), 'fact is stable per airport');
 });
+
+test('the three best stopovers never share a fact or a quip', () => {
+  drive({ from: 'JFK', to: 'SYD', range: '14,500', rwy: '9,680' });
+  // JFK→SYD's best three: TUS, PNC and WWR, whose own hashes would give PNC and WWR the same quip.
+  const rows = ['TUS', 'PNC', 'WWR'].map((c) => DBROWS.find((r) => r[0] === c));
+  const quips = rows.map((r) => ctx.stopQuip(r));
+  const facts = rows.map((r) => ctx.stopFact(r));
+  assert.strictEqual(new Set(quips).size, 3, `quips repeat: ${quips.join(' | ')}`);
+  assert.strictEqual(new Set(facts).size, 3, 'facts repeat');
+  ctx.assignPicks([rows[2], rows[1]]);
+  assert.strictEqual(ctx.stopQuip(rows[1]) !== ctx.stopQuip(rows[2]), true);
+  const usA = DBROWS.filter((r) => ctx.countryOf(r) === 'United States' && !FACTS.airports[r[0]]).slice(0, 3);
+  ctx.assignPicks(usA);
+  assert.strictEqual(new Set(usA.map((r) => ctx.stopFact(r))).size, 3, 'three US fallbacks share a fact');
+  drive({ from: 'JFK', to: 'SYD', range: '14,500', rwy: '9,680' });
+});

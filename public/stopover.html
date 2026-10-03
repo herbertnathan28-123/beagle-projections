@@ -417,17 +417,28 @@ function flagOf(s){ const c=FACTS.countries[countryOf(s)]; return c&&/^[a-z]{2}$
 const flagUrl=(cc,w)=>`https://flagcdn.com/w${w}/${cc}.png`;
 function codeHash(code,seed){ let h=seed>>>0; for(const ch of String(code)) h=(Math.imul(h,31)+ch.charCodeAt(0))>>>0; return h; }
 // Stable per airport: an airport's own fact first, else one of its country's facts, so neighbouring stops differ.
-function stopFact(s){
-  if(FACTS.airports[s[0]]) return FACTS.airports[s[0]];
+function factPool(s){
+  if(FACTS.airports[s[0]]) return [FACTS.airports[s[0]]];
   const c=countryOf(s), base=(FACTS.countries[c]||[])[1];
-  const pool=(base?[base]:[]).concat((FACTS.more||{})[c]||[]);
-  return pool.length?pool[codeHash(s[0],7)%pool.length]
-    :`${s[2]} is one of ${fmt(DB.length)} airports in the game, and today it's the one that matters.`;
+  return (base?[base]:[]).concat((FACTS.more||{})[c]||[]);
 }
-function stopQuip(s){
-  const q=FACTS.quips||[]; if(!q.length) return '';
-  return q[codeHash(s[0],0)%q.length];
+// First free slot from the airport's hash, so a set of candidates never shares a line.
+function pickFrom(pool,code,seed,used){
+  if(!pool.length) return '';
+  let i=codeHash(code,seed)%pool.length;
+  for(let n=0;n<pool.length&&used.has(pool[i]);n++) i=(i+1)%pool.length;
+  used.add(pool[i]); return pool[i];
 }
+let picks={};
+function assignPicks(rows){
+  picks={}; const uf=new Set(), uq=new Set();
+  for(const s of rows) picks[s[0]]={f:pickFrom(factPool(s),s[0],7,uf),q:pickFrom(FACTS.quips||[],s[0],0,uq)};
+}
+function stopFact(s){
+  const f=(picks[s[0]]||{}).f||pickFrom(factPool(s),s[0],7,new Set());
+  return f||`${s[2]} is one of ${fmt(DB.length)} airports in the game, and today it's the one that matters.`;
+}
+function stopQuip(s){ return (picks[s[0]]||{}).q||pickFrom(FACTS.quips||[],s[0],0,new Set()); }
 let shownStop='';
 function showStop(s){
   const r=$('rS'), f=$('flS'), x=$('xS'), sl=$('slS');
@@ -892,6 +903,7 @@ function render(fly){
     route={o:path[0],d:path[path.length-1],s:null,paths:[path],alts:[],oc:codes(O),dc:codes(D),rows:[O,D],legKm:[direct],totKm:direct,cLon};
   } else {
     const S=best.s;
+    assignPicks(list.map(x=>x.s));
     flap($('fS'),S[0]); showStop(S); $('nS').textContent=S[2]; $('mS').textContent=`${S[3]} · ${codes(S)} · runway ${fmt(S[4])} ft · market ${S[5]}%`;
     $('a1').innerHTML=`<strong>${fmt(best.d1)} km</strong>leg 1`; $('a2').innerHTML=`<strong>${fmt(best.d2)} km</strong>leg 2`;
     $('sActual').innerHTML=fmt(best.tot)+'<small>km</small>';
