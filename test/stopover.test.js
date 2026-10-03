@@ -462,6 +462,33 @@ test('manual flights per day (1\u201330) drives the route numbers; cards and ran
   ctx.setFpd(0, false); ctx.applyAcft('A380-800', false);
 });
 
+test('flights per day are whole numbers (2\u00bd \u2192 2); the optimum flight time is unchanged', async () => {
+  ctx.applyAcft('A380-800', false);
+  const p = await route('JFK', 'BCH');
+  const bm = rowAt(p.bestMoney);
+  assert.strictEqual(bm.t, 10);
+  assert.strictEqual(bm.dep48, 5);
+  const shown = ELS.optV.innerHTML + ELS.fpdV.innerHTML + ELS.planT.innerHTML + ELS.planNote.textContent +
+    ELS.bestCd.innerHTML + ELS.bestMoney.innerHTML + ELS.bestAll.innerHTML;
+  assert.doesNotMatch(shown, /\u00bd/);
+  assert.match(ELS.optV.innerHTML, /^2 a day <span class="sm">10h 00m flight/);
+  assert.match(ELS.fpdV.innerHTML, /^2 <span class="sm">2 a day \u00d7 1 A\/C \u00b7 5 in 48 h<\/span>$/);
+  assert.match(ELS.planT.innerHTML, /<tr data-t="10" [^>]*><td>10h 00m.*?<\/td><td>\d+<\/td><td>2<\/td>/);
+  ctx.setFpd(10); await settle();
+  const m = ELS.flagV.innerHTML.match(/Up to (\d+) a day per aircraft on this distance: (\d+) aircraft needed for 10 a day/);
+  assert.ok(m, ELS.flagV.innerHTML);
+  assert.strictEqual(+m[1], Math.floor(planNow().manual.maxDeps));
+  assert.strictEqual(+m[2], Math.ceil(10 / +m[1]));
+  ctx.setFpd(0); ctx.setNac(2); await settle();
+  const f2 = ELS.fpdV.innerHTML.match(/^(\d+) <span class="sm">(\d+) a day \u00d7 2 A\/C \u00b7 (\d+) in 48 h/);
+  assert.ok(f2, ELS.fpdV.innerHTML);
+  assert.strictEqual(+f2[1], 2 * +f2[2], 'each aircraft flies whole flights');
+  assert.strictEqual(+f2[2], Math.floor(rowAt(vm.runInContext('selT', ctx)).dep48 / 2));
+  assert.ok(ELS.optV.innerHTML.startsWith(`${f2[1]} a day `));
+  assert.doesNotMatch(ELS.optV.innerHTML + ELS.planT.innerHTML, /\u00bd/);
+  ctx.setNac(1); await settle();
+});
+
 test('a first visit with no link opens on JFK \u2192 SYD with the A380-800 (needs a stopover, not a short hop)', () => {
   ctx.location.search = '';
   ctx.readUrl();
