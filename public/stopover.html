@@ -595,22 +595,22 @@ function renderDemand(){
     return;
   }
   const o=plan.rows.find(x=>x.t===bestOf(plan))||r, sk=sortNow(plan);
-  $('optV').innerHTML=`${perDay(o.dep48*nAc)} a day <span class="sm">${tl(o.t)} flight \u00b7 ${cfgTxt(o.cfg)} \u00b7 ${o.profitDay==null?'':money(o.profitDay)+' profit/day \u00b7 '}${fmtC(o.cdDay)} C/D${nAc>1?' per A/C':''} \u00b7 ${{cd:'best for contributions',money:'best for money',all:'best overall'}[sk]}</span>`;
+  $('optV').innerHTML=`${perDay(o.dep48)*nAc} a day <span class="sm">${tl(o.t)} flight \u00b7 ${cfgTxt(o.cfg)} \u00b7 ${o.profitDay==null?'':money(o.profitDay)+' profit/day \u00b7 '}${fmtC(o.cdDay)} C/D${nAc>1?' per A/C':''} \u00b7 ${{cd:'best for contributions',money:'best for money',all:'best overall'}[sk]}</span>`;
   const man=fpd&&plan.manual?plan.manual:null, u=man||r;
   const pf=u.perFlight, at={...u.cfg,dep:man?man.freq:r.freq};
   $('demV').innerHTML=daily+` <span class="sm">per flight ${cargo?`L ${fmt(pf.l)} / H ${fmt(pf.h)}`:`Y ${fmt(pf.y)} / J ${fmt(pf.j)} / F ${fmt(pf.f)}`}</span>`;
   $('cfgV').innerHTML=cfgTxt(u.cfg)+` <span class="sm">${man?`at your ${fpd} a day`:`${tl(r.t)} flight`}</span>`;
   $('fpdV').innerHTML=man
     ? `<span class="sm">your choice \u00b7 compare with Optimum above</span>`
-    : `${perDay(r.dep48*nAc)} <span class="sm">${perDay(r.dep48)} a day \u00d7 ${nAc} A/C \u00b7 ${r.dep48*nAc} in 48 h</span>`;
+    : `${perDay(r.dep48)*nAc} <span class="sm">${perDay(r.dep48)} a day \u00d7 ${nAc} A/C \u00b7 ${r.dep48*nAc} in 48 h</span>`;
   $('loadV').textContent=cargo?cargoLoad(at,demData,spec.cap):paxLoad(at,demData);
   const flags=fixedFlags(cargo?cargoStats(at,demData,spec.cap):paxStats(at,demData));
   if(man&&man.need>nAc) flags.push(['info',`Up to ${perDay(man.maxDeps*2)} a day per aircraft on this distance: ${man.need} aircraft needed for ${fpd} a day`]);
   setFlags(flags);
 }
 const tl=h=>Math.floor(h)+'h '+(h%1?'30':'00')+'m';
-// 48 h departure counts are odd (the extra flight); show halves as ½.
-const perDay=n=>n%2?(Math.floor(n/2)||'')+'\u00bd':String(n/2);
+// A day holds whole flights: 5 departures in 48 h is flown as 2 a day (Nathan, 3 Oct). Figures stay on the 48 h basis.
+const perDay=n=>String(Math.floor(n/2));
 const money=v=>v==null?'\u2013':(v<0?'\u2212$':'$')+fmt(Math.round(Math.abs(v)));
 const cfgTxt=c=>c.l!=null?`L ${c.l}% / H ${c.h}%`:`Y ${c.y} / J ${c.j} / F ${c.f}`;
 // Sort key per card: contributions, money, or the 50/50 combined score.
@@ -649,7 +649,7 @@ function renderPlan(){
   }).join('');
   $('planT').innerHTML=head+'<tbody>'+body+'</tbody>';
   const lbl={cd:'contributions (C/D)',money:'profit/day',all:'overall score (C/D and profit, each as % of the best, 50/50)'}[sk];
-  $('planNote').textContent=`Ranked best to worst by ${lbl}; the top row is the optimum. Per aircraft per day at the selected price buffer. Demand is split over ${perDay(by(selT)?by(selT).dep48*nAc:c.dep48*nAc)} flights a day across ${nAc} aircraft. Tap a card to re-rank, or a row to show it in the route numbers.`;
+  $('planNote').textContent=`Ranked best to worst by ${lbl}; the top row is the optimum. Per aircraft per day at the selected price buffer. Demand is split over ${perDay(by(selT)?by(selT).dep48:c.dep48)*nAc} flights a day across ${nAc} aircraft. Tap a card to re-rank, or a row to show it in the route numbers.`;
 }
 function setSort(k){ if(!plan||plan[SORTS[k][0]]==null) return; sortBy=k; selT=plan[SORTS[k][0]]; selUser=false; syncUrl(); renderDemand(); }
 function pickT(t){ if(!plan||!plan.rows.some(r=>r.t===t)) return; selT=t; selUser=true; syncUrl(); renderDemand(); }
