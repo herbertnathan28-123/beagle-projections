@@ -188,7 +188,7 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
     </div>
     <div>
       <label for="range">Aircraft range (km)</label>
-      <input type="text" id="range" inputmode="numeric" placeholder="2036">
+      <input type="text" id="range" inputmode="numeric" placeholder="14500">
       <div class="hint">From the aircraft's spec card</div>
     </div>
     <div>
@@ -260,7 +260,7 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
       </div>
       <div class="dem">
         <div class="drow"><span class="k" id="kDem">Demand</span><span class="v" id="demV">–</span></div>
-        <div class="drow"><span class="k">Flights per day</span><span class="v" id="fpdV">–</span></div>
+        <div class="drow"><label class="k" for="fpd">Flights per day</label><span class="v"><select id="fpd" title="Recommended follows the selected best-setup card. Pick 1–30 to see your own strategy."></select> <span id="fpdV">–</span></span></div>
         <div class="drow"><span class="k" id="kCfg">Best seat configuration</span><span class="v" id="cfgV">–</span></div>
         <div class="drow"><span class="k" id="kLoad">Expected load</span><span class="v" id="loadV" title="Expected share of seats filled at today's demand.">–</span></div>
         <div class="drow" id="flagRow" style="display:none"><span class="k">Flags</span><span class="v flags" id="flagV"></span></div>
@@ -345,7 +345,7 @@ const fmtC=n=>n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionD
 // (/api/stopover/plan): per aircraft per day — departures, C/D, per-flight demand,
 // the capped seat config, revenue and profit. The page shows the selected row.
 let AC=[], spec=null, acftWanted='A380-800', acftApplySpec=true;
-let nAc=1, boost='0', plan=null, planKey='', selT=null, selUser=false, sortBy='money';
+let nAc=1, boost='0', plan=null, planKey='', selT=null, selUser=false, sortBy='money', fpd=0; // fpd 0 = Recommended; 1..30 = member's own flights a day (ATL-153)
 const MIN_PAX=15;
 
 // ---------- split-flap ----------
@@ -560,10 +560,10 @@ function demandFor(a,b){
     .catch(()=>{});
 }
 function planFor(flown){
-  const key=[demKey,spec.name,mode,buf,Math.round(current.direct),Math.round(flown),nAc,boost].join('|');
+  const key=[demKey,spec.name,mode,buf,Math.round(current.direct),Math.round(flown),nAc,boost,fpd].join('|');
   if(key===planKey) return;
   planKey=key; plan=null;
-  const q=new URLSearchParams({from:current.O[1],to:current.D[1],acft:spec.name,mode,buf:String(buf),direct:String(current.direct),flown:String(flown),ac:String(nAc),boost});
+  const q=new URLSearchParams({from:current.O[1],to:current.D[1],acft:spec.name,mode,buf:String(buf),direct:String(current.direct),flown:String(flown),ac:String(nAc),boost,fpd:String(fpd)});
   fetch('/api/stopover/plan?'+q.toString())
     .then(r=>r.ok?r.json():null)
     .then(p=>{
@@ -591,12 +591,17 @@ function renderDemand(){
     setFlags([]);
     return;
   }
-  const pf=r.perFlight, at={...r.cfg,dep:r.freq};
+  const man=fpd&&plan.manual?plan.manual:null, u=man||r;
+  const pf=u.perFlight, at={...u.cfg,dep:man?man.freq:r.freq};
   $('demV').innerHTML=daily+` <span class="sm">per flight ${cargo?`L ${fmt(pf.l)} / H ${fmt(pf.h)}`:`Y ${fmt(pf.y)} / J ${fmt(pf.j)} / F ${fmt(pf.f)}`}</span>`;
-  $('cfgV').innerHTML=cfgTxt(r.cfg)+` <span class="sm">${tl(r.t)} flight</span>`;
-  $('fpdV').innerHTML=`${perDay(r.dep48*nAc)} <span class="sm">${perDay(r.dep48)} a day \u00d7 ${nAc} A/C \u00b7 ${r.dep48*nAc} in 48 h</span>`;
+  $('cfgV').innerHTML=cfgTxt(u.cfg)+` <span class="sm">${man?`at your ${fpd} a day`:`${tl(r.t)} flight`}</span>`;
+  $('fpdV').innerHTML=man
+    ? `<span class="sm">your choice \u00b7 recommended ${perDay(r.dep48*nAc)} a day (${tl(r.t)} flight)</span>`
+    : `${perDay(r.dep48*nAc)} <span class="sm">${perDay(r.dep48)} a day \u00d7 ${nAc} A/C \u00b7 ${r.dep48*nAc} in 48 h</span>`;
   $('loadV').textContent=cargo?cargoLoad(at,demData,spec.cap):paxLoad(at,demData);
-  setFlags(fixedFlags(cargo?cargoStats(at,demData,spec.cap):paxStats(at,demData)));
+  const flags=fixedFlags(cargo?cargoStats(at,demData,spec.cap):paxStats(at,demData));
+  if(man&&man.need>nAc) flags.push(['info',`Up to ${perDay(man.maxDeps*2)} a day per aircraft on this distance: ${man.need} aircraft needed for ${fpd} a day`]);
+  setFlags(flags);
 }
 const tl=h=>Math.floor(h)+'h '+(h%1?'30':'00')+'m';
 // 48 h departure counts are odd (the extra flight); show halves as ½.
@@ -643,6 +648,11 @@ function renderPlan(){
 }
 function setSort(k){ if(!plan||plan[SORTS[k][0]]==null) return; sortBy=k; selT=plan[SORTS[k][0]]; selUser=false; syncUrl(); renderDemand(); }
 function pickT(t){ if(!plan||!plan.rows.some(r=>r.t===t)) return; selT=t; selUser=true; syncUrl(); renderDemand(); }
+function initFpd(){
+  const sel=$('fpd'); sel.innerHTML='';
+  for(let i=0;i<=30;i++){ const o=document.createElement('option'); o.value=String(i); o.textContent=i?String(i):'Recommended'; sel.appendChild(o); }
+}
+function setFpd(n,run=true){ fpd=n>=1&&n<=30?Math.floor(n):0; $('fpd').value=String(fpd); if(run&&current){ syncUrl(); renderDemand(); } }
 function setNac(n,run=true){ nAc=n>=1&&n<=200?Math.floor(n):1; if(String(nAc)!==$('nac').value&&num($('nac').value)!==nAc) $('nac').value=String(nAc); if(run&&current){ syncUrl(); renderDemand(); } }
 function setBoost(v,run=true){ boost=['0','4x1','4x2','4x3','4x4','4x5','4x6','b1','b24'].includes(v)?v:'0'; $('boost').value=boost; if(run&&current){ syncUrl(); renderDemand(); } }
 const pct=v=>Math.round(Math.min(1,v)*100)+'%';
@@ -822,20 +832,22 @@ function syncUrl(){
   if(spec)p.set('acft',spec.name);
   if(nAc!==1)p.set('nac',nAc);
   if(boost!=='0')p.set('boost',boost);
+  if(fpd)p.set('fpd',fpd);
   if(sortBy!=='money')p.set('sort',sortBy);
   if(selUser&&selT!=null)p.set('ft',selT);
   try{history.replaceState(null,'','?'+p.toString());}catch(e){}
 }
 function readUrl(){
   const p=new URLSearchParams(location.search);
-  $('from').value=p.get('from')||'HKG'; $('to').value=p.get('to')||'BCH';
-  $('range').value=p.get('range')||'2036'; $('rwy').value=p.get('rwy')||'';
+  $('from').value=p.get('from')||'JFK'; $('to').value=p.get('to')||'SYD';
+  $('range').value=p.get('range')||'14500'; $('rwy').value=p.get('rwy')||'';
   setMode(p.get('mode')==='realism'?'realism':'easy',false);
   ac=p.get('ac')==='cargo'?'cargo':'pax';
   acftWanted=p.get('acft')||(ac==='cargo'?'A380F':'A380-800');
   acftApplySpec=!p.has('range');
   const b=p.has('buf')?+p.get('buf'):NaN; setBuf([0,5,10].includes(b)?b:10,false);
   setNac(/^\d+$/.test(p.get('nac')||'')?+p.get('nac'):1,false); setBoost(p.get('boost')||'0',false);
+  setFpd(/^\d+$/.test(p.get('fpd')||'')?+p.get('fpd'):0,false);
   sortBy=SORTS[p.get('sort')]?p.get('sort'):'money';
   const ft=+p.get('ft'); if(p.has('ft')&&ft>0){ selT=ft; selUser=true; }
 }
@@ -851,13 +863,14 @@ $('mEasy').onclick=()=>setMode('easy'); $('mReal').onclick=()=>setMode('realism'
 $('acft').onchange=()=>{ applyAcft($('acft').value,true); solve(0); };
 $('nac').addEventListener('input',()=>{ const n=num($('nac').value); if(n>=1) setNac(n); });
 $('boost').onchange=()=>setBoost($('boost').value);
+$('fpd').onchange=()=>setFpd(+$('fpd').value);
 $('planT').onclick=e=>{ const tr=e.target&&e.target.closest&&e.target.closest('tr[data-t]'); if(tr) pickT(+tr.dataset.t); };
 $('bestCd').onclick=()=>setSort('cd'); $('bestMoney').onclick=()=>setSort('money'); $('bestAll').onclick=()=>setSort('all');
 $('b0').onclick=()=>setBuf(0); $('b5').onclick=()=>setBuf(5); $('b10').onclick=()=>setBuf(10);
 $('share').onclick=async()=>{ try{await navigator.clipboard.writeText(location.href); $('copied').textContent=' Link copied';}catch(e){$('copied').textContent=' Copy the address bar to share';} setTimeout(()=>$('copied').textContent='',2500); };
 
 let rz; addEventListener('resize',()=>{clearTimeout(rz); rz=setTimeout(()=>{ size(); view = route ? fitTo(route.all) : worldView(); draw(); },120);});
-initAircrafts(); readUrl(); size(); view=worldView(); draw();
+initFpd(); initAircrafts(); readUrl(); size(); view=worldView(); draw();
 document.fonts && document.fonts.ready.then(()=>draw());
 setTimeout(()=>{ solve(0); startLoop(); },350);
 </script>
