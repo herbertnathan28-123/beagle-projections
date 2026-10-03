@@ -91,8 +91,21 @@ canvas{display:block;width:100%;height:clamp(240px,42vw,440px)}
 .drow .k{font-size:14px;color:var(--muted);white-space:nowrap}
 .drow .v{font:700 18px "Barlow Condensed",sans-serif;color:var(--gold);text-align:right}
 .drow .v .sm{font:600 12px "Barlow",sans-serif;color:var(--muted);white-space:nowrap}
-.drow.optl{background:rgba(245,166,35,.09);box-shadow:inset 3px 0 0 var(--gold);padding-left:10px;padding-right:10px;border-radius:6px}
-.drow.optl .k{color:var(--gold);font-weight:700}
+.optblk{margin:14px 0 6px;padding:14px;border-radius:12px;background:rgba(242,169,59,.08);border:1px solid rgba(242,169,59,.5)}
+.opth{font:700 17px "Barlow Condensed",sans-serif;letter-spacing:.1em;color:var(--gold);margin-bottom:10px}
+.opth span{font:500 12.5px "Barlow",sans-serif;letter-spacing:0;color:var(--muted);margin-left:8px}
+.opt3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.otile{display:flex;flex-direction:column;gap:3px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:left;color:var(--ink);font:inherit;cursor:pointer}
+.otile[aria-pressed=true]{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold);background:rgba(242,169,59,.13)}
+.otile .h{font:700 11.5px "Barlow",sans-serif;letter-spacing:.08em;color:var(--muted);min-height:2.6em}
+.otile[aria-pressed=true] .h{color:var(--gold)}
+.otile .big{font:700 40px/1.05 "Barlow Condensed",sans-serif;color:var(--gold)}
+.otile .big small{font:600 16px "Barlow",sans-serif;color:var(--ink)}
+.otile .ln{font-size:14.5px;font-weight:600}
+.otile .gr{font-size:12.5px;color:var(--muted)}
+.extras{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.extras h3{font:700 20px "Barlow Condensed",sans-serif;margin:0}
+@media (max-width:760px){.opt3{grid-template-columns:1fr}.otile .h{min-height:0}}
 .drow select{height:34px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--text);font:600 14px "Barlow",sans-serif;padding:0 10px;cursor:pointer}
 .drow .v .qx{font:700 12px "Barlow",sans-serif;color:var(--red);margin-left:4px;white-space:nowrap}
 .plan{margin-top:16px}
@@ -255,18 +268,33 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
         <div class="stat"><div class="v extra" id="sExtra">–</div><div class="k">Extra distance the stopover adds</div></div>
         <div class="stat"><div class="v" id="sRange">–</div><div class="k">Longest leg vs your range</div></div>
       </div>
-      <div class="tix">
-        <div><div class="k" id="kY">Economy</div><div class="v" id="tY">–</div></div>
-        <div><div class="k" id="kJ">Business</div><div class="v" id="tJ">–</div></div>
-        <div id="tileF"><div class="k" id="kF">First</div><div class="v" id="tF">–</div></div>
-      </div>
       <div class="dem">
         <div class="drow"><span class="k" id="kDem">Demand</span><span class="v" id="demV">–</span></div>
-        <div class="drow optl" title="The best setup for the selected card (contributions, money or overall)."><span class="k">Optimum</span><span class="v" id="optV">–</span></div>
+      </div>
+      <div class="optblk" aria-label="Optimum">
+        <div class="opth">OPTIMUM <span>best flights per day for this aircraft · tap one to rank the table by it</span></div>
+        <div class="opt3">
+          <button type="button" class="otile" id="optMoney" aria-pressed="false"></button>
+          <button type="button" class="otile" id="optCd" aria-pressed="false"></button>
+          <button type="button" class="otile" id="optAll" aria-pressed="false"></button>
+        </div>
+      </div>
+      <div class="dem">
         <div class="drow"><label class="k" for="fpd">Flights per day</label><span class="v"><select id="fpd" title="Recommended follows the selected best-setup card. Pick 1–30 to see your own strategy."></select> <span id="fpdV">–</span></span></div>
         <div class="drow"><span class="k" id="kCfg">Best seat configuration</span><span class="v" id="cfgV">–</span></div>
         <div class="drow"><span class="k" id="kLoad">Expected load</span><span class="v" id="loadV" title="Expected share of seats filled at today's demand.">–</span></div>
         <div class="drow" id="flagRow" style="display:none"><span class="k">Flags</span><span class="v flags" id="flagV"></span></div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Best 3 stopovers</h2>
+      <div class="alts" id="alts"><p class="note">Enter a route to see the options.</p></div>
+      <div class="extras">
+        <h3>Ticket prices</h3>
+      <div class="tix">
+        <div><div class="k" id="kY">Economy</div><div class="v" id="tY">–</div></div>
+        <div><div class="k" id="kJ">Business</div><div class="v" id="tJ">–</div></div>
+        <div id="tileF"><div class="k" id="kF">First</div><div class="v" id="tF">–</div></div>
       </div>
       <div class="bufbar">
         <label>Price buffer</label>
@@ -277,10 +305,7 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
         </div>
       </div>
       <p class="note" id="tixNote">Suggested ticket prices for the direct distance.</p>
-    </section>
-    <section class="card">
-      <h2>Best stopovers</h2>
-      <div class="alts" id="alts"><p class="note">Enter a route to see the options.</p></div>
+      </div>
     </section>
   </div>
 
@@ -590,12 +615,11 @@ function renderDemand(){
   renderPlan();
   const daily=!demData?'\u2013':cargo?`L ${fmt(demData.l)} / H ${fmt(demData.h)}`:`Y ${fmt(demData.y)} / J ${fmt(demData.j)} / F ${fmt(demData.f)}`;
   if(!r){
-    $('demV').innerHTML=daily; $('cfgV').textContent='\u2013'; $('fpdV').textContent='\u2013'; $('loadV').textContent='\u2013'; $('optV').textContent='\u2013';
+    $('demV').innerHTML=daily; $('cfgV').textContent='\u2013'; $('fpdV').textContent='\u2013'; $('loadV').textContent='\u2013'; renderOpt();
     setFlags([]);
     return;
   }
-  const o=plan.rows.find(x=>x.t===bestOf(plan))||r, sk=sortNow(plan);
-  $('optV').innerHTML=`${perDay(o.dep48)*nAc} a day <span class="sm">${tl(o.t)} flight \u00b7 ${cfgTxt(o.cfg)} \u00b7 ${o.profitDay==null?'':money(o.profitDay)+' profit/day \u00b7 '}${fmtC(o.cdDay)} C/D${nAc>1?' per A/C':''} \u00b7 ${{cd:'best for contributions',money:'best for money',all:'best overall'}[sk]}</span>`;
+  renderOpt();
   const man=fpd&&plan.manual?plan.manual:null, u=man||r;
   const pf=u.perFlight, at={...u.cfg,dep:man?man.freq:r.freq};
   $('demV').innerHTML=daily+` <span class="sm">per flight ${cargo?`L ${fmt(pf.l)} / H ${fmt(pf.h)}`:`Y ${fmt(pf.y)} / J ${fmt(pf.j)} / F ${fmt(pf.f)}`}</span>`;
@@ -619,6 +643,19 @@ const sortNow=p=>p&&p.money?sortBy:'cd';
 const bestOf=p=>p[SORTS[sortNow(p)][0]];
 const ranked=p=>{ const k=SORTS[sortNow(p)][1]; return p.rows.slice().sort((a,b)=>b[k]-a[k]||a.dep48-b.dep48||a.t-b.t); };
 const fmtS=v=>v==null?'\u2013':v.toFixed(1);
+const OPT={money:['optMoney','BEST FOR MONEY'],cd:['optCd','BEST FOR CONTRIBUTIONS'],all:['optAll','BEST OVERALL']};
+// All three optimums side by side, so a manual Flights per day can be compared with each.
+function renderOpt(){
+  const ok=plan&&demData&&plan.rows.length, sk=ok?sortNow(plan):null;
+  for(const k of Object.keys(OPT)){
+    const [id,h]=OPT[k], t=ok?plan[SORTS[k][0]]:null, o=t!=null?plan.rows.find(x=>x.t===t):null;
+    $(id).setAttribute('aria-pressed',String(sk===k));
+    $(id).innerHTML=`<span class="h">${h}</span>`+(o
+      ?`<span class="big">${perDay(o.dep48)*nAc} <small>a day</small></span><span class="ln">${tl(o.t)} flight</span><span class="ln">${cfgTxt(o.cfg)}</span>`+
+        `<span class="gr">${o.profitDay==null?'no cost figures':money(o.profitDay)+' profit/day'} \u00b7 ${fmtC(o.cdDay)} C/D${nAc>1?' per A/C':''}</span>`
+      :`<span class="big">\u2013</span>${ok?'<span class="gr">No cost figures for this aircraft.</span>':''}`);
+  }
+}
 function renderPlan(){
   const ok=plan&&demData&&plan.rows.length;
   $('planT').innerHTML='';
@@ -740,7 +777,7 @@ function solve(pickIdx){
       list.push({s,d1,d2,tot:d1+d2});
     }
     list.sort((a,b)=>a.tot-b.tot || b.s[5]-a.s[5]);
-    list=list.slice(0,5);
+    list=list.slice(0,3);
   }
   current={O,D,direct,range,minR,list,pick:Math.min(pickIdx||0,Math.max(0,list.length-1)),warn};
   render(true);
@@ -871,6 +908,7 @@ $('boost').onchange=()=>setBoost($('boost').value);
 $('fpd').onchange=()=>setFpd(+$('fpd').value);
 $('planT').onclick=e=>{ const tr=e.target&&e.target.closest&&e.target.closest('tr[data-t]'); if(tr) pickT(+tr.dataset.t); };
 $('bestCd').onclick=()=>setSort('cd'); $('bestMoney').onclick=()=>setSort('money'); $('bestAll').onclick=()=>setSort('all');
+$('optCd').onclick=()=>setSort('cd'); $('optMoney').onclick=()=>setSort('money'); $('optAll').onclick=()=>setSort('all');
 $('b0').onclick=()=>setBuf(0); $('b5').onclick=()=>setBuf(5); $('b10').onclick=()=>setBuf(10);
 $('share').onclick=async()=>{ try{await navigator.clipboard.writeText(location.href); $('copied').textContent=' Link copied';}catch(e){$('copied').textContent=' Copy the address bar to share';} setTimeout(()=>$('copied').textContent='',2500); };
 
