@@ -47,7 +47,7 @@ function el(id) {
   const o = {
     id, value: '', textContent: '', innerHTML: '', className: '', style: {},
     children: [], clientWidth: 1000, clientHeight: 400, type: '', label: '',
-    setAttribute() {}, getAttribute() { return null; },
+    _a: {}, setAttribute(k, v) { this._a[k] = String(v); }, getAttribute(k) { return k in this._a ? this._a[k] : null; },
     appendChild(c) { this.children.push(c); return c; },
     addEventListener() {}, getContext() { return fakeCtx(); },
     click() {}, onclick: null,
@@ -308,7 +308,7 @@ for (const [from, to, label] of [['JFK', 'AKL', 'JFK\u2192AKL'], ['JFK', 'BCH', 
     assert.match(ELS.bestCd.innerHTML, /profit\/day/);
     assert.match(ELS.bestMoney.innerHTML, /BEST FOR MONEY.*\/day.*C\/D/);
     assert.strictEqual((ELS.planT.innerHTML.match(/<tr data-t=/g) || []).length, p.rows.length);
-    assert.match(ELS.planT.innerHTML, /<th>Flight time<\/th><th>CI<\/th><th>Deps\/day<\/th><th>Config<\/th><th>Load<\/th><th>Revenue\/day<\/th><th>Profit\/day<\/th><th>C\/D<\/th>/);
+    assert.match(ELS.planT.innerHTML, /<th>Flight time<\/th><th>CI<\/th><th>Deps\/day<\/th><th>Config<\/th><th>Load<\/th><th>Revenue\/day<\/th><th class="on">Profit\/day \u25bc<\/th><th>C\/D<\/th><th>Score<\/th>/);
     assert.doesNotMatch(ELS.planT.innerHTML + ELS.bestCd.innerHTML + ELS.bestMoney.innerHTML, /NaN|undefined|Infinity/);
   });
 }
@@ -354,6 +354,59 @@ test('aircraft count splits demand over the fleet; flights per day is derived; l
   ctx.location.search = '';
   ctx.readUrl();
   ctx.setNac(1, false); ctx.setBoost('0', false);
+});
+
+const tableOrder = () => [...ELS.planT.innerHTML.matchAll(/<tr data-t="([\d.]+)"/g)].map((m) => +m[1]);
+const optRow = () => (ELS.planT.innerHTML.match(/<tr data-t="([\d.]+)" class="opt[^"]*"><td>[^<]*<span class="tag o">OPTIMUM<\/span>/) || [])[1];
+
+for (const to of ['AKL', 'BCH']) {
+  test(`JFK\u2192${to}: each card ranks the table best to worst and the top row is the highlighted optimum`, async () => {
+    ctx.applyAcft('A380-800', false);
+    const p = await route('JFK', to);
+    for (const [card, key, best] of [['bestMoney', 'profitDay', 'bestMoney'], ['bestCd', 'cdDay', 'bestCd'], ['bestAll', 'score', 'bestAll']]) {
+      ELS[card].onclick();
+      const order = tableOrder();
+      assert.strictEqual(order.length, p.rows.length);
+      const vals = order.map((t) => rowAt(t)[key]);
+      for (let i = 1; i < vals.length; i++) assert.ok(vals[i - 1] >= vals[i], `${card} row ${i} out of order`);
+      assert.strictEqual(order[0], p[best]);
+      assert.strictEqual(+optRow(), p[best]);
+      assert.strictEqual((ELS.planT.innerHTML.match(/OPTIMUM/g) || []).length, 1);
+      assert.strictEqual(vm.runInContext('selT', ctx), p[best], 'the route numbers show the optimum');
+      assert.strictEqual(ELS[card].getAttribute('aria-pressed'), 'true');
+    }
+    ELS.bestMoney.onclick();
+  });
+}
+
+test('BEST OVERALL is the 50/50 score of C/D and profit as a % of each best', async () => {
+  const p = await route('JFK', 'AKL');
+  const bc = rowAt(p.bestCd), bm = rowAt(p.bestMoney);
+  for (const r of p.rows) assert.ok(Math.abs(r.score - (50 * r.cdDay / bc.cdDay + 50 * r.profitDay / bm.profitDay)) < 1e-9);
+  assert.ok(Math.max(...p.rows.map((r) => r.score)) === rowAt(p.bestAll).score);
+  assert.ok(rowAt(p.bestAll).score <= 100);
+  ELS.bestAll.onclick();
+  assert.match(ELS.bestAll.innerHTML, /BEST OVERALL.*\d+\.\d score.*\/day \u00b7 [\d,.]+ C\/D/);
+  assert.match(lastUrl, /[?&]sort=all(&|$)/);
+  assert.doesNotMatch(lastUrl, /[?&]ft=/);
+  ctx.location.search = '?from=JFK&to=AKL&sort=cd';
+  ctx.readUrl();
+  assert.strictEqual(vm.runInContext('sortBy', ctx), 'cd');
+  const q = await route('JFK', 'BCH');
+  assert.strictEqual(vm.runInContext('selT', ctx), q.bestCd, 'a new route opens on the chosen ranking\u2019s optimum');
+  ctx.location.search = '';
+  ctx.readUrl();
+  assert.strictEqual(vm.runInContext('sortBy', ctx), 'money');
+});
+
+test('an aircraft with no cost figures ranks by C/D only', async () => {
+  ctx.applyAcft('A380F', false);
+  const p = await route('JFK', 'AKL');
+  ELS.bestAll.onclick(); ELS.bestMoney.onclick();
+  assert.strictEqual(tableOrder()[0], p.bestCd);
+  assert.match(ELS.bestAll.innerHTML, /No cost figures/);
+  assert.doesNotMatch(ELS.planT.innerHTML, /Score/);
+  ctx.applyAcft('A380-800', false);
 });
 
 test('a new route returns to the best-for-money row', async () => {
