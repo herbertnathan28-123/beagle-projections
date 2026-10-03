@@ -188,7 +188,7 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
     </div>
     <div>
       <label for="range">Aircraft range (km)</label>
-      <input type="text" id="range" inputmode="numeric" placeholder="2036">
+      <input type="text" id="range" inputmode="numeric" placeholder="14500">
       <div class="hint">From the aircraft's spec card</div>
     </div>
     <div>
@@ -839,8 +839,8 @@ function syncUrl(){
 }
 function readUrl(){
   const p=new URLSearchParams(location.search);
-  $('from').value=p.get('from')||'HKG'; $('to').value=p.get('to')||'BCH';
-  $('range').value=p.get('range')||'2036'; $('rwy').value=p.get('rwy')||'';
+  $('from').value=p.get('from')||'JFK'; $('to').value=p.get('to')||'SYD';
+  $('range').value=p.get('range')||'14500'; $('rwy').value=p.get('rwy')||'';
   setMode(p.get('mode')==='realism'?'realism':'easy',false);
   ac=p.get('ac')==='cargo'?'cargo':'pax';
   acftWanted=p.get('acft')||(ac==='cargo'?'A380F':'A380-800');

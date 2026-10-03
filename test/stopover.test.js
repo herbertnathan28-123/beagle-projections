@@ -456,6 +456,15 @@ test('manual flights per day (1\u201330) drives the route numbers; cards and ran
   ctx.setFpd(0, false); ctx.applyAcft('A380-800', false);
 });
 
+test('a first visit with no link opens on JFK \u2192 SYD with the A380-800 (needs a stopover, not a short hop)', () => {
+  ctx.location.search = '';
+  ctx.readUrl();
+  assert.strictEqual(ELS.from.value, 'JFK');
+  assert.strictEqual(ELS.to.value, 'SYD');
+  assert.strictEqual(ELS.range.value, '14500');
+  assert.strictEqual(vm.runInContext('acftWanted', ctx), 'A380-800');
+});
+
 test('ticket prices do not change with aircraft count, 4\u00d7 or the chosen row', async () => {
   const prices = [];
   for (const o of [{}, { nac: 3 }, { boost: '4x6' }]) {
