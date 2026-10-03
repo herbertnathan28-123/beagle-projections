@@ -93,7 +93,7 @@ canvas{display:block;width:100%;height:clamp(240px,42vw,440px)}
 .stat .k{font-size:13px;color:var(--muted)}
 .stat .v small{font-size:16px;color:var(--muted);font-weight:600;margin-left:3px}
 .extra{color:var(--green)}
-.tix{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.tix{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px}
 .tix div{background:var(--panel2);border-radius:10px;padding:10px 12px}
 .tix .k{font-size:13px;color:var(--muted)}
 .tix .v{font:700 24px "Barlow Condensed",sans-serif;color:var(--gold)}
@@ -186,7 +186,8 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
   .controls{grid-template-columns:1fr 1fr}
   .controls .modebox{grid-column:1/-1}
   .dchip{grid-column:1/-1;align-items:center;padding:0}
-  .grid2{grid-template-columns:1fr}
+  .grid2{grid-template-columns:minmax(0,1fr)}
+  .tix div{padding:10px 8px}.tix .v{font-size:20px}
   .board{grid-template-columns:1fr;gap:10px}
   .arrow{text-align:left}
   .arrow strong{display:inline;margin-right:6px}
@@ -415,15 +416,30 @@ function esc(t){ return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 function countryOf(s){ return String(s[3]||'').replace(/^.*, United States$/,'United States'); }
 function flagOf(s){ const c=FACTS.countries[countryOf(s)]; return c&&/^[a-z]{2}$/.test(c[0])?c[0]:''; }
 const flagUrl=(cc,w)=>`https://flagcdn.com/w${w}/${cc}.png`;
+function codeHash(code,seed){ let h=seed>>>0; for(const ch of String(code)) h=(Math.imul(h,31)+ch.charCodeAt(0))>>>0; return h; }
+// Stable per airport: an airport's own fact first, else one of its country's facts, so neighbouring stops differ.
+function factPool(s){
+  if(FACTS.airports[s[0]]) return [FACTS.airports[s[0]]];
+  const c=countryOf(s), base=(FACTS.countries[c]||[])[1];
+  return (base?[base]:[]).concat((FACTS.more||{})[c]||[]);
+}
+// First free slot from the airport's hash, so a set of candidates never shares a line.
+function pickFrom(pool,code,seed,used){
+  if(!pool.length) return '';
+  let i=codeHash(code,seed)%pool.length;
+  for(let n=0;n<pool.length&&used.has(pool[i]);n++) i=(i+1)%pool.length;
+  used.add(pool[i]); return pool[i];
+}
+let picks={};
+function assignPicks(rows){
+  picks={}; const uf=new Set(), uq=new Set();
+  for(const s of rows) picks[s[0]]={f:pickFrom(factPool(s),s[0],7,uf),q:pickFrom(FACTS.quips||[],s[0],0,uq)};
+}
 function stopFact(s){
-  return FACTS.airports[s[0]]||(FACTS.countries[countryOf(s)]||[])[1]
-    ||`${s[2]} is one of ${fmt(DB.length)} airports in the game, and today it's the one that matters.`;
+  const f=(picks[s[0]]||{}).f||pickFrom(factPool(s),s[0],7,new Set());
+  return f||`${s[2]} is one of ${fmt(DB.length)} airports in the game, and today it's the one that matters.`;
 }
-function stopQuip(s){
-  const q=FACTS.quips||[]; if(!q.length) return '';
-  let h=0; for(const ch of s[0]) h=(h*31+ch.charCodeAt(0))>>>0;
-  return q[h%q.length];
-}
+function stopQuip(s){ return (picks[s[0]]||{}).q||pickFrom(FACTS.quips||[],s[0],0,new Set()); }
 let shownStop='';
 function showStop(s){
   const r=$('rS'), f=$('flS'), x=$('xS'), sl=$('slS');
@@ -888,6 +904,7 @@ function render(fly){
     route={o:path[0],d:path[path.length-1],s:null,paths:[path],alts:[],oc:codes(O),dc:codes(D),rows:[O,D],legKm:[direct],totKm:direct,cLon};
   } else {
     const S=best.s;
+    assignPicks(list.map(x=>x.s));
     flap($('fS'),S[0]); showStop(S); $('nS').textContent=S[2]; $('mS').textContent=`${S[3]} · ${codes(S)} · runway ${fmt(S[4])} ft · market ${S[5]}%`;
     $('a1').innerHTML=`<strong>${fmt(best.d1)} km</strong>leg 1`; $('a2').innerHTML=`<strong>${fmt(best.d2)} km</strong>leg 2`;
     $('sActual').innerHTML=fmt(best.tot)+'<small>km</small>';

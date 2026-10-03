@@ -587,3 +587,48 @@ test('an unknown country gets no flag and a safe generic fact; markup in text is
   assert.strictEqual(ctx.esc('<b>&"'), '&lt;b&gt;&amp;&quot;');
   assert.strictEqual(ctx.stopQuip(row), ctx.stopQuip(row), 'quip is stable per airport');
 });
+
+test('the fact bank is large and varied: 200+ statements, 100+ quips, 50+ different US facts', () => {
+  const statements = [
+    ...Object.values(FACTS.airports),
+    ...Object.values(FACTS.countries).map((c) => c[1]),
+    ...Object.values(FACTS.more).flat(),
+    ...FACTS.quips,
+  ];
+  assert.ok(statements.length >= 200, `only ${statements.length} statements`);
+  assert.ok(FACTS.quips.length >= 100, `only ${FACTS.quips.length} quips`);
+  assert.strictEqual(new Set(FACTS.quips).size, FACTS.quips.length, 'quips are unique');
+  for (const k of Object.keys(FACTS.more)) assert.ok(FACTS.countries[k], `${k} has extra facts but no country entry`);
+  const us = DBROWS.filter((r) => ctx.countryOf(r) === 'United States');
+  const usFacts = new Set(us.map((r) => ctx.stopFact(r)));
+  assert.ok(usFacts.size >= 50, `US airports show only ${usFacts.size} different facts`);
+  assert.ok(new Set(us.map((r) => ctx.stopQuip(r))).size >= 50, 'US airports share too few quips');
+});
+
+test('Wichita and Amarillo get their own facts; Tucson keeps the Boneyard; neighbouring stops differ', () => {
+  const row = (code) => DBROWS.find((r) => r[0] === code);
+  assert.match(ctx.stopFact(row('ICT')), /Air Capital of the World/);
+  assert.match(ctx.stopFact(row('AMA')), /Cadillac Ranch/);
+  assert.match(ctx.stopFact(row('TUS')), /Boneyard/);
+  const near = ['ICT', 'AMA', 'OKC', 'TUL', 'DDC'].map(row);
+  assert.strictEqual(new Set(near.map((r) => ctx.stopFact(r))).size, near.length, 'facts repeat');
+  const noOwn = DBROWS.filter((r) => ctx.countryOf(r) === 'United States' && !FACTS.airports[r[0]]).slice(0, 40);
+  assert.ok(new Set(noOwn.map((r) => ctx.stopFact(r))).size >= 20, 'US fallback facts barely vary');
+  for (const r of near) assert.strictEqual(ctx.stopFact(r), ctx.stopFact(r), 'fact is stable per airport');
+});
+
+test('the three best stopovers never share a fact or a quip', () => {
+  drive({ from: 'JFK', to: 'SYD', range: '14,500', rwy: '9,680' });
+  // JFK→SYD's best three: TUS, PNC and WWR, whose own hashes would give PNC and WWR the same quip.
+  const rows = ['TUS', 'PNC', 'WWR'].map((c) => DBROWS.find((r) => r[0] === c));
+  const quips = rows.map((r) => ctx.stopQuip(r));
+  const facts = rows.map((r) => ctx.stopFact(r));
+  assert.strictEqual(new Set(quips).size, 3, `quips repeat: ${quips.join(' | ')}`);
+  assert.strictEqual(new Set(facts).size, 3, 'facts repeat');
+  ctx.assignPicks([rows[2], rows[1]]);
+  assert.strictEqual(ctx.stopQuip(rows[1]) !== ctx.stopQuip(rows[2]), true);
+  const usA = DBROWS.filter((r) => ctx.countryOf(r) === 'United States' && !FACTS.airports[r[0]]).slice(0, 3);
+  ctx.assignPicks(usA);
+  assert.strictEqual(new Set(usA.map((r) => ctx.stopFact(r))).size, 3, 'three US fallbacks share a fact');
+  drive({ from: 'JFK', to: 'SYD', range: '14,500', rwy: '9,680' });
+});
