@@ -317,6 +317,13 @@ function fillCfg(dpf,cap,ord){
   const last=ord[2]; c[last]=Math.floor(rem/SP[last]); c.valid=c[last]<dpf[last];
   return c;
 }
+// Fixed flights per day (ATL-148, 4 Oct): cap each class at its per-flight demand first, then fill in yield order.
+function capFill(caps,cap,ord){
+  const c={}; let rem=cap;
+  for(const k of ord){ c[k]=Math.min(caps[k],Math.floor(rem/SP[k])); rem-=c[k]*SP[k]; }
+  return c;
+}
+const perFlight=(dem,n,keys)=>Object.fromEntries(keys.map(k=>[k,Math.floor(dem[k]/n)]));
 function paxOrder(d){
   if(mode==='easy') return d<14425?'FJY':d<14812.5?'FYJ':d<15200?'YFJ':'YJF';
   return d<13888.8888?'FJY':d<15694.4444?'JFY':d<17500?'JYF':'YJF';
@@ -333,7 +340,7 @@ function bestPax(dem,sp,flown,direct,n){
   const calc=t=>fillCfg({y:Math.floor(la.y/t),j:Math.floor(la.j/t),f:Math.floor(la.f/t)},sp.cap,ord);
   const inc=c=>c.y*ty+c.j*tj+c.f*tf;
   const maxT=Math.floor(24/(flown/speed));
-  if(n>0){ const c=calc(n); return {y:c.y,j:c.j,f:c.f,tpd:n,numAc:Math.ceil(n/Math.max(1,maxT)),dep:n,maxT,fixed:true}; }
+  if(n>0){ const c=capFill(perFlight(dem,n,['y','j','f']),sp.cap,ord); return {y:c.y,j:c.j,f:c.f,tpd:n,numAc:Math.ceil(n/Math.max(1,maxT)),dep:n,maxT,fixed:true}; }
   let tpd=Math.min(maxT,Math.floor((la.y+2*la.j+3*la.f)/sp.cap));
   let cfg=calc(tpd);
   while(!cfg.valid){ tpd--; if(tpd<=0) return null; cfg=calc(tpd); }
@@ -345,8 +352,8 @@ function bestCargo(dem,sp,flown,direct,n){
   const speed=mode==='easy'?sp.easy:sp.realism;
   const c=PRICE[mode];
   const tl=Math.floor(1.10*(c.L[0]*direct+c.L[1]))/100, th=Math.floor(1.08*(c.H[0]*direct+c.H[1]))/100;
-  const calc=t=>{
-    const dl=Math.floor(Math.floor(dem.l/LOAD)/t), dh=Math.floor(Math.floor(dem.h/LOAD)/t);
+  const calc=(t,raw)=>{
+    const dl=raw?Math.floor(dem.l/t):Math.floor(Math.floor(dem.l/LOAD)/t), dh=raw?Math.floor(dem.h/t):Math.floor(Math.floor(dem.h/LOAD)/t);
     const lcap=sp.cap*0.7;
     if(dl>lcap) return {l:100,h:0,valid:true};
     const l=Math.floor(dl/lcap*100), h=100-l;
@@ -354,7 +361,7 @@ function bestCargo(dem,sp,flown,direct,n){
   };
   const inc=c=>(c.l*0.7*tl+c.h*th)*sp.cap/100;
   const maxT=Math.floor(24/(flown/speed));
-  if(n>0){ const c=calc(n); return {l:c.l,h:c.h,tpd:n,numAc:Math.ceil(n/Math.max(1,maxT)),dep:n,maxT,fixed:true}; }
+  if(n>0){ const c=calc(n,true); return {l:c.l,h:c.h,tpd:n,numAc:Math.ceil(n/Math.max(1,maxT)),dep:n,maxT,fixed:true}; }
   let tpd=Math.min(maxT,Math.floor(dem.l/0.7+dem.h/sp.cap));
   let cfg=calc(tpd);
   while(!cfg.valid){ tpd--; if(tpd<=0) return null; cfg=calc(tpd); }
@@ -579,7 +586,7 @@ function renderDemand(){
   const best=current.list && current.list[current.pick];
   const flown=best?best.tot:current.direct;
   if(!demData){
-    $('kDem').textContent='Demand'; $('demV').textContent='\u2013';
+    $('kDem').textContent='Demand'; $('demV').innerHTML='\u2013';
     $('kCfg').textContent='Best seat configuration'; $('cfgV').textContent='\u2013';
     $('loadV').textContent='\u2013';
     setFlags([]);
@@ -587,9 +594,10 @@ function renderDemand(){
   }
   if(spec&&spec.cat==='cargo'){
     $('kDem').textContent='Cargo demand';
-    $('demV').textContent=`L ${fmt(demData.l)} / H ${fmt(demData.h)}`;
     $('kCfg').textContent='Best cargo split';
     const r=bestCargo(demData,spec,flown,current.direct,fpd);
+    const pf=r&&perFlight(demData,r.dep,['l','h']);
+    $('demV').innerHTML=`L ${fmt(demData.l)} / H ${fmt(demData.h)}`+(pf?` <span class="sm">per flight L ${fmt(pf.l)} / H ${fmt(pf.h)}</span>`:'');
     const q=r&&r.fixed?cargoQuota(r,demData,spec.cap):{};
     $('cfgV').innerHTML=r?`L ${r.l}%${qx(q.l)} / H ${r.h}%${qx(q.h)} <span class="sm">${depText(r)}</span>`:'\u2013';
     $('loadV').title='Expected share of cargo capacity used at today\'s demand.';
@@ -597,9 +605,10 @@ function renderDemand(){
     setFlags(r&&r.fixed?fixedFlags(r,cargoStats(r,demData,spec.cap)):[]);
   } else {
     $('kDem').textContent='Demand';
-    $('demV').textContent=`Y ${fmt(demData.y)} / J ${fmt(demData.j)} / F ${fmt(demData.f)}`;
     $('kCfg').textContent='Best seat configuration';
     const r=spec?bestPax(demData,spec,flown,current.direct,fpd):null;
+    const pf=r&&perFlight(demData,r.dep,['y','j','f']);
+    $('demV').innerHTML=`Y ${fmt(demData.y)} / J ${fmt(demData.j)} / F ${fmt(demData.f)}`+(pf?` <span class="sm">per flight Y ${fmt(pf.y)} / J ${fmt(pf.j)} / F ${fmt(pf.f)}</span>`:'');
     const q=r&&r.fixed?paxQuota(r,demData):{};
     $('cfgV').innerHTML=r?`Y ${r.y}${qx(q.y)} / J ${r.j}${qx(q.j)} / F ${r.f}${qx(q.f)} <span class="sm">${depText(r)}</span>`:'\u2013';
     $('loadV').title='Expected share of seats filled at today\'s demand.';

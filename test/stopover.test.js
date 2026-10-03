@@ -26,6 +26,8 @@ const DEMANDS = {
   'SVMI>WIII': { y: 966, j: 685, f: 309, l: 483000, h: 685000 },
   // ATL-153 reference route JFK→MEL (via ROW on the A380-800)
   'KJFK>YMML': { y: 660, j: 270, f: 147, l: 330000, h: 270000 },
+  // ATL-148 4 Oct defect route JFK→AKL (direct on the A380-800)
+  'KJFK>NZAA': { y: 905, j: 142, f: 129, l: 453000, h: 142000 },
   // Synthetic thin route for the contribution-floor flag
   'VHHH>WPEC': { y: 40, j: 10, f: 5, l: 20000, h: 10000 },
 };
@@ -141,7 +143,7 @@ test('VVNB\u2192SPIM shows the WO reference demand and best config', async () =>
   ctx.setMode('realism', false);
   drive({ from: 'VVNB', to: 'SPIM', range: '14,500', rwy: '9,680' });
   await flush(); await flush();
-  assert.match(ELS.demV.textContent, /Y 1,193 \/ J 222 \/ F 277/);
+  assert.match(ELS.demV.innerHTML, /Y 1,193 \/ J 222 \/ F 277/);
   assert.match(ELS.cfgV.innerHTML, /Y 317 \/ J 59 \/ F 55/);
   assert.match(ELS.cfgV.innerHTML, /1 dep\/day \u00d7 4 A\/C/);
 });
@@ -149,7 +151,7 @@ test('VVNB\u2192SPIM shows the WO reference demand and best config', async () =>
 test('ZGSZ\u2192SCEL matches its WO reference too', async () => {
   drive({ from: 'ZGSZ', to: 'SCEL', range: '14500', rwy: '9680' });
   await flush(); await flush();
-  assert.match(ELS.demV.textContent, /Y 841 \/ J 639 \/ F 220/);
+  assert.match(ELS.demV.innerHTML, /Y 841 \/ J 639 \/ F 220/);
   assert.match(ELS.cfgV.innerHTML, /Y 223 \/ J 169 \/ F 13/);
 });
 
@@ -192,7 +194,7 @@ test('a freighter shows cargo demand and the best L/H split', async () => {
   ctx.applyAcft('A380F', false); // keep the entered range/runway
   drive({ from: 'VVNB', to: 'SPIM', range: '14,500', rwy: '9,680' });
   await flush(); await flush();
-  assert.match(ELS.demV.textContent, /L 597,000 \/ H 222,000/);
+  assert.match(ELS.demV.innerHTML, /L 597,000 \/ H 222,000/);
   assert.match(ELS.cfgV.innerHTML, /L \d+% \/ H \d+% .*dep\/day \u00d7 \d+ A\/C/);
   ctx.applyAcft('A380-800', false);
 });
@@ -269,40 +271,68 @@ test('Optimum leaves all 9 ATL-148 reference configs exactly as before', async (
   }
 });
 
-test('JFK\u2192MEL via ROW on A380 (Easy): Optimum Y351/J124/F0 at 2 dep/day, fixed 2 matches it', async () => {
+test('JFK\u2192MEL via ROW on A380 (Easy): Optimum unchanged; fixed 2 is capped at per-flight demand', async () => {
   ctx.setMode('easy', false);
   ctx.setFpd(0, false);
   drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
   await flush(); await flush();
   assert.match(ELS.msg.innerHTML, /Your stopover is ROW/);
   assert.strictEqual(ELS.cfgV.innerHTML, 'Y 351 / J 124 / F 0 <span class="sm">2 dep/day \u00d7 1 A/C</span>');
-  const optLoad = ELS.loadV.textContent;
-  assert.strictEqual(optLoad, 'Y 94% \u00b7 J 100% \u00b7 F \u2014 \u00b7 overall 96%');
+  assert.strictEqual(ELS.loadV.textContent, 'Y 94% \u00b7 J 100% \u00b7 F \u2014 \u00b7 overall 96%');
+  assert.match(ELS.demV.innerHTML, /Y 660 \/ J 270 \/ F 147 <span class="sm">per flight Y 330 \/ J 135 \/ F 73<\/span>/);
 
   ctx.setFpd(2, false);
   drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
   await flush(); await flush();
-  assert.strictEqual(cfgText(), 'Y 351 / J 124 / F 0 <span class="sm">2 dep/day \u00d7 1 A/C</span>');
-  assert.strictEqual(ELS.loadV.textContent, optLoad);
-  assert.strictEqual(quotaClasses(), 'Y', '351 \u00d7 2 = 702 Y seats > 660 Y demand');
-  assert.match(ELS.flagV.innerHTML, /XP reduced/);
+  assert.strictEqual(ELS.cfgV.innerHTML, 'Y 330 / J 135 / F 0 <span class="sm">2 dep/day \u00d7 1 A/C</span>');
+  assert.strictEqual(ELS.loadV.textContent, 'Y 100% \u00b7 J 100% \u00b7 F \u2014 \u00b7 overall 100%');
+  assert.strictEqual(ELS.flagRow.style.display, 'none');
   ctx.setFpd(0, false);
 });
 
-test('JFK\u2192MEL fixed 1, 4 and 30 give configs, recalculated loads and aircraft counts', async () => {
+test('JFK\u2192AKL (Easy, A380, 2/day): cap first, fill second \u2014 Y 266 / J 71 / F 64, no quota flag (ATL-148 4 Oct)', async () => {
+  ctx.setMode('easy', false);
+  ctx.setFpd(2, false);
+  drive({ from: 'JFK', to: 'AKL', range: '14,500', rwy: '9,680' });
+  await flush(); await flush();
+  assert.match(ELS.msg.innerHTML, /Fly it direct/);
+  assert.strictEqual(ELS.demV.innerHTML, 'Y 905 / J 142 / F 129 <span class="sm">per flight Y 452 / J 71 / F 64</span>');
+  assert.strictEqual(ELS.cfgV.innerHTML, 'Y 266 / J 71 / F 64 <span class="sm">2 dep/day \u00d7 1 A/C</span>');
+  assert.doesNotMatch(ELS.cfgV.innerHTML, /Quota exceeded/);
+  assert.strictEqual(ELS.loadV.textContent, 'Y 100% \u00b7 J 100% \u00b7 F 100% \u00b7 overall 100%');
+  ctx.setFpd(0, false);
+});
+
+test('no fixed flights-per-day pax config ever exceeds per-flight demand (every aircraft, 1\u201330)', async () => {
+  ctx.setMode('easy', false);
+  for (const a of ACFT.filter((x) => x.cat !== 'cargo')) {
+    ctx.applyAcft(a.name, false);
+    for (let n = 1; n <= 30; n++) {
+      ctx.setFpd(n, false);
+      drive({ from: 'JFK', to: 'AKL', range: '14,500', rwy: '9,680' });
+      await flush(); await flush();
+      assert.doesNotMatch(ELS.cfgV.innerHTML, /Quota exceeded/, `${a.name} fpd ${n}`);
+      const [y, j, f] = ELS.cfgV.innerHTML.match(/\d+/g).map(Number);
+      assert.ok(y + 2 * j + 3 * f <= a.cap, `${a.name} fpd ${n} within seat budget`);
+    }
+  }
+  ctx.applyAcft('A380-800', false);
+  ctx.setFpd(0, false);
+});
+
+test('JFK\u2192MEL fixed 1, 4 and 30 give capped configs, recalculated loads and aircraft counts', async () => {
   ctx.setMode('easy', false);
   const want = {
-    1: ['Y 600 / J 0 / F 0 <span class="sm">1 dep/day \u00d7 1 A/C</span>', 'Y 100% \u00b7 J \u2014 \u00b7 F \u2014 \u00b7 overall 100%', ''],
-    4: ['Y 175 / J 71 / F 94 <span class="sm">4 dep/day on 2 A/C</span>', 'Y 94% \u00b7 J 95% \u00b7 F 39% \u00b7 overall 68%', 'YJF'],
-    30: ['Y 23 / J 9 / F 186 <span class="sm">30 dep/day on 15 A/C</span>', 'Y 96% \u00b7 J 100% \u00b7 F 3% \u00b7 overall 9%', 'YF'],
+    1: ['Y 600 / J 0 / F 0 <span class="sm">1 dep/day \u00d7 1 A/C</span>', 'Y 100% \u00b7 J \u2014 \u00b7 F \u2014 \u00b7 overall 100%'],
+    4: ['Y 165 / J 67 / F 36 <span class="sm">4 dep/day on 2 A/C</span>', 'Y 100% \u00b7 J 100% \u00b7 F 100% \u00b7 overall 100%'],
+    30: ['Y 22 / J 9 / F 4 <span class="sm">30 dep/day on 15 A/C</span>', 'Y 100% \u00b7 J 100% \u00b7 F 100% \u00b7 overall 100%'],
   };
   for (const n of [1, 4, 30]) {
     ctx.setFpd(n, false);
     drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
     await flush(); await flush();
-    assert.strictEqual(cfgText(), want[n][0], `fpd ${n}`);
+    assert.strictEqual(ELS.cfgV.innerHTML, want[n][0], `fpd ${n}`);
     assert.strictEqual(ELS.loadV.textContent, want[n][1], `fpd ${n}`);
-    assert.strictEqual(quotaClasses(), want[n][2], `fpd ${n}`);
   }
   assert.match(ELS.flagV.innerHTML, /One aircraft flies up to 2 a day on this distance/);
   ctx.setFpd(1, false);
