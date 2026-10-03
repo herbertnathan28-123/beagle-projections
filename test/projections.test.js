@@ -17,14 +17,16 @@ test('share value carries no invented M/B unit anywhere on the page', () => {
   }
 });
 
-test('current pace 1–10 / 11–20 is the first tab and opens on load', () => {
+test('current pace is the first tab, opens on load, and is the pace graph with a 1–10 / 11–20 toggle', () => {
   assert.match(src('projections.js'), /const \[tab,setTab\]=useState\('pace'\);/);
   const tabs = HTML.slice(HTML.indexOf('function TopTabs'));
   const first = tabs.indexOf('>CURRENT PACE 1\u201420</button>'), proj = tabs.indexOf('>PROJECTIONS</button>');
   assert.ok(first > 0 && proj > first, 'CURRENT PACE tab precedes PROJECTIONS');
-  assert.ok(HTML.includes("'CURRENT PACE \u00b7 1 \u2014 10'"));
-  assert.ok(HTML.includes("'CURRENT PACE \u00b7 11 \u2014 20'"));
-  assert.ok(HTML_COMPILED.includes('CurrentPace'), 'compiles');
+  assert.ok(tabs.includes("tab==='pace'?<window.PaceBoard/>"), 'the pace tab renders the graph');
+  const board = src('pace-board.jsx');
+  assert.ok(board.includes("[[0, '1 \\u2014 10'], [1, '11 \\u2014 20']]"), 'two-position toggle');
+  assert.ok(!/TrendPanel|PaceList/.test(HTML), 'the stacked panels and the 20-row tables are gone');
+  assert.ok(HTML_COMPILED.includes('PaceBoard') && !HTML_COMPILED.includes('__PACE_BOARD__'), 'compiles');
 });
 
 test('the pace window is named the same way as the canonical label', () => {
