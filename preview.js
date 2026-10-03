@@ -5,6 +5,7 @@
 const path = require('path');
 const express = require('express');
 const stopoverData = require('./lib/stopoverData');
+const stopoverPlan = require('./lib/stopoverPlan');
 
 const app = express();
 app.get('/healthz', (req, res) => res.status(200).type('text').send('OK'));
@@ -12,6 +13,13 @@ app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] })
 
 app.get('/api/stopover/aircrafts', (req, res) => {
   res.json(stopoverData.aircrafts());
+});
+
+// Best setup (ATL-148 Phase 3): flight-time optimiser; calculator costs/C/D stay server-side.
+app.get('/api/stopover/plan', (req, res) => {
+  const p = stopoverPlan.planFromQuery(req.query, stopoverData);
+  if (!p) return res.status(400).json({ ok: false, error: 'bad plan query' });
+  res.json(p);
 });
 
 app.get('/api/stopover/demand', (req, res) => {

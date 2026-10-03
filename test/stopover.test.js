@@ -6,6 +6,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { planFromQuery } = require('../lib/stopoverPlan');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'stopover.html'), 'utf8');
 const src = html.match(/<script>([\s\S]*)<\/script>/)[1];
@@ -28,6 +29,8 @@ const DEMANDS = {
   'KJFK>YMML': { y: 660, j: 270, f: 147, l: 330000, h: 270000 },
   // ATL-148 4 Oct defect route JFK→AKL (direct on the A380-800)
   'KJFK>NZAA': { y: 905, j: 142, f: 129, l: 453000, h: 142000 },
+  // ATL-148 Phase 3 report route JFK→BCH (live dataset values)
+  'KJFK>WPEC': { y: 1135, j: 464, f: 107, l: 568000, h: 464000 },
   // Synthetic thin route for the contribution-floor flag
   'VHHH>WPEC': { y: 40, j: 10, f: 5, l: 20000, h: 10000 },
 };
@@ -98,6 +101,11 @@ const ctx = vm.createContext({
       const d = DEMANDS[`${q.get('from')}>${q.get('to')}`] || null;
       return Promise.resolve({ ok: !!d, json: async () => d });
     }
+    if (url.startsWith('/api/stopover/plan')) {
+      const q = Object.fromEntries(new URLSearchParams(url.split('?')[1]));
+      const p = planFromQuery(q, { aircrafts: () => ACFT, demand: (f, t) => DEMANDS[`${f}>${t}`] || null });
+      return Promise.resolve({ ok: !!p, json: async () => JSON.parse(JSON.stringify(p)) });
+    }
     return Promise.resolve({ ok: false, json: async () => null });
   },
   setTimeout, clearTimeout, setInterval, clearInterval,
@@ -137,75 +145,53 @@ test('range below the requirement still shows the Range too short panel', () => 
 
 const flush = () => new Promise((r) => setImmediate(r));
 
-// ATL-148: demand + best seat configuration lines (WO reference table, A388 Realism).
-test('VVNB\u2192SPIM shows the WO reference demand and best config', async () => {
-  await flush(); await flush(); // let the aircraft-specs fetch apply A380-800
+const settle = async () => { for (let k = 0; k < 8; k++) await flush(); };
+const planNow = () => vm.runInContext('plan', ctx);
+const rowAt = (t) => planNow().rows.find((r) => r.t === t);
+
+// ATL-148: demand line + the selected best-setup row (A388 Realism).
+test('VVNB\u2192SPIM and ZGSZ\u2192SCEL show the WO reference demand', async () => {
+  await settle(); // let the aircraft-specs fetch apply A380-800
   ctx.setMode('realism', false);
   drive({ from: 'VVNB', to: 'SPIM', range: '14,500', rwy: '9,680' });
-  await flush(); await flush();
-  assert.match(ELS.demV.innerHTML, /Y 1,193 \/ J 222 \/ F 277/);
-  assert.match(ELS.cfgV.innerHTML, /Y 317 \/ J 59 \/ F 55/);
-  assert.match(ELS.cfgV.innerHTML, /1 dep\/day \u00d7 4 A\/C/);
-});
-
-test('ZGSZ\u2192SCEL matches its WO reference too', async () => {
+  await settle();
+  assert.match(ELS.demV.innerHTML, /^Y 1,193 \/ J 222 \/ F 277 <span class="sm">per flight Y \d+ \/ J \d+ \/ F \d+<\/span>$/);
+  assert.match(ELS.cfgV.innerHTML, /^Y \d+ \/ J \d+ \/ F \d+ <span class="sm">\d+h [03]0m flight<\/span>$/);
   drive({ from: 'ZGSZ', to: 'SCEL', range: '14500', rwy: '9680' });
-  await flush(); await flush();
-  assert.match(ELS.demV.innerHTML, /Y 841 \/ J 639 \/ F 220/);
-  assert.match(ELS.cfgV.innerHTML, /Y 223 \/ J 169 \/ F 13/);
+  await settle();
+  assert.match(ELS.demV.innerHTML, /^Y 841 \/ J 639 \/ F 220 /);
 });
 
-// ATL-152: expected load factor per class + overall, all 9 WO reference cases
-// (A380-800, Realism). Expected values computed from the spec formula:
-// per-class load = (daily demand / total departures) / configured seats, capped at 100%;
-// overall = (Y + 2J + 3F carried) / (Y + 2J + 3F seats); unconfigured class shows —.
-test('load factor per class + overall for all 9 ATL-148 reference cases', async () => {
-  await flush(); await flush();
-  ctx.setMode('realism', false);
-  const cases = [
-    ['VVNB', 'SPIM', 'Y 94% \u00b7 J 94% \u00b7 F 100% \u00b7 overall 96%'],
-    ['RPLL', 'SGAS', 'Y 94% \u00b7 J 94% \u00b7 F 100% \u00b7 overall 95%'],
-    ['MROC', 'WIII', 'Y 94% \u00b7 J 94% \u00b7 F 100% \u00b7 overall 95%'],
-    ['VMMC', 'SGAS', 'Y 94% \u00b7 J 95% \u00b7 F 100% \u00b7 overall 95%'],
-    ['ZGSZ', 'SLLP', 'Y 94% \u00b7 J 94% \u00b7 F 100% \u00b7 overall 95%'],
-    ['VMMC', 'SCEL', 'Y 94% \u00b7 J 100% \u00b7 F \u2014 \u00b7 overall 98%'],
-    ['ZGSZ', 'SCEL', 'Y 94% \u00b7 J 95% \u00b7 F 100% \u00b7 overall 95%'],
-    ['SCEL', 'ZHHH', 'Y 94% \u00b7 J 100% \u00b7 F \u2014 \u00b7 overall 95%'],
-    ['SVMI', 'WIII', 'Y 94% \u00b7 J 94% \u00b7 F 100% \u00b7 overall 95%'],
-  ];
-  for (const [from, to, expected] of cases) {
-    drive({ from, to, range: '14,500', rwy: '9,680' });
-    await flush(); await flush();
-    assert.strictEqual(ELS.loadV.textContent, expected, `${from}->${to}`);
-  }
-});
-
-test('a freighter shows the L/H cargo load factor', async () => {
-  await flush();
-  ctx.applyAcft('A380F', false);
-  drive({ from: 'VVNB', to: 'SPIM', range: '14,500', rwy: '9,680' });
-  await flush(); await flush();
-  assert.match(ELS.loadV.textContent, /L \d+% \u00b7 H \d+% \u00b7 overall \d+%/);
-  ctx.applyAcft('A380-800', false);
-});
-
-test('a freighter shows cargo demand and the best L/H split', async () => {
-  await flush();
+test('a freighter shows cargo demand, the L/H split and its load, with no money card', async () => {
+  await settle();
   ctx.applyAcft('A380F', false); // keep the entered range/runway
   drive({ from: 'VVNB', to: 'SPIM', range: '14,500', rwy: '9,680' });
-  await flush(); await flush();
-  assert.match(ELS.demV.innerHTML, /L 597,000 \/ H 222,000/);
-  assert.match(ELS.cfgV.innerHTML, /L \d+% \/ H \d+% .*dep\/day \u00d7 \d+ A\/C/);
+  await settle();
+  assert.match(ELS.demV.innerHTML, /L 597,000 \/ H 222,000 <span class="sm">per flight L [\d,]+ \/ H [\d,]+<\/span>/);
+  assert.match(ELS.cfgV.innerHTML, /^L \d+% \/ H \d+% <span class="sm">/);
+  assert.match(ELS.loadV.textContent, /L (\d+%|\u2014) \u00b7 H (\d+%|\u2014) \u00b7 overall \d+%/);
+  assert.match(ELS.bestCd.innerHTML, /BEST FOR CONTRIBUTIONS.*C\/D/);
+  assert.match(ELS.bestMoney.innerHTML, /No cost figures for this aircraft/);
   ctx.applyAcft('A380-800', false);
 });
 
 // ATL-151: runway-short endpoints, IATA/ICAO resolution, distance displays.
-test('HKG→BCH shows a runway-short warning, not "Fly it direct" (ATL-151 regression)', async () => {
+test('Realism: HKG→BCH shows a runway-short warning, not "Fly it direct" (ATL-151 regression)', async () => {
   await flush(); ctx.applyAcft('A380-800', false);
+  ctx.setMode('realism', false);
   const msg = drive({ from: 'HKG', to: 'BCH', range: '14,500', rwy: '9,680' });
   assert.match(msg.className, /warn/);
   assert.match(msg.innerHTML, /BCH runway \(8,233 ft\) is shorter than the .+ minimum \(9,680 ft\)/);
   assert.doesNotMatch(msg.innerHTML, /Fly it direct/);
+  ctx.setMode('easy', false);
+});
+
+test('Easy: no runway restriction, never a runway-short warning (Nathan, 3 Oct)', async () => {
+  ctx.setMode('easy', false);
+  const msg = drive({ from: 'HKG', to: 'BCH', range: '14,500', rwy: '9,680' });
+  assert.doesNotMatch(msg.innerHTML, /runway/i);
+  assert.match(msg.innerHTML, /Fly it direct/);
+  assert.match(ELS.rwyHint.textContent, /Easy mode has no runway limit/);
 });
 
 test('ICAO codes resolve identically to IATA (VHHH→YMML ≡ HKG→MEL)', () => {
@@ -243,164 +229,168 @@ test('a stopover result card states the total distance per leg', () => {
 });
 
 // ATL-153: flights-per-day selector (Optimum + 1–30 departures by one aircraft).
-const QX = /<span class="qx"[^>]*>[^<]*<\/span>/g;
-const cfgText = () => ELS.cfgV.innerHTML.replace(QX, '');
-const quotaClasses = () => [...ELS.cfgV.innerHTML.matchAll(/([YJFLH]) [\d]+%?<span class="qx"/g)].map((m) => m[1]).join('');
+// ---------- ATL-148 Phase 3: best setup over the calculator's flight-time rows ----------
+const { departures48 } = require('../lib/stopoverPlan');
+const { _calc } = require('../lib/calculator');
+const { REV } = require('../lib/calcCosts');
+const { AIRCRAFT_DATA, CALC_TIMES } = require('../config');
+const calcPage = require('../views/calc.js');
 
-test('Optimum leaves all 9 ATL-148 reference configs exactly as before', async () => {
-  await flush(); await flush();
-  ctx.applyAcft('A380-800', false);
-  ctx.setMode('realism', false);
-  ctx.setFpd(0, false);
-  const cases = [
-    ['VVNB', 'SPIM', 'Y 317 / J 59 / F 55', '1 dep/day \u00d7 4 A/C'],
-    ['RPLL', 'SGAS', 'Y 286 / J 132 / F 16', '1 dep/day \u00d7 4 A/C'],
-    ['MROC', 'WIII', 'Y 324 / J 101 / F 24', '1 dep/day \u00d7 5 A/C'],
-    ['VMMC', 'SGAS', 'Y 400 / J 75 / F 16', '1 dep/day \u00d7 5 A/C'],
-    ['ZGSZ', 'SLLP', 'Y 305 / J 123 / F 16', '1 dep/day \u00d7 4 A/C'],
-    ['VMMC', 'SCEL', 'Y 216 / J 192 / F 0', '1 dep/day \u00d7 4 A/C'],
-    ['ZGSZ', 'SCEL', 'Y 223 / J 169 / F 13', '1 dep/day \u00d7 4 A/C'],
-    ['SCEL', 'ZHHH', 'Y 492 / J 54 / F 0', '1 dep/day \u00d7 3 A/C'],
-    ['SVMI', 'WIII', 'Y 205 / J 145 / F 35', '1 dep/day \u00d7 5 A/C'],
-  ];
-  for (const [from, to, cfg, dep] of cases) {
-    drive({ from, to, range: '14,500', rwy: '9,680' });
-    await flush(); await flush();
-    assert.strictEqual(ELS.cfgV.innerHTML, `${cfg} <span class="sm">${dep}</span>`, `${from}->${to}`);
-    assert.strictEqual(ELS.flagRow.style.display, 'none', `${from}->${to} Optimum shows no flags`);
-  }
-});
+function calcDepartures(boostValue) {
+  const build = Object.values(calcPage).find((f) => typeof f === 'function');
+  const page = build('K');
+  const fn = page.match(/function boostCfg\(\)[\s\S]*?return boosted\+normal\+1;\n\}/)[0];
+  const c = vm.createContext({ document: { getElementById: () => ({ value: boostValue }) } });
+  vm.runInContext(fn, c);
+  return (t, mt) => c.departures48(t, mt);
+}
 
-test('JFK\u2192MEL via ROW on A380 (Easy): Optimum unchanged; fixed 2 is capped at per-flight demand', async () => {
-  ctx.setMode('easy', false);
-  ctx.setFpd(0, false);
-  drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
-  await flush(); await flush();
-  assert.match(ELS.msg.innerHTML, /Your stopover is ROW/);
-  assert.strictEqual(ELS.cfgV.innerHTML, 'Y 351 / J 124 / F 0 <span class="sm">2 dep/day \u00d7 1 A/C</span>');
-  assert.strictEqual(ELS.loadV.textContent, 'Y 94% \u00b7 J 100% \u00b7 F \u2014 \u00b7 overall 96%');
-  assert.match(ELS.demV.innerHTML, /Y 660 \/ J 270 \/ F 147 <span class="sm">per flight Y 330 \/ J 135 \/ F 73<\/span>/);
-
-  ctx.setFpd(2, false);
-  drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
-  await flush(); await flush();
-  assert.strictEqual(ELS.cfgV.innerHTML, 'Y 330 / J 135 / F 0 <span class="sm">2 dep/day \u00d7 1 A/C</span>');
-  assert.strictEqual(ELS.loadV.textContent, 'Y 100% \u00b7 J 100% \u00b7 F \u2014 \u00b7 overall 100%');
-  assert.strictEqual(ELS.flagRow.style.display, 'none');
-  ctx.setFpd(0, false);
-});
-
-test('JFK\u2192AKL (Easy, A380, 2/day): cap first, fill second \u2014 Y 266 / J 71 / F 64, no quota flag (ATL-148 4 Oct)', async () => {
-  ctx.setMode('easy', false);
-  ctx.setFpd(2, false);
-  drive({ from: 'JFK', to: 'AKL', range: '14,500', rwy: '9,680' });
-  await flush(); await flush();
-  assert.match(ELS.msg.innerHTML, /Fly it direct/);
-  assert.strictEqual(ELS.demV.innerHTML, 'Y 905 / J 142 / F 129 <span class="sm">per flight Y 452 / J 71 / F 64</span>');
-  assert.strictEqual(ELS.cfgV.innerHTML, 'Y 266 / J 71 / F 64 <span class="sm">2 dep/day \u00d7 1 A/C</span>');
-  assert.doesNotMatch(ELS.cfgV.innerHTML, /Quota exceeded/);
-  assert.strictEqual(ELS.loadV.textContent, 'Y 100% \u00b7 J 100% \u00b7 F 100% \u00b7 overall 100%');
-  ctx.setFpd(0, false);
-});
-
-test('no fixed flights-per-day pax config ever exceeds per-flight demand (every aircraft, 1\u201330)', async () => {
-  ctx.setMode('easy', false);
-  for (const a of ACFT.filter((x) => x.cat !== 'cargo')) {
-    ctx.applyAcft(a.name, false);
-    for (let n = 1; n <= 30; n++) {
-      ctx.setFpd(n, false);
-      drive({ from: 'JFK', to: 'AKL', range: '14,500', rwy: '9,680' });
-      await flush(); await flush();
-      assert.doesNotMatch(ELS.cfgV.innerHTML, /Quota exceeded/, `${a.name} fpd ${n}`);
-      const [y, j, f] = ELS.cfgV.innerHTML.match(/\d+/g).map(Number);
-      assert.ok(y + 2 * j + 3 * f <= a.cap, `${a.name} fpd ${n} within seat budget`);
+test('departures follow the calculator rule exactly (maintenance on/off, every 4\u00d7 option)', () => {
+  for (const b of ['0', '4x1', '4x3', '4x6', 'b1', 'b24']) {
+    const theirs = calcDepartures(b);
+    for (const t of CALC_TIMES) for (const mt of [true, false]) {
+      assert.strictEqual(departures48(t, mt, b), theirs(t, mt), `t ${t} maint ${mt} boost ${b}`);
     }
   }
-  ctx.applyAcft('A380-800', false);
-  ctx.setFpd(0, false);
 });
 
-test('JFK\u2192MEL fixed 1, 4 and 30 give capped configs, recalculated loads and aircraft counts', async () => {
-  ctx.setMode('easy', false);
-  const want = {
-    1: ['Y 600 / J 0 / F 0 <span class="sm">1 dep/day \u00d7 1 A/C</span>', 'Y 100% \u00b7 J \u2014 \u00b7 F \u2014 \u00b7 overall 100%'],
-    4: ['Y 165 / J 67 / F 36 <span class="sm">4 dep/day on 2 A/C</span>', 'Y 100% \u00b7 J 100% \u00b7 F 100% \u00b7 overall 100%'],
-    30: ['Y 22 / J 9 / F 4 <span class="sm">30 dep/day on 15 A/C</span>', 'Y 100% \u00b7 J 100% \u00b7 F 100% \u00b7 overall 100%'],
-  };
-  for (const n of [1, 4, 30]) {
-    ctx.setFpd(n, false);
-    drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
-    await flush(); await flush();
-    assert.strictEqual(ELS.cfgV.innerHTML, want[n][0], `fpd ${n}`);
-    assert.strictEqual(ELS.loadV.textContent, want[n][1], `fpd ${n}`);
-  }
-  assert.match(ELS.flagV.innerHTML, /One aircraft flies up to 2 a day on this distance/);
-  ctx.setFpd(1, false);
-  drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
-  await flush(); await flush();
-  assert.strictEqual(ELS.flagRow.style.display, 'none', '100% load, no quota breach: no flags');
-  ctx.setFpd(0, false);
+test('the calculator page still serves the same cost constants (moved to lib/calcCosts.js)', () => {
+  const build = Object.values(calcPage).find((f) => typeof f === 'function');
+  const page = build('K');
+  assert.deepStrictEqual(JSON.parse(page.match(/const REV=(\{.*?\});/)[1]), REV);
+  assert.match(page, /const FUEL_P=600, CO2_P=130;/);
+  assert.strictEqual(REV['A380-800'].cf, 21.59);
 });
 
-test('ticket prices do not change with flights per day', async () => {
-  ctx.setMode('easy', false);
+test('the plan route sits above the wildcard and the stopover page never sees cost constants', () => {
+  const srv = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert.ok(srv.indexOf("app.get('/api/stopover/plan'") > 0);
+  assert.ok(srv.indexOf("app.get('/api/stopover/plan'") < srv.indexOf("app.get('*', (req"));
+  assert.doesNotMatch(html, /acheckH|FUEL_P|CO2_P|_calc\(|repair:/);
+});
+
+async function route(from, to, opts = {}) {
+  ctx.setMode(opts.mode || 'easy', false);
+  ctx.setNac(opts.nac || 1, false);
+  ctx.setBoost(opts.boost || '0', false);
+  drive({ from, to, range: '14,500', rwy: opts.rwy || '9,680' });
+  await settle();
+  return planNow();
+}
+
+for (const [from, to, label] of [['JFK', 'AKL', 'JFK\u2192AKL'], ['JFK', 'BCH', 'JFK\u2192BCH']]) {
+  test(`${label} (Easy, A380): every flight-time row is consistent and both bests are the maxima`, async () => {
+    ctx.applyAcft('A380-800', false);
+    const p = await route(from, to);
+    const dem = DEMANDS[`KJFK>${to === 'AKL' ? 'NZAA' : 'WPEC'}`];
+    const direct = vm.runInContext('current.direct', ctx);
+    const sp = AIRCRAFT_DATA.find((a) => a.name === 'A380-800').easy;
+    assert.ok(p.rows.length >= 10);
+    assert.deepStrictEqual(p.rows.map((r) => r.t), CALC_TIMES.filter((t) => t >= direct / sp && _calc(direct, t, sp, 'Easy') !== 'X'));
+    for (const r of p.rows) {
+      assert.strictEqual(r.depsDay, r.dep48 / 2);
+      assert.ok(Math.abs(r.cdDay - _calc(direct, r.t, sp, 'Easy') * r.dep48 / 2) < 1e-9);
+      for (const k of ['y', 'j', 'f']) {
+        assert.strictEqual(r.perFlight[k], Math.floor(dem[k] / r.freq));
+        assert.ok(r.cfg[k] <= r.perFlight[k], `t ${r.t} ${k} capped`);
+      }
+      assert.ok(r.cfg.y + 2 * r.cfg.j + 3 * r.cfg.f <= 600);
+    }
+    const bc = rowAt(p.bestCd), bm = rowAt(p.bestMoney);
+    for (const r of p.rows) {
+      assert.ok(r.cdDay < bc.cdDay || (r.cdDay === bc.cdDay && r.dep48 >= bc.dep48));
+      assert.ok(r.profitDay < bm.profitDay || (r.profitDay === bm.profitDay && r.dep48 >= bm.dep48));
+    }
+    // default selection = best for money; the route numbers show that row
+    assert.strictEqual(vm.runInContext('selT', ctx), p.bestMoney);
+    assert.match(ELS.cfgV.innerHTML, new RegExp(`^Y ${bm.cfg.y} / J ${bm.cfg.j} / F ${bm.cfg.f} `));
+    assert.match(ELS.bestCd.innerHTML, /BEST FOR CONTRIBUTIONS/);
+    assert.match(ELS.bestCd.innerHTML, /profit\/day/);
+    assert.match(ELS.bestMoney.innerHTML, /BEST FOR MONEY.*\/day.*C\/D/);
+    assert.strictEqual((ELS.planT.innerHTML.match(/<tr data-t=/g) || []).length, p.rows.length);
+    assert.match(ELS.planT.innerHTML, /<th>Flight time<\/th><th>CI<\/th><th>Deps\/day<\/th><th>Config<\/th><th>Load<\/th><th>Revenue\/day<\/th><th>Profit\/day<\/th><th>C\/D<\/th>/);
+    assert.doesNotMatch(ELS.planT.innerHTML + ELS.bestCd.innerHTML + ELS.bestMoney.innerHTML, /NaN|undefined|Infinity/);
+  });
+}
+
+test('JFK\u2192AKL A380 Easy profit matches the calculator cost model by hand', async () => {
+  const p = await route('JFK', 'AKL');
+  const r = rowAt(p.bestMoney);
+  const d = vm.runInContext('current.direct', ctx);
+  const sp = 1731, a = REV['A380-800'];
+  const tk = [Math.floor((0.4 * d + 170) * 1.10), Math.floor((0.8 * d + 560) * 1.08), Math.floor((1.2 * d + 1200) * 1.06)].map((v) => v - 10);
+  const rev = r.cfg.y * tk[0] + r.cfg.j * tk[1] + r.cfg.f * tk[2];
+  const ci = Math.max(0, Math.min(200, (2000 / 7) * (d / (sp * r.t)) - 600 / 7));
+  const fuel = a.cf * d * (ci / 500 + 0.6) * 600 / 1000;
+  const co2 = a.cc * d * ((r.cfg.y + 2 * r.cfg.j + 3 * r.cfg.f) + (r.cfg.y + r.cfg.j + r.cfg.f)) * (ci / 2000 + 0.9) * 130 / 1000;
+  const want = (rev - fuel - co2 - a.acheckH * Math.ceil(r.t) - a.repair) * r.dep48 / 2;
+  assert.ok(Math.abs(r.profitDay - want) < 1e-6, `${r.profitDay} vs ${want}`);
+  assert.ok(Math.abs(r.revDay - rev * r.dep48 / 2) < 1e-6);
+});
+
+test('aircraft count splits demand over the fleet; flights per day is derived; link round-trips', async () => {
+  const one = await route('JFK', 'AKL');
+  const two = await route('JFK', 'AKL', { nac: 2 });
+  const t = two.bestMoney, r1 = one.rows.find((r) => r.t === t), r2 = rowAt(t);
+  assert.strictEqual(r2.freq, r1.freq * 2);
+  assert.strictEqual(r2.perFlight.y, Math.floor(905 / r2.freq));
+  assert.match(ELS.fpdV.innerHTML, new RegExp(`a day \u00d7 2 A/C \u00b7 ${r2.dep48 * 2} in 48 h`));
+  assert.match(lastUrl, /[?&]nac=2(&|$)/);
+  // tapping a row shows that row and carries it in the link
+  const other = two.rows[0].t;
+  ctx.pickT(other);
+  assert.strictEqual(vm.runInContext('selT', ctx), other);
+  assert.match(ELS.cfgV.innerHTML, new RegExp(`^Y ${two.rows[0].cfg.y} / J ${two.rows[0].cfg.j} / F ${two.rows[0].cfg.f} `));
+  assert.match(lastUrl, new RegExp(`[?&]ft=${other}(&|$)`));
+  ctx.setBoost('4x2');
+  await settle();
+  assert.match(lastUrl, /[?&]boost=4x2(&|$)/);
+  assert.ok(rowAt(other).dep48 >= two.rows[0].dep48);
+  ctx.location.search = `?from=JFK&to=AKL&nac=3&boost=4x1&ft=${other}`;
+  ctx.readUrl();
+  assert.strictEqual(vm.runInContext('nAc', ctx), 3);
+  assert.strictEqual(vm.runInContext('boost', ctx), '4x1');
+  assert.strictEqual(vm.runInContext('selT', ctx), other);
+  ctx.location.search = '';
+  ctx.readUrl();
+  ctx.setNac(1, false); ctx.setBoost('0', false);
+});
+
+test('a new route returns to the best-for-money row', async () => {
+  const p = await route('JFK', 'AKL');
+  ctx.pickT(p.rows[0].t);
+  const q = await route('JFK', 'BCH');
+  assert.strictEqual(vm.runInContext('selT', ctx), q.bestMoney);
+  assert.doesNotMatch(lastUrl, /[?&]ft=/);
+});
+
+test('ticket prices do not change with aircraft count, 4\u00d7 or the chosen row', async () => {
   const prices = [];
-  for (const n of [0, 1, 7, 30]) {
-    ctx.setFpd(n, false);
-    drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
-    await flush();
-    prices.push([ELS.tY.textContent, ELS.tJ.textContent, ELS.tF.textContent].join());
+  for (const o of [{}, { nac: 3 }, { boost: '4x6' }]) {
+    const p = await route('JFK', 'AKL', o);
+    for (const r of p.rows.slice(0, 3)) { ctx.pickT(r.t); prices.push([ELS.tY.textContent, ELS.tJ.textContent, ELS.tF.textContent].join()); }
   }
   assert.strictEqual(new Set(prices).size, 1);
-  ctx.setFpd(0, false);
+  ctx.setNac(1, false); ctx.setBoost('0', false);
 });
 
 test('under 15 pax per flight raises the contribution flag', async () => {
-  ctx.setMode('easy', false);
-  ctx.setFpd(30, false);
-  drive({ from: 'HKG', to: 'BCH', range: '14,500', rwy: '0' });
-  await flush(); await flush();
+  await route('HKG', 'BCH', { nac: 6, rwy: '0' });
   assert.match(ELS.flagV.innerHTML, /Under 15 pax per flight \(\d+ expected\): contribution below maximum/);
-  ctx.setFpd(0, false);
+  ctx.setNac(1, false);
 });
 
-test('every aircraft (pax and cargo) gives a config and load for Optimum and 1\u201330', async () => {
-  ctx.setMode('easy', false);
+test('every aircraft gives a best setup with no NaN; money card only where cost figures exist', async () => {
   for (const a of ACFT) {
     ctx.applyAcft(a.name, false);
-    for (let n = 0; n <= 30; n++) {
-      ctx.setFpd(n, false);
-      drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '0' });
-      await flush(); await flush();
-      const t = ELS.cfgV.innerHTML + ' ' + ELS.loadV.textContent;
-      assert.doesNotMatch(t, /NaN|undefined|Infinity|\u2013/, `${a.name} fpd ${n}`);
-      assert.match(t, a.cat === 'cargo' ? /^L \d+%.* \/ H \d+%.*dep\/day/ : /^Y \d+.* \/ J \d+.* \/ F \d+.*dep\/day/, `${a.name} fpd ${n}`);
-      assert.match(ELS.cfgV.innerHTML, new RegExp(`>${n || '\\d+'} dep/day`), `${a.name} fpd ${n}`);
-    }
+    await route('JFK', 'MEL', { rwy: '0' });
+    const p = planNow();
+    assert.ok(p && p.rows.length, a.name);
+    const t = ELS.cfgV.innerHTML + ' ' + ELS.loadV.textContent + ELS.bestCd.innerHTML + ELS.bestMoney.innerHTML + ELS.planT.innerHTML;
+    assert.doesNotMatch(t, /NaN|undefined|Infinity/, a.name);
+    const costed = a.cat !== 'cargo' && !!REV[a.name];
+    assert.strictEqual(p.money, costed, a.name);
+    assert.match(ELS.bestMoney.innerHTML, costed ? /\/day/ : /No cost figures for this aircraft/, a.name);
   }
   ctx.applyAcft('A380-800', false);
-  ctx.setFpd(0, false);
-});
-
-test('flights per day is kept across route/aircraft changes and carried in the link', async () => {
-  ctx.setFpd(4, false);
-  drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
-  assert.match(lastUrl, /[?&]fpd=4(&|$)/);
-  ctx.applyAcft('B747-8F', false);
-  drive({ from: 'VVNB', to: 'SPIM', range: '14,500', rwy: '9,680' });
-  await flush(); await flush();
-  assert.match(lastUrl, /[?&]fpd=4(&|$)/);
-  assert.match(ELS.cfgV.innerHTML, />4 dep\/day/);
-  ctx.applyAcft('A380-800', false);
-  ctx.setFpd(0, false);
-  drive({ from: 'JFK', to: 'MEL', range: '14,500', rwy: '9,680' });
-  assert.doesNotMatch(lastUrl, /fpd=/, 'Optimum keeps the link clean');
-
-  for (const [q, v] of [['?fpd=12', '12'], ['?fpd=31', '0'], ['?fpd=abc', '0'], ['', '0']]) {
-    ctx.location.search = q;
-    ctx.readUrl();
-    assert.strictEqual(ELS.fpd.value, v, q);
-  }
-  ctx.location.search = '';
-  ctx.setFpd(0, false);
 });
