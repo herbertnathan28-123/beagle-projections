@@ -417,6 +417,45 @@ test('a new route returns to the best-for-money row', async () => {
   assert.doesNotMatch(lastUrl, /[?&]ft=/);
 });
 
+test('manual flights per day (1\u201330) drives the route numbers; cards and ranked table stay on the recommendation', async () => {
+  ctx.applyAcft('A380-800', false);
+  const p = await route('JFK', 'AKL');
+  const order = tableOrder(), cards = ELS.bestCd.innerHTML + ELS.bestMoney.innerHTML + ELS.bestAll.innerHTML;
+  ctx.setFpd(2); await settle();
+  assert.match(ELS.cfgV.innerHTML, /^Y 266 \/ J 71 \/ F 64 <span class="sm">at your 2 a day<\/span>$/);
+  assert.match(ELS.demV.innerHTML, /per flight Y 452 \/ J 71 \/ F 64/);
+  assert.strictEqual(ELS.loadV.textContent, 'Y 100% \u00b7 J 100% \u00b7 F 100% \u00b7 overall 100%');
+  assert.match(ELS.fpdV.innerHTML, /your choice \u00b7 recommended 3 a day \(9h 00m flight\)/);
+  assert.doesNotMatch(ELS.cfgV.innerHTML + ELS.flagV.innerHTML, /Quota exceeded|NaN/);
+  assert.match(lastUrl, /[?&]fpd=2(&|$)/);
+  assert.strictEqual(planNow().bestMoney, p.bestMoney);
+  assert.deepStrictEqual(tableOrder(), order);
+  assert.strictEqual(ELS.bestCd.innerHTML + ELS.bestMoney.innerHTML + ELS.bestAll.innerHTML, cards);
+  ctx.setFpd(30); await settle();
+  assert.match(ELS.demV.innerHTML, /per flight Y 30 \/ J 4 \/ F 4/);
+  assert.match(ELS.flagV.innerHTML, /Up to 3 a day per aircraft on this distance: 10 aircraft needed for 30 a day/);
+  ctx.setNac(10); await settle();
+  assert.doesNotMatch(ELS.flagV.innerHTML, /aircraft needed/);
+  ctx.setNac(1, false);
+  ctx.location.search = '?from=JFK&to=AKL&fpd=7';
+  ctx.readUrl();
+  assert.strictEqual(vm.runInContext('fpd', ctx), 7);
+  ctx.location.search = '?from=JFK&to=AKL&fpd=31';
+  ctx.readUrl();
+  assert.strictEqual(vm.runInContext('fpd', ctx), 0);
+  ctx.location.search = '';
+  ctx.readUrl();
+  const q = await route('JFK', 'AKL');
+  const bm = rowAt(q.bestMoney);
+  assert.match(ELS.cfgV.innerHTML, new RegExp(`^Y ${bm.cfg.y} / J ${bm.cfg.j} / F ${bm.cfg.f} <span class="sm">9h 00m flight`));
+  assert.doesNotMatch(lastUrl, /[?&]fpd=/);
+  ctx.applyAcft('A380F', false);
+  ctx.setFpd(4); await route('JFK', 'AKL');
+  assert.match(ELS.cfgV.innerHTML, /^L \d+% \/ H \d+% <span class="sm">at your 4 a day/);
+  assert.doesNotMatch(ELS.cfgV.innerHTML + ELS.loadV.textContent + ELS.demV.innerHTML, /NaN|undefined/);
+  ctx.setFpd(0, false); ctx.applyAcft('A380-800', false);
+});
+
 test('ticket prices do not change with aircraft count, 4\u00d7 or the chosen row', async () => {
   const prices = [];
   for (const o of [{}, { nac: 3 }, { boost: '4x6' }]) {
