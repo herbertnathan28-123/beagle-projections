@@ -56,11 +56,19 @@ input:focus-visible,button:focus-visible,.alt:focus-visible{outline:2px solid va
 canvas{display:block;width:100%;height:clamp(240px,42vw,440px)}
 .replay{position:absolute;right:12px;top:12px;background:color-mix(in srgb,var(--panel) 85%,transparent);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;font:600 13px "Barlow",sans-serif;cursor:pointer}
 .legend{position:absolute;left:14px;bottom:12px;display:flex;gap:14px;font-size:12.5px;color:var(--muted);background:color-mix(in srgb,var(--panel) 82%,transparent);padding:6px 10px;border-radius:8px}
-.wx{position:absolute;left:12px;top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;max-width:min(320px,calc(100% - 150px));font-size:12px;color:var(--muted);background:color-mix(in srgb,var(--panel) 85%,transparent);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
-.wx b{color:var(--ink);font:700 13px "Barlow",sans-serif}
-.wx .wxbar{display:inline-block;width:84px;height:8px;border-radius:4px;background:linear-gradient(90deg,#1aa64b,#7fd320,#f5e61c,#f59a1c,#e3261c,#9c0d0d)}
-.wx small{flex-basis:100%;font-size:11px}
-@media (max-width:600px){.wx{padding:4px 8px;gap:2px 6px}.wx small{display:none}.wx .wxbar{width:56px}}
+.map{--syn-h:#FFFF00;--syn-l:#FF00CE;--syn-cold:#33FF00;--syn-warm:#FF0000;--syn-occ:#9F00D0;--syn-trof:#FF9900}
+.wxseg{position:absolute;left:12px;top:12px;display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel2)}
+.wxseg[hidden],.wx[hidden],.wxk[hidden]{display:none}
+.wxseg button{background:transparent;border:0;color:var(--muted);font:700 12.5px "Barlow",sans-serif;padding:5px 11px;cursor:pointer}
+.wxseg button[aria-pressed="true"]{background:var(--gold);color:#1A1203}
+.wx{position:absolute;right:12px;bottom:12px;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);background:color-mix(in srgb,var(--panel) 82%,transparent);border-radius:7px;padding:4px 9px;white-space:nowrap}
+.wxk{display:inline-flex;align-items:center;gap:7px}
+.wx .wxbar{display:inline-block;width:56px;height:6px;border-radius:3px;background:linear-gradient(90deg,#1aa64b,#7fd320,#f5e61c,#f59a1c,#e3261c,#9c0d0d)}
+.wxk b{font:800 13px "Barlow Condensed",sans-serif;margin-right:-3px}
+.fk{display:inline-flex;align-items:center;gap:3px;color:var(--ink)}
+.fk i{display:inline-block;width:12px;height:3px;border-radius:2px}
+.fk i.dash{background:repeating-linear-gradient(90deg,var(--syn-trof) 0 3px,transparent 3px 5px)}
+@media (max-width:600px){.wx{right:auto;left:12px;bottom:auto;top:46px;padding:3px 7px}.wxk{display:none}}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
 
 .board{margin-top:16px;display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;overflow:hidden}
@@ -252,7 +260,8 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
 
   <div class="map"><canvas id="cv" aria-label="Route map"></canvas>
     <button class="replay" id="replay" type="button">Replay flight</button>
-    <div class="wx" id="wx" hidden title="NASA GPM IMERG satellite precipitation estimate, 30-minute frames (published about 6 hours behind real time)"><b>Real-world rain</b><span id="wxT"></span><i class="wxbar"></i><small>light → heavy · blue = snow · NASA IMERG</small></div>
+    <div class="wxseg" id="wxSeg" role="group" aria-label="Weather layer" hidden><button type="button" id="wxRain" aria-pressed="true">Rain</button><button type="button" id="wxSyn" aria-pressed="false">Synoptic</button></div>
+    <div class="wx" id="wx" hidden><span id="wxT"></span><span class="wxk" id="wxkRain"><i class="wxbar"></i>NASA rain</span><span class="wxk" id="wxkSyn" hidden><b style="color:var(--syn-h)">H</b><b style="color:var(--syn-l)">L</b><span class="fk"><i style="background:var(--syn-cold)"></i>cold</span><span class="fk"><i style="background:var(--syn-warm)"></i>warm</span><span class="fk"><i style="background:var(--syn-occ)"></i>occl.</span><span class="fk"><i style="background:linear-gradient(90deg,var(--syn-warm) 50%,var(--syn-cold) 50%)"></i>stat.</span><span class="fk"><i class="dash"></i>trough</span>NOAA</span></div>
     <div class="legend"><span><i style="background:var(--gold)"></i>Your route</span><span><i style="background:var(--green)"></i>Stopover</span><span><i style="background:var(--muted)"></i>Other options</span></div>
   </div>
 
@@ -504,7 +513,7 @@ function gc(a,b,n=64){ // great-circle points, longitudes unwrapped continuously
   return pts;
 }
 function draw(){ drawBase(); paint(performance.now()); }
-function drawBase(){ ctx=bctx; drawLand(); ctx=octx; drawRouteLayer(); ctx=bctx; }
+function drawBase(){ ctx=bctx; drawLand(); if(wxMode==='syn') drawSynoptic(); ctx=octx; drawRouteLayer(); ctx=bctx; }
 function drawLand(){
   const w=cv.clientWidth,h=cv.clientHeight; ctx.clearRect(0,0,w,h);
   const span=view.lon1-view.lon0, rDot=Math.max(.8,Math.min(2.4,260/span));
@@ -538,6 +547,7 @@ function drawRouteLayer(){
   // legs
   ctx.lineCap='round'; ctx.lineJoin='round';
   route.paths.forEach(path=>{
+    if(wxMode==='syn'){ ctx.strokeStyle='#050B18'; ctx.globalAlpha=.85; ctx.lineWidth=6; stroke(path); ctx.globalAlpha=1; }
     if(reduce){ ctx.strokeStyle=gold; ctx.globalAlpha=.25; ctx.lineWidth=7; stroke(path); ctx.globalAlpha=1; ctx.lineWidth=2.5; stroke(path); }
     else { ctx.strokeStyle=gold; ctx.globalAlpha=.55; ctx.lineWidth=1.8; ctx.setLineDash([5,6]); stroke(path); ctx.setLineDash([]); ctx.globalAlpha=1; }
   });
@@ -584,6 +594,7 @@ function screenPath(path){ const pts=path.map(p=>proj(p[0],p[1])); const cum=[0]
 function at(sp,f){ const d=f*sp.len; let i=1; while(i<sp.cum.length-1&&sp.cum[i]<d) i++; const a=sp.pts[i-1],b=sp.pts[i],seg=(sp.cum[i]-sp.cum[i-1])||1,u=Math.max(0,Math.min(1,(d-sp.cum[i-1])/seg)); return {x:a[0]+(b[0]-a[0])*u,y:a[1]+(b[1]-a[1])*u,ang:Math.atan2(b[1]-a[1],b[0]-a[0]),i,u}; }
 function trail(sp,f,glow){ const p=at(sp,f); mctx.beginPath(); mctx.moveTo(sp.pts[0][0],sp.pts[0][1]); for(let k=1;k<p.i;k++) mctx.lineTo(sp.pts[k][0],sp.pts[k][1]); mctx.lineTo(p.x,p.y);
   mctx.lineCap='round'; mctx.lineJoin='round'; mctx.strokeStyle=css('--gold');
+  if(wxMode==='syn'){ mctx.strokeStyle='#050B18'; mctx.globalAlpha=.85; mctx.lineWidth=6.5; mctx.stroke(); mctx.strokeStyle=css('--gold'); }
   if(glow){ mctx.globalAlpha=.22; mctx.lineWidth=8; mctx.stroke(); } mctx.globalAlpha=1; mctx.lineWidth=2.6; mctx.stroke(); }
 function plane(x,y,ang,s,alt){
   const ink=css('--tileInk');
@@ -604,7 +615,7 @@ function loadWeather(){
     if(!d||!Array.isArray(d.frames)||!d.frames.length) return;
     WX.frames=d.frames.map(f=>{ const img=new Image(); img.decoding='async'; img.src=f.url; return {t:f.t,img}; });
     WX.t0=performance.now();
-    WX.frames[WX.frames.length-1].img.onload=()=>{ $('wx').hidden=false; draw(); };
+    WX.frames[WX.frames.length-1].img.onload=()=>{ wxShow(); if(wxMode==='rain') draw(); };
   }).catch(()=>{});
 }
 function wxLabel(t){
@@ -612,6 +623,7 @@ function wxLabel(t){
   return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · '+(ago?ago+' h ago':'latest');
 }
 function rain(now,w,h){
+  if(wxMode!=='rain') return;
   const fr=WX.frames.filter(f=>f.img.complete&&f.img.naturalWidth); if(!fr.length) return;
   const n=fr.length; let i=n-1,u=0;
   if(!reduce&&n>1){ const p=Math.min(((now-WX.t0)%((n-1)*WX_FRAME+WX_HOLD))/WX_FRAME,n-1); i=Math.floor(p); u=p-i; }
@@ -621,6 +633,104 @@ function rain(now,w,h){
     for(const off of [-360,0,360]){ const x=(-180+off-view.lon0)*sx; if(x>w||x+360*sx<0) continue; mctx.drawImage(img,x,(view.lat1-90)*sy,360*sx,180*sy); } };
   blit(a.img,WX_ALPHA*(1-u)); if(b!==a) blit(b.img,WX_ALPHA*u); mctx.globalAlpha=1;
   const cur=u<.5?a:b; if(WX.shown!==cur.t){ WX.shown=cur.t; $('wxT').textContent=wxLabel(cur.t); }
+}
+// world synoptic chart: NOAA GFS isobars + H/L, NOAA WPC fronts (/api/stopover/synoptic)
+let wxMode='rain'; const SYN={data:null,loading:false};
+const SYN_TITLE="Isobars every 4 hPa contoured from NOAA's GFS sea-level pressure analysis. Fronts and troughs from NOAA WPC's surface analysis, which covers the North Pacific, North America and the North Atlantic only.";
+const RAIN_TITLE="NASA GPM IMERG satellite precipitation estimate, 30-minute frames (published about 6 hours behind real time)";
+function loadSynoptic(){
+  if(SYN.data||SYN.loading) return; SYN.loading=true;
+  fetch('/api/stopover/synoptic').then(r=>r.ok?r.json():null).then(d=>{
+    SYN.loading=false;
+    if(!d||!Array.isArray(d.isobars)||!d.isobars.length) return;
+    for(const l of d.isobars){ let a=1e9,b=-1e9; for(let k=0;k<l.pts.length;k+=2){ const x=l.pts[k]; if(x<a)a=x; if(x>b)b=x; } l.x0=a; l.x1=b; }
+    SYN.data=d; wxShow(); if(wxMode==='syn'){ wxText(); draw(); }
+  }).catch(()=>{ SYN.loading=false; });
+}
+function wxShow(){ $('wx').hidden=false; $('wxSeg').hidden=false; }
+function wxText(){
+  if(wxMode==='syn') $('wxT').textContent = SYN.data ? 'Analysis '+wxLabel(SYN.data.analysisAt) : 'Loading chart…';
+  else WX.shown=null;
+}
+function setWx(m,user){
+  wxMode = m==='syn'?'syn':'rain';
+  $('wxRain').setAttribute('aria-pressed',String(wxMode==='rain')); $('wxSyn').setAttribute('aria-pressed',String(wxMode==='syn'));
+  $('wxkRain').hidden = wxMode!=='rain'; $('wxkSyn').hidden = wxMode!=='syn';
+  $('wx').title = wxMode==='syn'?SYN_TITLE:RAIN_TITLE;
+  if(wxMode==='syn') loadSynoptic();
+  wxText();
+  if(user){ draw(); syncUrl(); }
+}
+function frontSymbols(P,type,col){
+  const STEP=30; let next=STEP/2, acc=0, n=0;
+  for(let k=1;k<P.length;k++){
+    const ax=P[k-1][0],ay=P[k-1][1],dx=P[k][0]-ax,dy=P[k][1]-ay,L=Math.hypot(dx,dy); if(!L) continue;
+    const tx=dx/L,ty=dy/L,nx=ty,ny=-tx;
+    while(next<=acc+L){
+      const f=next-acc, x=ax+tx*f, y=ay+ty*f;
+      let kind = type==='COLD'?'tri' : type==='WARM'?'semi' : (n%2?'semi':'tri');
+      let c = type==='OCFNT'?col.occ : type==='STNRY'?(kind==='tri'?col.cold:col.warm) : kind==='tri'?col.cold:col.warm;
+      const side = type==='STNRY'&&kind==='semi' ? -1 : 1;
+      ctx.fillStyle=c; ctx.beginPath();
+      if(kind==='tri'){ ctx.moveTo(x-tx*6,y-ty*6); ctx.lineTo(x+nx*8*side,y+ny*8*side); ctx.lineTo(x+tx*6,y+ty*6); }
+      else { const a=Math.atan2(ty,tx); ctx.arc(x,y,5.5,a,a+Math.PI,side>0); }
+      ctx.closePath(); ctx.fill();
+      next+=STEP; n++;
+    }
+    acc+=L;
+  }
+}
+const ISO=[[988,'#9F00D0'],[1000,'#FF00CE'],[1008,'#1AFF00'],[1016,'#FFFF00'],[1024,'#FEA900'],[Infinity,'#F11501']];
+const isoCol=p=>ISO.find(r=>p<=r[0])[1];
+function drawSynoptic(){
+  const d=SYN.data; if(!d) return;
+  const w=cv.clientWidth,h=cv.clientHeight, sx=w/(view.lon1-view.lon0), sy=h/(view.lat1-view.lat0);
+  const cs=getComputedStyle($('wx')), cv_=(k,f)=>(cs.getPropertyValue(k)||'').trim()||f;
+  const col={h:cv_('--syn-h','#FFFF00'),l:cv_('--syn-l','#FF00CE'),cold:cv_('--syn-cold','#33FF00'),warm:cv_('--syn-warm','#FF0000'),occ:cv_('--syn-occ','#9F00D0'),trof:cv_('--syn-trof','#FF9900')};
+  const offs=[-360,0,360], X=(lon,off)=>(lon+off-view.lon0)*sx, Y=lat=>(view.lat1-lat)*sy;
+  ctx.save(); ctx.lineJoin='round'; ctx.lineCap='round';
+  const labels=[], room=(x,y)=>{ if(x<20||x>w-20||y<12||y>h-12) return false; for(const b of labels) if(Math.abs(b[0]-x)<64&&Math.abs(b[1]-y)<26) return false; labels.push([x,y]); return true; };
+  // isobars
+  for(const l of d.isobars){
+    const major=l.p%20===0;
+    ctx.strokeStyle=isoCol(l.p); ctx.lineWidth= major?1:.65;
+    for(const off of offs){
+      if(l.x1+off<view.lon0||l.x0+off>view.lon1) continue;
+      ctx.beginPath(); for(let k=0;k<l.pts.length;k+=2){ const x=X(l.pts[k],off),y=Y(l.pts[k+1]); k?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.stroke();
+    }
+  }
+  ctx.font='600 10.5px "Barlow",sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  const small=w<600;
+  for(const l of d.isobars){
+    if(small||l.pts.length<60) continue;
+    const m=Math.floor(l.pts.length/4)*2;
+    for(const off of offs){ const x=X(l.pts[m],off),y=Y(l.pts[m+1]); if(!room(x,y)) continue;
+      ctx.lineWidth=3; ctx.strokeStyle=css('--sea'); ctx.strokeText(String(l.p),x,y); ctx.fillStyle=isoCol(l.p); ctx.fillText(String(l.p),x,y); }
+  }
+  // fronts + troughs
+  for(const fr of d.fronts||[]){
+    for(const off of offs){
+      const P=[]; for(let k=0;k<fr.pts.length;k+=2) P.push([X(fr.pts[k+1],off),Y(fr.pts[k])]);
+      if(P.every(p=>p[0]<-20)||P.every(p=>p[0]>w+20)) continue;
+      const line=(c,dash,o)=>{ ctx.strokeStyle=c; ctx.setLineDash(dash); ctx.lineDashOffset=o||0; ctx.beginPath(); P.forEach((p,k)=>k?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.stroke(); };
+      ctx.lineWidth=2.6;
+      if(fr.type==='TROF'){ ctx.lineWidth=1.8; line(col.trof,[6,5]); ctx.setLineDash([]); continue; }
+      if(fr.type==='STNRY'){ line(col.warm,[15,15],0); line(col.cold,[15,15],15); }
+      else line(fr.type==='COLD'?col.cold:fr.type==='WARM'?col.warm:col.occ,[]);
+      ctx.setLineDash([]); frontSymbols(P,fr.type,col);
+    }
+  }
+  // highs and lows
+  ctx.textBaseline='middle';
+  const hl=[], gap=small?46:30;
+  for(const c of d.centres||[]){
+    for(const off of offs){ const x=X(c.lon,off),y=Y(c.lat); if(x<-10||x>w+10||y<-10||y>h+10) continue;
+      if(hl.some(b=>Math.abs(b[0]-x)<gap&&Math.abs(b[1]-y)<gap)) continue; hl.push([x,y]);
+      ctx.font='800 22px "Barlow Condensed",sans-serif'; ctx.lineWidth=4; ctx.strokeStyle=css('--sea');
+      ctx.strokeText(c.t,x,y); ctx.fillStyle=c.t==='H'?col.h:col.l; ctx.fillText(c.t,x,y);
+      if(small) continue; ctx.font='700 10.5px "Barlow",sans-serif'; ctx.lineWidth=3; ctx.strokeText(String(c.p),x,y+15); ctx.fillText(String(c.p),x,y+15); }
+  }
+  ctx.restore(); ctx.textAlign='left';
 }
 function paint(now){
   const w=cv.clientWidth,h=cv.clientHeight;
@@ -846,6 +956,7 @@ function applyAcft(name,applySpec){
 }
 function initAircrafts(){
   loadWeather();
+  $('wxRain').addEventListener('click',()=>setWx('rain',true)); $('wxSyn').addEventListener('click',()=>setWx('syn',true));
   fetch('/api/stopover/aircrafts').then(r=>r.json()).then(list=>{
     AC=list;
     const sel=$('acft'); sel.innerHTML='';
@@ -986,6 +1097,7 @@ function syncUrl(){
   if(fpd)p.set('fpd',fpd);
   if(sortBy!=='money')p.set('sort',sortBy);
   if(selUser&&selT!=null)p.set('ft',selT);
+  if(wxMode!=='rain')p.set('wx',wxMode);
   try{history.replaceState(null,'','?'+p.toString());}catch(e){}
 }
 function readUrl(){
@@ -1000,6 +1112,7 @@ function readUrl(){
   setNac(/^\d+$/.test(p.get('nac')||'')?+p.get('nac'):1,false); setBoost(p.get('boost')||'0',false);
   setFpd(/^\d+$/.test(p.get('fpd')||'')?+p.get('fpd'):0,false);
   sortBy=SORTS[p.get('sort')]?p.get('sort'):'money';
+  setWx(p.get('wx'),false);
   const ft=+p.get('ft'); if(p.has('ft')&&ft>0){ selT=ft; selUser=true; }
 }
 function setMode(m,run=true){ mode=m; $('mEasy').setAttribute('aria-pressed',m==='easy'); $('mReal').setAttribute('aria-pressed',m==='realism'); $('rwyHint').textContent=m==='easy'?'Easy mode has no runway limit':'Leave 0 to allow any runway'; if(run&&current) solve(current.pick); }

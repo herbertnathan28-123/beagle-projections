@@ -1505,6 +1505,12 @@ app.get('/api/stopover/weather/frame/:t.png', (req, res) => {
   res.type('png').set('Cache-Control', 'public, max-age=86400, immutable').send(png);
 });
 
+// World synoptic chart (NOAA GFS isobars + WPC fronts), contoured and cached server-side.
+const stopoverSynoptic = require('./lib/stopoverSynoptic');
+app.get('/api/stopover/synoptic', async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=600').json(await stopoverSynoptic.index());
+});
+
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) return res.status(404).send('Not found');
   logVisit(req);
