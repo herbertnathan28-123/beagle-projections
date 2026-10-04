@@ -45,6 +45,8 @@ const HQ_STATE_FILE          = '/data/hq-state.json';
 const SV_HISTORY_FILE        = '/data/sv_history.json';
 const ALLIANCE_SV_HISTORY_FILE = '/data/alliance_sv_history.json';
 const SNAPSHOT_HISTORY_FILE  = '/data/player_snapshot_history.json';
+const IMPROVED_HISTORY_FILE  = '/data/most_improved_history.json';   // ATL-160: per-upload cumulative Contributed, kept by age
+const TROPHY_FILE            = '/data/most_improved_trophies.json';  // ATL-160: weekly 🏆 awards keyed by week
 const MANUAL_OVERRIDES_FILE  = '/data/manual_overrides.json';
 const FUEL_PROFILES_FILE     = '/data/fuel_profiles.json';
 const FUEL_ACCESS_LOG_FILE   = '/data/fuel_access_log.json';
@@ -60,6 +62,8 @@ const FUEL_PUSH_SUBS_FILE    = '/data/fuel_push_subs.json'; // per-player web-pu
 const MERIT_WEIGHTS = { cd: 0.40, eff: 0.20, mom: 0.15, cons: 0.10, act: 0.05, conf: 0.10 };
 // Rolling snapshot window retained on disk for trend analysis.
 const SNAPSHOT_LIMIT = 60;
+const IMPROVED_HISTORY_DAYS = 63;               // 35 days needed; 9 weeks kept
+const MOST_IMPROVED_AUTO_FROM = '2026-10-11';    // first scheduled week; 4 Oct is awarded by hand
 // "Most improved" look-back window (days).
 const IMPROVED_WINDOW_DAYS = 7;
 
@@ -171,6 +175,7 @@ module.exports = {
   ALLIANCE_UPLOAD_WEBHOOK, PLAYER_STATS_WEBHOOK, FUEL_SCREENSHOT_UPLOAD_WEBHOOK,
   FUEL_ALERT_WEBHOOK,
   STATE_FILE, HQ_STATE_FILE, SV_HISTORY_FILE, ALLIANCE_SV_HISTORY_FILE, SNAPSHOT_HISTORY_FILE, MANUAL_OVERRIDES_FILE,
+  IMPROVED_HISTORY_FILE, TROPHY_FILE, IMPROVED_HISTORY_DAYS, MOST_IMPROVED_AUTO_FROM,
   FUEL_PROFILES_FILE, FUEL_ACCESS_LOG_FILE, FUEL_APPROVED_USERS_FILE,
   HUNTER_DATA_FILE, FUEL_PATH_FILE, FUEL_PLANS_FILE, FUEL_PUSH_SUBS_FILE,
   MERIT_WEIGHTS, SNAPSHOT_LIMIT, IMPROVED_WINDOW_DAYS,
