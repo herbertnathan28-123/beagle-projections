@@ -44,6 +44,10 @@ const stopoverSynoptic = require('./lib/stopoverSynoptic');
 app.get('/api/stopover/synoptic', async (req, res) => {
   res.set('Cache-Control', 'public, max-age=600').json(await stopoverSynoptic.index());
 });
+// Zoomable map imagery (NASA GIBS Blue Marble + IMERG rain tiles), proxied and cached server-side.
+const stopoverTiles = require('./lib/stopoverTiles');
+app.get('/api/stopover/tiles/bm/:z/:r/:c.jpg', stopoverTiles.handler('bm'));
+app.get('/api/stopover/tiles/rain/:t/:z/:r/:c.png', stopoverTiles.handler('rain'));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Stopover preview on port ${PORT}`));
