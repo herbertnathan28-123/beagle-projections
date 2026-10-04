@@ -113,3 +113,28 @@ test('scheduler: Sunday 12:00–12:59 UTC only, once per week, not before the fi
   store.awards['2026-10-11'] = { player: 'A' };
   assert.strictEqual(MI.dueAwardAt(Date.parse('2026-10-11T12:30:00Z'), store, '2026-10-11'), null);
 });
+
+test('ATL-161 improvementScores: percentile over every scored player incl. top 10; thin data and sub-floor normals score 50', () => {
+  const players = [
+    { name: 'Top', cd: 9e6, rate: jump(200000, 300000) },
+    { name: 'Mid', rate: jump(50000, 60000) },
+    { name: 'Low', rate: jump(80000, 64000) },
+    { name: 'Small', rate: jump(10000, 30000) },
+  ];
+  const r = MI.computeMostImproved(history(players, { step: 1 }), { awardAt: iso(AT), rules: { ...MI.RULES, excludeTopRaw: 1 } });
+  assert.ok(r.rows.find(x => x.name === 'Top').excluded.includes('top-1 raw'));
+  const s = MI.improvementScores(r);
+  assert.strictEqual(s.Top, 100, 'top raw is excluded from the award but still scored');
+  assert.strictEqual(s.Mid, 50);
+  assert.strictEqual(s.Low, 0);
+  assert.strictEqual(s.Small, 50, 'normal under $25k/day is neutral');
+  const thin = MI.computeMostImproved(history(players, { step: 1 }).slice(-3), { awardAt: iso(AT) });
+  assert.ok(Object.values(MI.improvementScores(thin)).every(v => v === 50), 'too little data is neutral');
+});
+
+test('ATL-161 rating weights: Most Improved 15%, the other six × 0.85; missing score is neutral 50', () => {
+  const { calcMeritScore } = require('../lib/engine');
+  assert.strictEqual(calcMeritScore(100, 100, 100, 100, 100, 100, 100), 100);
+  assert.strictEqual(calcMeritScore(0, 0, 0, 0, 0, 100, 100), 23.5);
+  assert.strictEqual(calcMeritScore(0, 0, 0, 0, 0, 100), 16);
+});

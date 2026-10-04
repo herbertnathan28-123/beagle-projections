@@ -1423,7 +1423,7 @@ app.get('/api/player-stats', (req, res) => {
       return merged;
     });
     const snapshots = (snapshotHistory.snapshots || []).slice(-cfg.SNAPSHOT_LIMIT);
-    const analysed = analyseAllPlayers(players, snapshots);
+    const analysed = analyseAllPlayers(players, snapshots, { miScores: latestImprovementScores() });
     res.json({
       timestamp: hqData.timestamp,
       uploader: hqData.uploader,
@@ -1496,18 +1496,36 @@ function backfillAward(key) {
 
 app.get('/api/most-improved/trophies', (req, res) => res.json(trophies));
 
+function publicTally() {
+  const names = {};
+  for (const k of Object.keys(trophies.awards || {}).sort()) { const a = trophies.awards[k]; if (a && a.player) names[mostImproved.nk(a.player)] = a.player; }
+  return [...mostImproved.trophyTally(trophies).entries()]
+    .map(([k, n]) => ({ player: names[k] || k, trophies: n }))
+    .sort((x, y) => y.trophies - x.trophies || x.player.localeCompare(y.player));
+}
+
 // Public, read by the beagle-stats MOST IMPROVED tab: latest week + every week's winner + tally.
 app.get('/api/most-improved/latest', (req, res) => {
   const key = latestAwardKey();
   const award = key ? backfillAward(key) : null;
-  const tally = [...mostImproved.trophyTally(trophies).entries()];
-  const names = {};
-  for (const k of Object.keys(trophies.awards || {}).sort()) { const a = trophies.awards[k]; if (a && a.player) names[mostImproved.nk(a.player)] = a.player; }
   res.json({
     weekKey: key, award, gif: key ? '/api/most-improved/' + key + '.gif' : null,
     weeks: Object.keys(trophies.awards || {}).sort().reverse().map(k => ({ weekKey: k, player: trophies.awards[k].player, pct: trophies.awards[k].pct })),
-    tally: tally.map(([k, n]) => ({ player: names[k] || k, trophies: n })).sort((x, y) => y.trophies - x.trophies || x.player.localeCompare(y.player)),
+    tally: publicTally(),
   });
+});
+
+// Public, read by alliance-pace-bot (ATL-161): every player's 0-100 improvement
+// percentile for the latest awarded week (15% of the overall rating), plus the
+// trophy tally. Only the percentile leaves here, never the % or rank.
+function latestImprovementScores() {
+  const key = latestAwardKey();
+  const a = key ? trophies.awards[key] : null;
+  return a && a.awardAt ? mostImproved.improvementScores(runMostImproved(a.awardAt, 'span')) : {};
+}
+
+app.get('/api/most-improved/scores', (req, res) => {
+  res.json({ weekKey: latestAwardKey(), scores: latestImprovementScores(), tally: publicTally() });
 });
 
 const _miRender = {};
