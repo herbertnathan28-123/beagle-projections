@@ -15,6 +15,7 @@ const webpush = require('web-push');
 const cfg        = require('./config');
 const storage    = require('./lib/storage');
 const engine     = require('./lib/engine');
+const mostImproved = require('./lib/mostImproved');
 const parse      = require('./lib/parse');
 const calculator = require('./lib/calculator');
 const fuel       = require('./lib/fuel');
@@ -65,6 +66,8 @@ let svHistory       = storage.loadSVHistory();
 let allianceHistory = storage.loadAllianceSVHistory();
 let hqData          = storage.loadHqState();
 let snapshotHistory = storage.loadSnapshotHistory();
+let improvedHistory = storage.loadImprovedHistory();
+let trophies        = storage.loadTrophies();
 let manualOverrides = storage.loadManualOverrides();
 
 let fuelProfiles = storage.readJSON(cfg.FUEL_PROFILES_FILE, {});
@@ -160,6 +163,7 @@ function logVisit(req) {
 }
 
 app.use(cors());
+app.use('/api/player-history/seed', express.json({ limit: '5mb' }));   // ATL-160 one-off history import
 app.use(express.json());
 // Static files MUST be served BEFORE all route handlers.
 // Registered player's personal calculator link (/fuel-calculator?did=<id>): inject
@@ -268,6 +272,7 @@ app.post('/api/hq-update', (req, res) => {
     }
     // Record snapshot for trend analysis (momentum, consistency, most improved)
     addSnapshot(players, hqData.timestamp);
+    storage.addImprovedSnapshot(improvedHistory, players, hqData.timestamp);
     console.log('[HQ] updated — ' + players.length + ' players, pace ' + hqData.alliancePace + ' · snapshot #' + snapshotHistory.snapshots.length);
     const paceStr = hqData.alliancePace ? '$' + parseFloat(hqData.alliancePace).toFixed(2) + '/day' : 'not available';
     // Post full player statistics to player stats channel
@@ -275,12 +280,13 @@ app.post('/api/hq-update', (req, res) => {
       const header = '📊 **BEAGLE ALLIANCE — PLAYER STATISTICS**\n' +
         'Alliance Pace: **' + paceStr + '** · ' + players.length + ' members · ' + awstStamp(hqData.timestamp) + ' AWST\n' +
         '─────────────────────────────────\n';
+      const tally = mostImproved.trophyTally(trophies);
       const playerLines = players.map((p, i) => {
         const sv = p.sv ? '$' + p.sv.toLocaleString() : '—';
         const contrib = p.lastContrib ? '$' + p.lastContrib.toLocaleString() : '—';
         const flights = p.flights ? p.flights.toLocaleString() : '—';
         const seen = p.lastSeenStr || '?';
-        return (i + 1) + '. **' + p.name + '** — SV: ' + sv + ' · Contrib: ' + contrib + ' · Flights: ' + flights + ' · Last: ' + seen;
+        return (i + 1) + '. **' + p.name + '** ' + mostImproved.trophyBox(tally, p.name) + ' — SV: ' + sv + ' · Contrib: ' + contrib + ' · Flights: ' + flights + ' · Last: ' + seen;
       });
       // Split into chunks under 2000 chars (Discord limit)
       let chunk = header;
@@ -1443,6 +1449,46 @@ app.get('/api/most-improved', (req, res) => {
   }
 });
 
+// ── ATL-160 Most Improved trophy ───────────────────────────────────────────
+function runMostImproved(awardAt, coverage) {
+  return mostImproved.computeMostImproved(improvedHistory.snapshots, { awardAt, coverage, hunterNames: getHunterTrackedNames() });
+}
+
+function sendMostImproved(result) {
+  const text = mostImproved.formatAwardPost(result);
+  if (text) notifyPlayerStats(text);
+  mostImproved.recordAward(trophies, result);
+  storage.saveTrophies(trophies);
+  console.log('[MOST-IMPROVED] week ' + result.weekKey + ' — ' + (result.winner ? result.winner.name + ' ' + result.winner.pct.toFixed(1) + '%' : 'no eligible player, nothing posted'));
+  return text;
+}
+
+app.get('/api/most-improved/trophies', (req, res) => res.json(trophies));
+
+// Dry run by default; { send: true } posts to #player-stats and records the week once.
+app.post('/api/most-improved/award', (req, res) => {
+  const { token, awardAt, coverage, send } = req.body || {};
+  if (token !== SECRET) return res.status(401).json({ ok: false, error: 'unauthorized' });
+  if (!awardAt || !isFinite(Date.parse(awardAt))) return res.status(400).json({ ok: false, error: 'awardAt (ISO UTC) required' });
+  const result = runMostImproved(awardAt, coverage === 'strict' ? 'strict' : 'span');
+  const text = mostImproved.formatAwardPost(result);
+  if (!send) return res.json({ ok: true, sent: false, text, result });
+  if (trophies.awards[result.weekKey]) return res.status(409).json({ ok: false, error: 'week ' + result.weekKey + ' already awarded', award: trophies.awards[result.weekKey] });
+  if (!result.winner) return res.status(422).json({ ok: false, error: 'no eligible player', result });
+  sendMostImproved(result);
+  res.json({ ok: true, sent: true, text, award: trophies.awards[result.weekKey] });
+});
+
+// One-off import of earlier uploads (rebuilt from #uploads) into the Most Improved history.
+app.post('/api/player-history/seed', (req, res) => {
+  const { token, snapshots } = req.body || {};
+  if (token !== SECRET) return res.status(401).json({ ok: false, error: 'unauthorized' });
+  if (!Array.isArray(snapshots)) return res.status(400).json({ ok: false, error: 'snapshots[] required' });
+  const added = storage.mergeImprovedSnapshots(improvedHistory, snapshots);
+  const ts = improvedHistory.snapshots.map(s => s.timestamp);
+  res.json({ ok: true, added, total: ts.length, first: ts[0] || null, last: ts[ts.length - 1] || null });
+});
+
 app.post('/api/player-manual-entry', (req, res) => {
   try {
     const { player, field, value } = req.body || {};
@@ -1550,6 +1596,12 @@ function runFuelAlertPass(now) {
   }
   if (_firedAlertKeys.size > 5000) _firedAlertKeys.clear();   // bound the dedup set (rolls over daily anyway)
 }
+setInterval(() => {
+  try {
+    const at = mostImproved.dueAwardAt(Date.now(), trophies, cfg.MOST_IMPROVED_AUTO_FROM);
+    if (at) sendMostImproved(runMostImproved(at, 'span'));
+  } catch (e) { console.error('[MOST-IMPROVED] scheduler error:', e.message); }
+}, 60000);
 setInterval(() => { try { runFuelAlertPass(new Date()); } catch (e) { console.error('[FUEL-ALERT] pass error:', e.message); } }, 60000);
 
 // Immediate alert for buys a fresh plan push placed inside the 5-min window
