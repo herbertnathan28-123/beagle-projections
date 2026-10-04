@@ -16,6 +16,7 @@ const cfg        = require('./config');
 const storage    = require('./lib/storage');
 const engine     = require('./lib/engine');
 const mostImproved = require('./lib/mostImproved');
+const mostImprovedGif = require('./lib/mostImprovedGif');
 const parse      = require('./lib/parse');
 const calculator = require('./lib/calculator');
 const fuel       = require('./lib/fuel');
@@ -1454,29 +1455,47 @@ function runMostImproved(awardAt, coverage) {
   return mostImproved.computeMostImproved(improvedHistory.snapshots, { awardAt, coverage, hunterNames: getHunterTrackedNames() });
 }
 
-function sendMostImproved(result) {
-  const text = mostImproved.formatAwardPost(result);
-  if (text) notifyPlayerStats(text);
+// Award post = the approved v5 GIF + one-line caption (ATL-160); the text list is cancelled.
+// Recorded only after Discord accepts the post, so a failed send can be retried.
+async function sendMostImproved(result) {
+  if (!result.winner) {
+    mostImproved.recordAward(trophies, result, null);
+    storage.saveTrophies(trophies);
+    console.log('[MOST-IMPROVED] week ' + result.weekKey + ' — no eligible player, nothing posted');
+    return null;
+  }
+  const gif = await mostImprovedGif.render(result);
+  const msg = await storage.postDiscordFile(cfg.PLAYER_STATS_WEBHOOK, mostImprovedGif.caption(result), 'most_improved.gif', gif, 'player stats');
   mostImproved.recordAward(trophies, result);
+  trophies.awards[result.weekKey].messageId = msg.id || null;
+  trophies.awards[result.weekKey].channelId = msg.channel_id || null;
   storage.saveTrophies(trophies);
-  console.log('[MOST-IMPROVED] week ' + result.weekKey + ' — ' + (result.winner ? result.winner.name + ' ' + result.winner.pct.toFixed(1) + '%' : 'no eligible player, nothing posted'));
-  return text;
+  console.log('[MOST-IMPROVED] week ' + result.weekKey + ' — ' + result.winner.name + ' ' + result.winner.pct.toFixed(1) + '% posted (message ' + msg.id + ')');
+  return msg;
 }
 
 app.get('/api/most-improved/trophies', (req, res) => res.json(trophies));
 
-// Dry run by default; { send: true } posts to #player-stats and records the week once.
-app.post('/api/most-improved/award', (req, res) => {
-  const { token, awardAt, coverage, send } = req.body || {};
-  if (token !== SECRET) return res.status(401).json({ ok: false, error: 'unauthorized' });
-  if (!awardAt || !isFinite(Date.parse(awardAt))) return res.status(400).json({ ok: false, error: 'awardAt (ISO UTC) required' });
-  const result = runMostImproved(awardAt, coverage === 'strict' ? 'strict' : 'span');
-  const text = mostImproved.formatAwardPost(result);
-  if (!send) return res.json({ ok: true, sent: false, text, result });
-  if (trophies.awards[result.weekKey]) return res.status(409).json({ ok: false, error: 'week ' + result.weekKey + ' already awarded', award: trophies.awards[result.weekKey] });
-  if (!result.winner) return res.status(422).json({ ok: false, error: 'no eligible player', result });
-  sendMostImproved(result);
-  res.json({ ok: true, sent: true, text, award: trophies.awards[result.weekKey] });
+// Dry run by default (JSON, or the GIF itself with { preview: true });
+// { send: true } posts the GIF to #player-stats and records the week once.
+app.post('/api/most-improved/award', async (req, res) => {
+  try {
+    const { token, awardAt, coverage, send, preview } = req.body || {};
+    if (token !== SECRET) return res.status(401).json({ ok: false, error: 'unauthorized' });
+    if (!awardAt || !isFinite(Date.parse(awardAt))) return res.status(400).json({ ok: false, error: 'awardAt (ISO UTC) required' });
+    const result = runMostImproved(awardAt, coverage === 'strict' ? 'strict' : 'span');
+    if (!send) {
+      if (preview && result.winner) return res.type('image/gif').send(await mostImprovedGif.render(result));
+      return res.json({ ok: true, sent: false, caption: result.winner ? mostImprovedGif.caption(result) : null, gifSpec: result.winner ? mostImprovedGif.gifSpec(result) : null, result });
+    }
+    if (trophies.awards[result.weekKey]) return res.status(409).json({ ok: false, error: 'week ' + result.weekKey + ' already awarded', award: trophies.awards[result.weekKey] });
+    if (!result.winner) return res.status(422).json({ ok: false, error: 'no eligible player', result });
+    const msg = await sendMostImproved(result);
+    res.json({ ok: true, sent: true, caption: mostImprovedGif.caption(result), messageId: msg.id || null, channelId: msg.channel_id || null, award: trophies.awards[result.weekKey] });
+  } catch (e) {
+    console.error('[MOST-IMPROVED] award error:', e.message);
+    res.status(502).json({ ok: false, error: e.message });
+  }
 });
 
 // One-off import of earlier uploads (rebuilt from #uploads) into the Most Improved history.
@@ -1602,10 +1621,15 @@ function runFuelAlertPass(now) {
   }
   if (_firedAlertKeys.size > 5000) _firedAlertKeys.clear();   // bound the dedup set (rolls over daily anyway)
 }
+let _miBusy = false; const _miTries = {};
 setInterval(() => {
   try {
     const at = mostImproved.dueAwardAt(Date.now(), trophies, cfg.MOST_IMPROVED_AUTO_FROM);
-    if (at) sendMostImproved(runMostImproved(at, 'span'));
+    if (!at || _miBusy || (_miTries[at] || 0) >= 3) return;
+    _miBusy = true; _miTries[at] = (_miTries[at] || 0) + 1;
+    sendMostImproved(runMostImproved(at, 'span'))
+      .catch(e => console.error('[MOST-IMPROVED] scheduled send failed (try ' + _miTries[at] + '/3):', e.message))
+      .finally(() => { _miBusy = false; });
   } catch (e) { console.error('[MOST-IMPROVED] scheduler error:', e.message); }
 }, 60000);
 setInterval(() => { try { runFuelAlertPass(new Date()); } catch (e) { console.error('[FUEL-ALERT] pass error:', e.message); } }, 60000);
