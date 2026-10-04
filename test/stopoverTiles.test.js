@@ -68,3 +68,13 @@ test('upstream failures return null and are not cached', async () => {
   assert.strictEqual(await t.tile('bm', 9, 0, 0), null);
   assert.strictEqual(log.length, 0);
 });
+
+test('live cloud tiles take 10-minute scan times up to a day old', () => {
+  const p = _internal.parse, t = Date.parse('2026-10-04T09:50:00Z');
+  assert.deepStrictEqual(p('ge', '5', '19', '39', String(t), NOW), { z: 5, r: 19, c: 39, t });
+  assert.strictEqual(p('hi', '3', '0', '0', String(t + 300000), NOW), null);
+  assert.strictEqual(p('gw', '3', '0', '0', String(NOW - 86400000 - 600000), NOW), null);
+  assert.strictEqual(p('gw', '6', '0', '0', String(t), NOW), null);
+  assert.strictEqual(_internal.tileUrl('hi', 2, 1, 4, t),
+    'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/Himawari_AHI_Band13_Clean_Infrared/default/2026-10-04T09:50:00Z/2km/2/1/4.png');
+});

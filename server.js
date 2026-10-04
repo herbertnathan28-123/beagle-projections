@@ -1514,6 +1514,12 @@ app.get('/api/stopover/synoptic', async (req, res) => {
 const stopoverTiles = require('./lib/stopoverTiles');
 app.get('/api/stopover/tiles/bm/:z/:r/:c.jpg', stopoverTiles.handler('bm'));
 app.get('/api/stopover/tiles/rain/:t/:z/:r/:c.png', stopoverTiles.handler('rain'));
+for (const k of stopoverTiles.CLOUD_KINDS) app.get(`/api/stopover/tiles/${k}/:t/:z/:r/:c.png`, stopoverTiles.handler(k));
+// Live cloud layer: newest scan time per geostationary satellite (NASA GIBS Band 13 infrared).
+const stopoverClouds = require('./lib/stopoverClouds');
+app.get('/api/stopover/clouds', async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=120').json(await stopoverClouds.index());
+});
 
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) return res.status(404).send('Not found');
