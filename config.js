@@ -47,6 +47,7 @@ const ALLIANCE_SV_HISTORY_FILE = '/data/alliance_sv_history.json';
 const SNAPSHOT_HISTORY_FILE  = '/data/player_snapshot_history.json';
 const IMPROVED_HISTORY_FILE  = '/data/most_improved_history.json';   // ATL-160: per-upload cumulative Contributed, kept by age
 const TROPHY_FILE            = '/data/most_improved_trophies.json';  // ATL-160: weekly 🏆 awards keyed by week
+const MOST_IMPROVED_GIF_DIR  = process.env.MOST_IMPROVED_GIF_DIR || '/data/most_improved_gifs';         // ATL-160: one award GIF per week, shown on beagle-stats
 const MANUAL_OVERRIDES_FILE  = '/data/manual_overrides.json';
 const FUEL_PROFILES_FILE     = '/data/fuel_profiles.json';
 const FUEL_ACCESS_LOG_FILE   = '/data/fuel_access_log.json';
@@ -176,7 +177,7 @@ module.exports = {
   ALLIANCE_UPLOAD_WEBHOOK, PLAYER_STATS_WEBHOOK, FUEL_SCREENSHOT_UPLOAD_WEBHOOK,
   FUEL_ALERT_WEBHOOK,
   STATE_FILE, HQ_STATE_FILE, SV_HISTORY_FILE, ALLIANCE_SV_HISTORY_FILE, SNAPSHOT_HISTORY_FILE, MANUAL_OVERRIDES_FILE,
-  IMPROVED_HISTORY_FILE, TROPHY_FILE, IMPROVED_HISTORY_DAYS, MOST_IMPROVED_AUTO_FROM,
+  IMPROVED_HISTORY_FILE, TROPHY_FILE, MOST_IMPROVED_GIF_DIR, IMPROVED_HISTORY_DAYS, MOST_IMPROVED_AUTO_FROM,
   FUEL_PROFILES_FILE, FUEL_ACCESS_LOG_FILE, FUEL_APPROVED_USERS_FILE,
   HUNTER_DATA_FILE, FUEL_PATH_FILE, FUEL_PLANS_FILE, FUEL_PUSH_SUBS_FILE,
   MERIT_WEIGHTS, SNAPSHOT_LIMIT, SNAPSHOT_HISTORY_DAYS, IMPROVED_WINDOW_DAYS,

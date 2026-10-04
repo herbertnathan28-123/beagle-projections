@@ -1455,43 +1455,102 @@ function runMostImproved(awardAt, coverage) {
   return mostImproved.computeMostImproved(improvedHistory.snapshots, { awardAt, coverage, hunterNames: getHunterTrackedNames() });
 }
 
-// Award post = the approved v5 GIF + one-line caption (ATL-160); the text list is cancelled.
-// Recorded only after Discord accepts the post, so a failed send can be retried.
-async function sendMostImproved(result) {
+// The weekly award lives on alliance-pace-bot /beagle-stats (MOST IMPROVED tab), not in
+// Discord (Nathan, 4 Oct). Awarding = render the approved v5 GIF, save it per week on
+// /data, record the week. Nothing is recorded if the render fails, so it can be retried.
+const miGifFile = key => path.join(cfg.MOST_IMPROVED_GIF_DIR, String(key).replace(/[^0-9-]/g, '') + '.gif');
+
+async function awardMostImproved(result) {
   if (!result.winner) {
     mostImproved.recordAward(trophies, result, null);
     storage.saveTrophies(trophies);
-    console.log('[MOST-IMPROVED] week ' + result.weekKey + ' — no eligible player, nothing posted');
+    console.log('[MOST-IMPROVED] week ' + result.weekKey + ' — no eligible player');
     return null;
   }
   const gif = await mostImprovedGif.render(result);
-  const msg = await storage.postDiscordFile(cfg.PLAYER_STATS_WEBHOOK, mostImprovedGif.caption(result), 'most_improved.gif', gif, 'player stats');
+  fs.mkdirSync(cfg.MOST_IMPROVED_GIF_DIR, { recursive: true });
+  fs.writeFileSync(miGifFile(result.weekKey), gif);
   mostImproved.recordAward(trophies, result);
-  trophies.awards[result.weekKey].messageId = msg.id || null;
-  trophies.awards[result.weekKey].channelId = msg.channel_id || null;
   storage.saveTrophies(trophies);
-  console.log('[MOST-IMPROVED] week ' + result.weekKey + ' — ' + result.winner.name + ' ' + result.winner.pct.toFixed(1) + '% posted (message ' + msg.id + ')');
-  return msg;
+  console.log('[MOST-IMPROVED] week ' + result.weekKey + ' — ' + result.winner.name + ' ' + result.winner.pct.toFixed(1) + '% awarded');
+  return gif;
+}
+
+function latestAwardKey() {
+  return Object.keys(trophies.awards || {}).filter(k => trophies.awards[k] && trophies.awards[k].player).sort().pop() || null;
+}
+
+// Weeks awarded before the GIF was saved per week: rebuild the same result from the
+// history at that week's award time (only if it still names the recorded winner).
+function backfillAward(key) {
+  const a = trophies.awards[key];
+  if (!a || (a.top && a.currentWindow)) return a;
+  const r = runMostImproved(a.awardAt, 'span');
+  if (r.winner && r.winner.name === a.player) {
+    a.top = mostImproved.topSix(r);
+    a.currentWindow = r.currentWindow;
+    storage.saveTrophies(trophies);
+  }
+  return a;
 }
 
 app.get('/api/most-improved/trophies', (req, res) => res.json(trophies));
 
+// Public, read by the beagle-stats MOST IMPROVED tab: latest week + every week's winner + tally.
+app.get('/api/most-improved/latest', (req, res) => {
+  const key = latestAwardKey();
+  const award = key ? backfillAward(key) : null;
+  const tally = [...mostImproved.trophyTally(trophies).entries()];
+  const names = {};
+  for (const k of Object.keys(trophies.awards || {}).sort()) { const a = trophies.awards[k]; if (a && a.player) names[mostImproved.nk(a.player)] = a.player; }
+  res.json({
+    weekKey: key, award, gif: key ? '/api/most-improved/' + key + '.gif' : null,
+    weeks: Object.keys(trophies.awards || {}).sort().reverse().map(k => ({ weekKey: k, player: trophies.awards[k].player, pct: trophies.awards[k].pct })),
+    tally: tally.map(([k, n]) => ({ player: names[k] || k, trophies: n })).sort((x, y) => y.trophies - x.trophies || x.player.localeCompare(y.player)),
+  });
+});
+
+const _miRender = {};
+app.get(/^\/api\/most-improved\/(\d{4}-\d{2}-\d{2})\.gif$/, async (req, res) => {
+  const key = req.params[0];
+  const a = trophies.awards[key];
+  if (!a || !a.player) return res.status(404).send('no award for ' + key);
+  try {
+    const file = miGifFile(key);
+    if (!fs.existsSync(file)) {
+      _miRender[key] = _miRender[key] || (async () => {
+        const r = runMostImproved(a.awardAt, 'span');
+        if (!r.winner || r.winner.name !== a.player) throw new Error('history no longer reproduces week ' + key);
+        const gif = await mostImprovedGif.render(r);
+        fs.mkdirSync(cfg.MOST_IMPROVED_GIF_DIR, { recursive: true });
+        fs.writeFileSync(file, gif);
+      })().finally(() => { delete _miRender[key]; });
+      await _miRender[key];
+    }
+    res.set('Cache-Control', 'public, max-age=3600').type('image/gif').send(fs.readFileSync(file));
+  } catch (e) {
+    console.error('[MOST-IMPROVED] gif ' + key + ':', e.message);
+    res.status(502).send(e.message);
+  }
+});
+
 // Dry run by default (JSON, or the GIF itself with { preview: true });
-// { send: true } posts the GIF to #player-stats and records the week once.
+// { award: true } records the week once and saves its GIF for beagle-stats.
 app.post('/api/most-improved/award', async (req, res) => {
   try {
-    const { token, awardAt, coverage, send, preview } = req.body || {};
+    const { token, awardAt, coverage, preview } = req.body || {};
+    const doAward = !!(req.body && (req.body.award || req.body.send));
     if (token !== SECRET) return res.status(401).json({ ok: false, error: 'unauthorized' });
     if (!awardAt || !isFinite(Date.parse(awardAt))) return res.status(400).json({ ok: false, error: 'awardAt (ISO UTC) required' });
     const result = runMostImproved(awardAt, coverage === 'strict' ? 'strict' : 'span');
-    if (!send) {
+    if (!doAward) {
       if (preview && result.winner) return res.type('image/gif').send(await mostImprovedGif.render(result));
-      return res.json({ ok: true, sent: false, caption: result.winner ? mostImprovedGif.caption(result) : null, gifSpec: result.winner ? mostImprovedGif.gifSpec(result) : null, result });
+      return res.json({ ok: true, awarded: false, caption: result.winner ? mostImprovedGif.caption(result) : null, gifSpec: result.winner ? mostImprovedGif.gifSpec(result) : null, result });
     }
     if (trophies.awards[result.weekKey]) return res.status(409).json({ ok: false, error: 'week ' + result.weekKey + ' already awarded', award: trophies.awards[result.weekKey] });
     if (!result.winner) return res.status(422).json({ ok: false, error: 'no eligible player', result });
-    const msg = await sendMostImproved(result);
-    res.json({ ok: true, sent: true, caption: mostImprovedGif.caption(result), messageId: msg.id || null, channelId: msg.channel_id || null, award: trophies.awards[result.weekKey] });
+    await awardMostImproved(result);
+    res.json({ ok: true, awarded: true, award: trophies.awards[result.weekKey], gif: '/api/most-improved/' + result.weekKey + '.gif' });
   } catch (e) {
     console.error('[MOST-IMPROVED] award error:', e.message);
     res.status(502).json({ ok: false, error: e.message });
@@ -1627,8 +1686,8 @@ setInterval(() => {
     const at = mostImproved.dueAwardAt(Date.now(), trophies, cfg.MOST_IMPROVED_AUTO_FROM);
     if (!at || _miBusy || (_miTries[at] || 0) >= 3) return;
     _miBusy = true; _miTries[at] = (_miTries[at] || 0) + 1;
-    sendMostImproved(runMostImproved(at, 'span'))
-      .catch(e => console.error('[MOST-IMPROVED] scheduled send failed (try ' + _miTries[at] + '/3):', e.message))
+    awardMostImproved(runMostImproved(at, 'span'))
+      .catch(e => console.error('[MOST-IMPROVED] scheduled award failed (try ' + _miTries[at] + '/3):', e.message))
       .finally(() => { _miBusy = false; });
   } catch (e) { console.error('[MOST-IMPROVED] scheduler error:', e.message); }
 }, 60000);
