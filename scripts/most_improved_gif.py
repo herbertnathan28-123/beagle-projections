@@ -53,7 +53,7 @@ ax.set_xticks([0,1]); ax.set_xticklabels(["Their own normal\n(previous 28 days)"
 ax.set_yticks([]); [s.set_visible(False) for s in ax.spines.values()]; ax.tick_params(length=0)
 fig.text(.05,.94,"BEAGLE MOST IMPROVED",color="#fff",fontsize=24,fontweight="bold")
 fig.text(.05,.895,"Week ending "+spec["weekEnding"]+"  ·  raw contribution/day vs each player's own 28-day normal",color="#9aa0aa",fontsize=12)
-fig.text(.05,.025,"Everyone starts from their own normal, so every airline has the same shot. Top 10 of the raw ranking not eligible.",color="#6d717b",fontsize=10)
+fig.text(.05,.025,"Everyone starts from their own normal. To qualify: a 28-day average of at least $25,000/day. Top 10 of the raw ranking not eligible.",color="#6d717b",fontsize=10)
 plt.subplots_adjust(left=.05,right=.98,top=.86,bottom=.11)
 EW=ends[0]
 FR=70; HOLD=45; PL=0.028
