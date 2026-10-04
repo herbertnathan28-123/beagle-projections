@@ -693,7 +693,7 @@ function drawSynoptic(){
   // isobars
   for(const l of d.isobars){
     const major=l.p%20===0;
-    ctx.strokeStyle=isoCol(l.p); ctx.lineWidth= major?1:.65;
+    ctx.strokeStyle=isoCol(l.p); ctx.lineWidth= major?.5:.33;
     for(const off of offs){
       if(l.x1+off<view.lon0||l.x0+off>view.lon1) continue;
       ctx.beginPath(); for(let k=0;k<l.pts.length;k+=2){ const x=X(l.pts[k],off),y=Y(l.pts[k+1]); k?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.stroke();
