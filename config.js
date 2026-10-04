@@ -61,7 +61,8 @@ const FUEL_PUSH_SUBS_FILE    = '/data/fuel_push_subs.json'; // per-player web-pu
 // Weights MUST sum to 1.0. Tune here — the engine reads these values.
 const MERIT_WEIGHTS = { cd: 0.40, eff: 0.20, mom: 0.15, cons: 0.10, act: 0.05, conf: 0.10 };
 // Rolling snapshot window retained on disk for trend analysis.
-const SNAPSHOT_LIMIT = 60;
+const SNAPSHOT_LIMIT = 60;                      // stats/team rating read the newest 60
+const SNAPSHOT_HISTORY_DAYS = 63;              // on-disk player history kept (ATL-160: 35+ days)
 const IMPROVED_HISTORY_DAYS = 63;               // 35 days needed; 9 weeks kept
 const MOST_IMPROVED_AUTO_FROM = '2026-10-11';    // first scheduled week; 4 Oct is awarded by hand
 // "Most improved" look-back window (days).
@@ -178,7 +179,7 @@ module.exports = {
   IMPROVED_HISTORY_FILE, TROPHY_FILE, IMPROVED_HISTORY_DAYS, MOST_IMPROVED_AUTO_FROM,
   FUEL_PROFILES_FILE, FUEL_ACCESS_LOG_FILE, FUEL_APPROVED_USERS_FILE,
   HUNTER_DATA_FILE, FUEL_PATH_FILE, FUEL_PLANS_FILE, FUEL_PUSH_SUBS_FILE,
-  MERIT_WEIGHTS, SNAPSHOT_LIMIT, IMPROVED_WINDOW_DAYS,
+  MERIT_WEIGHTS, SNAPSHOT_LIMIT, SNAPSHOT_HISTORY_DAYS, IMPROVED_WINDOW_DAYS,
   DEFAULT_DATA, AIRCRAFT_DATA, AIRCRAFT_REVENUE, AIRCRAFT_BURN_HOUR, FUEL_SCHEDULE,
   ALL_DISTANCES, CALC_TIMES,
 };

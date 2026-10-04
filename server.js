@@ -1396,7 +1396,7 @@ function getTeamRating(snapshots) {
 // 7-day team rating history (served from the same cache as /api/player-stats).
 app.get('/api/team-rating', (req, res) => {
   try {
-    res.json(getTeamRating(snapshotHistory.snapshots || []));
+    res.json(getTeamRating((snapshotHistory.snapshots || []).slice(-cfg.SNAPSHOT_LIMIT)));
   } catch (e) {
     console.error('[TEAM-RATING] error:', e.message);
     res.status(500).json({ error: e.message });
@@ -1422,7 +1422,7 @@ app.get('/api/player-stats', (req, res) => {
       if (ov.flights != null) merged.flights = ov.flights;
       return merged;
     });
-    const snapshots = snapshotHistory.snapshots || [];
+    const snapshots = (snapshotHistory.snapshots || []).slice(-cfg.SNAPSHOT_LIMIT);
     const analysed = analyseAllPlayers(players, snapshots);
     res.json({
       timestamp: hqData.timestamp,
@@ -1441,7 +1441,7 @@ app.get('/api/player-stats', (req, res) => {
 
 app.get('/api/most-improved', (req, res) => {
   try {
-    const snapshots = snapshotHistory.snapshots || [];
+    const snapshots = (snapshotHistory.snapshots || []).slice(-cfg.SNAPSHOT_LIMIT);
     const improved = calcMostImproved(snapshots);
     res.json(improved);
   } catch (e) {
