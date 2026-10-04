@@ -1494,6 +1494,17 @@ app.get('/api/stopover/demand', (req, res) => {
 // instance is detected and restarted.
 app.get('/healthz', (req, res) => res.status(200).type('text').send('OK'));
 
+// Real-world rain for the map (NASA GIBS IMERG 30-min frames, cached server-side).
+const stopoverWeather = require('./lib/stopoverWeather');
+app.get('/api/stopover/weather', async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=300').json(await stopoverWeather.index());
+});
+app.get('/api/stopover/weather/frame/:t.png', (req, res) => {
+  const png = stopoverWeather.frame(req.params.t);
+  if (!png) return res.status(404).end();
+  res.type('png').set('Cache-Control', 'public, max-age=86400, immutable').send(png);
+});
+
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) return res.status(404).send('Not found');
   logVisit(req);
