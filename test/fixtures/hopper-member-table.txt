@@ -1,0 +1,4 @@
+ .ATLAS.	$ 175,374.11	$ 134,127,738	$ 1,139,189	9 months ago	1,234,301	1 sec ago	$30,070
+ Sting Ray	$ 140,188.56	$ 99,255,684	$ 673,161	9 months ago	916,948	1 hour ago 	$33,796
+Wingfoot	$ 66,539.26	$ 98,076,399	$ 525,809	6 months ago	811,517	6 hours ago 	$15,641
+LeadSlinger Aerospace	$ 64,267.62	$ 50,004,412	$ 375,704	4 months ago	452,250	9 hours ago 	$24,872
