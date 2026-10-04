@@ -56,6 +56,11 @@ input:focus-visible,button:focus-visible,.alt:focus-visible{outline:2px solid va
 canvas{display:block;width:100%;height:clamp(240px,42vw,440px)}
 .replay{position:absolute;right:12px;top:12px;background:color-mix(in srgb,var(--panel) 85%,transparent);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;font:600 13px "Barlow",sans-serif;cursor:pointer}
 .legend{position:absolute;left:14px;bottom:12px;display:flex;gap:14px;font-size:12.5px;color:var(--muted);background:color-mix(in srgb,var(--panel) 82%,transparent);padding:6px 10px;border-radius:8px}
+.wx{position:absolute;left:12px;top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;max-width:min(320px,calc(100% - 150px));font-size:12px;color:var(--muted);background:color-mix(in srgb,var(--panel) 85%,transparent);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.wx b{color:var(--ink);font:700 13px "Barlow",sans-serif}
+.wx .wxbar{display:inline-block;width:84px;height:8px;border-radius:4px;background:linear-gradient(90deg,#1aa64b,#7fd320,#f5e61c,#f59a1c,#e3261c,#9c0d0d)}
+.wx small{flex-basis:100%;font-size:11px}
+@media (max-width:600px){.wx{padding:4px 8px;gap:2px 6px}.wx small{display:none}.wx .wxbar{width:56px}}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
 
 .board{margin-top:16px;display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;overflow:hidden}
@@ -247,6 +252,7 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
 
   <div class="map"><canvas id="cv" aria-label="Route map"></canvas>
     <button class="replay" id="replay" type="button">Replay flight</button>
+    <div class="wx" id="wx" hidden title="NASA GPM IMERG satellite precipitation estimate, 30-minute frames (published about 6 hours behind real time)"><b>Real-world rain</b><span id="wxT"></span><i class="wxbar"></i><small>light → heavy · blue = snow · NASA IMERG</small></div>
     <div class="legend"><span><i style="background:var(--gold)"></i>Your route</span><span><i style="background:var(--green)"></i>Stopover</span><span><i style="background:var(--muted)"></i>Other options</span></div>
   </div>
 
@@ -471,9 +477,10 @@ new IntersectionObserver(es=>{ if(es[0].intersectionRatio>=.5) runSlide(); },{th
 // ---------- map ----------
 const cv=$('cv'), mctx=cv.getContext('2d');
 const base=document.createElement('canvas'); let ctx=base.getContext('2d');
+const bctx=ctx, over=document.createElement('canvas'), octx=over.getContext('2d');
 let view={lon0:-180,lon1:180,lat0:-58,lat1:80}, target=null, route=null, anim=null;
 function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
-function size(){ const d=devicePixelRatio||1; cv.width=base.width=cv.clientWidth*d; cv.height=base.height=cv.clientHeight*d; ctx.setTransform(d,0,0,d,0,0); mctx.setTransform(d,0,0,d,0,0); draw(); }
+function size(){ const d=devicePixelRatio||1; cv.width=base.width=over.width=cv.clientWidth*d; cv.height=base.height=over.height=cv.clientHeight*d; bctx.setTransform(d,0,0,d,0,0); octx.setTransform(d,0,0,d,0,0); mctx.setTransform(d,0,0,d,0,0); draw(); }
 function proj(lat,lon){
   const w=cv.clientWidth,h=cv.clientHeight;
   return [(lon-view.lon0)/(view.lon1-view.lon0)*w, (view.lat1-lat)/(view.lat1-view.lat0)*h];
@@ -497,7 +504,8 @@ function gc(a,b,n=64){ // great-circle points, longitudes unwrapped continuously
   return pts;
 }
 function draw(){ drawBase(); paint(performance.now()); }
-function drawBase(){
+function drawBase(){ ctx=bctx; drawLand(); ctx=octx; drawRouteLayer(); ctx=bctx; }
+function drawLand(){
   const w=cv.clientWidth,h=cv.clientHeight; ctx.clearRect(0,0,w,h);
   const span=view.lon1-view.lon0, rDot=Math.max(.8,Math.min(2.4,260/span));
   const sx=w/span, sy=h/(view.lat1-view.lat0);
@@ -518,6 +526,9 @@ function drawBase(){
       ctx.fillRect(x-rDot/2,y-rDot/2,rDot,rDot);
     }
   }
+}
+function drawRouteLayer(){
+  const w=cv.clientWidth,h=cv.clientHeight; ctx.clearRect(0,0,w,h);
   if(route) cityLabels(w,h);
   if(!route) return;
   const muted=css('--muted'),gold=css('--gold'),green=css('--green');
@@ -591,9 +602,37 @@ const CLOUDS=[]; (function(){ let seed=7; const rnd=()=>{seed=(seed*16807)%21474
     for(let k=0;k<9;k++){ const x=60+rnd()*200,y=55+rnd()*60,r=28+rnd()*46; const gr=g.createRadialGradient(x,y,0,x,y,r); gr.addColorStop(0,'rgba(255,255,255,.7)'); gr.addColorStop(1,'rgba(255,255,255,0)'); g.fillStyle=gr; g.beginPath(); g.arc(x,y,r,0,7); g.fill(); }
     CLOUDS.push({img:c,x:rnd(),y:rnd(),sp:.008+rnd()*.012,sc:.7+rnd()*.9}); } })();
 function weather(now,w,h){ mctx.globalAlpha=.34; for(const c of CLOUDS){ const W=320*c.sc,H=170*c.sc; const x=((c.x+now/1000*c.sp)%1)*(w+W)-W, y=c.y*(h-H*.5)-H*.25; mctx.drawImage(c.img,x,y,W,H); } mctx.globalAlpha=1; }
+// real-world rain: NASA IMERG 30-min frames (global plate carrée, same projection as this map)
+const WX={frames:[],t0:0,shown:null}, WX_FRAME=700, WX_HOLD=1600, WX_ALPHA=.8;
+function loadWeather(){
+  if(typeof Image==='undefined') return;
+  fetch('/api/stopover/weather').then(r=>r.ok?r.json():null).then(d=>{
+    if(!d||!Array.isArray(d.frames)||!d.frames.length) return;
+    WX.frames=d.frames.map(f=>{ const img=new Image(); img.decoding='async'; img.src=f.url; return {t:f.t,img}; });
+    WX.t0=performance.now();
+    WX.frames[WX.frames.length-1].img.onload=()=>{ $('wx').hidden=false; draw(); };
+  }).catch(()=>{});
+}
+function wxLabel(t){
+  const d=new Date(t), ago=Math.max(0,Math.round((Date.now()-d)/3600000));
+  return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · '+(ago?ago+' h ago':'latest');
+}
+function rain(now,w,h){
+  const fr=WX.frames.filter(f=>f.img.complete&&f.img.naturalWidth); if(!fr.length) return;
+  const n=fr.length; let i=n-1,u=0;
+  if(!reduce&&n>1){ const p=Math.min(((now-WX.t0)%((n-1)*WX_FRAME+WX_HOLD))/WX_FRAME,n-1); i=Math.floor(p); u=p-i; }
+  const a=fr[i], b=fr[Math.min(i+1,n-1)];
+  const sx=w/(view.lon1-view.lon0), sy=h/(view.lat1-view.lat0);
+  const blit=(img,al)=>{ if(al<=.01) return; mctx.globalAlpha=al;
+    for(const off of [-360,0,360]){ const x=(-180+off-view.lon0)*sx; if(x>w||x+360*sx<0) continue; mctx.drawImage(img,x,(view.lat1-90)*sy,360*sx,180*sy); } };
+  blit(a.img,WX_ALPHA*(1-u)); if(b!==a) blit(b.img,WX_ALPHA*u); mctx.globalAlpha=1;
+  const cur=u<.5?a:b; if(WX.shown!==cur.t){ WX.shown=cur.t; $('wxT').textContent=wxLabel(cur.t); }
+}
 function paint(now){
   const w=cv.clientWidth,h=cv.clientHeight;
   mctx.clearRect(0,0,w,h); mctx.drawImage(base,0,0,w,h);
+  rain(now,w,h);
+  mctx.drawImage(over,0,0,w,h);
   if(reduce||!route) return;
   weather(now,w,h);
   const legs=route.paths.map(screenPath), two=legs.length>1;
@@ -813,6 +852,7 @@ function applyAcft(name,applySpec){
   if(applySpec){ $('range').value=spec.range; $('rwy').value=spec.rwy; }
 }
 function initAircrafts(){
+  loadWeather();
   fetch('/api/stopover/aircrafts').then(r=>r.json()).then(list=>{
     AC=list;
     const sel=$('acft'); sel.innerHTML='';

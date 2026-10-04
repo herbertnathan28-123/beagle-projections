@@ -28,5 +28,16 @@ app.get('/api/stopover/demand', (req, res) => {
   res.json(d);
 });
 
+
+// Real-world rain for the map (NASA GIBS IMERG 30-min frames, cached server-side).
+const stopoverWeather = require('./lib/stopoverWeather');
+app.get('/api/stopover/weather', async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=300').json(await stopoverWeather.index());
+});
+app.get('/api/stopover/weather/frame/:t.png', (req, res) => {
+  const png = stopoverWeather.frame(req.params.t);
+  if (!png) return res.status(404).end();
+  res.type('png').set('Cache-Control', 'public, max-age=86400, immutable').send(png);
+});
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Stopover preview on port ${PORT}`));
