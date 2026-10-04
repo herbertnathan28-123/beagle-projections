@@ -131,3 +131,10 @@ test('ATL-161 improvementScores: percentile over every scored player incl. top 1
   const thin = MI.computeMostImproved(history(players, { step: 1 }).slice(-3), { awardAt: iso(AT) });
   assert.ok(Object.values(MI.improvementScores(thin)).every(v => v === 50), 'too little data is neutral');
 });
+
+test('ATL-161 rating weights: Most Improved 15%, the other six × 0.85; missing score is neutral 50', () => {
+  const { calcMeritScore } = require('../lib/engine');
+  assert.strictEqual(calcMeritScore(100, 100, 100, 100, 100, 100, 100), 100);
+  assert.strictEqual(calcMeritScore(0, 0, 0, 0, 0, 100, 100), 23.5);
+  assert.strictEqual(calcMeritScore(0, 0, 0, 0, 0, 100), 16);
+});

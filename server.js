@@ -1423,7 +1423,7 @@ app.get('/api/player-stats', (req, res) => {
       return merged;
     });
     const snapshots = (snapshotHistory.snapshots || []).slice(-cfg.SNAPSHOT_LIMIT);
-    const analysed = analyseAllPlayers(players, snapshots);
+    const analysed = analyseAllPlayers(players, snapshots, { miScores: latestImprovementScores() });
     res.json({
       timestamp: hqData.timestamp,
       uploader: hqData.uploader,
@@ -1518,11 +1518,14 @@ app.get('/api/most-improved/latest', (req, res) => {
 // Public, read by alliance-pace-bot (ATL-161): every player's 0-100 improvement
 // percentile for the latest awarded week (15% of the overall rating), plus the
 // trophy tally. Only the percentile leaves here, never the % or rank.
-app.get('/api/most-improved/scores', (req, res) => {
+function latestImprovementScores() {
   const key = latestAwardKey();
   const a = key ? trophies.awards[key] : null;
-  const scores = a && a.awardAt ? mostImproved.improvementScores(runMostImproved(a.awardAt, 'span')) : {};
-  res.json({ weekKey: key, scores, tally: publicTally() });
+  return a && a.awardAt ? mostImproved.improvementScores(runMostImproved(a.awardAt, 'span')) : {};
+}
+
+app.get('/api/most-improved/scores', (req, res) => {
+  res.json({ weekKey: latestAwardKey(), scores: latestImprovementScores(), tally: publicTally() });
 });
 
 const _miRender = {};

@@ -60,7 +60,8 @@ const FUEL_PUSH_SUBS_FILE    = '/data/fuel_push_subs.json'; // per-player web-pu
 // ── PROJECTION / SCORING ASSUMPTIONS ───────────────────────────────────────
 // Merit score = weighted blend of the six per-player component scores.
 // Weights MUST sum to 1.0. Tune here — the engine reads these values.
-const MERIT_WEIGHTS = { cd: 0.40, eff: 0.20, mom: 0.15, cons: 0.10, act: 0.05, conf: 0.10 };
+// ATL-161: Most Improved is 15%; the other six scaled by 0.85.
+const MERIT_WEIGHTS = { cd: 0.34, eff: 0.17, improved: 0.15, mom: 0.1275, cons: 0.085, act: 0.0425, conf: 0.085 };
 // Rolling snapshot window retained on disk for trend analysis.
 const SNAPSHOT_LIMIT = 60;                      // stats/team rating read the newest 60
 const SNAPSHOT_HISTORY_DAYS = 63;              // on-disk player history kept (ATL-160: 35+ days)
