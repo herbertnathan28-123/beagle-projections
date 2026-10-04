@@ -665,7 +665,7 @@ function planePath(){ const P=mctx; P.beginPath();
   P.lineTo(9,1.8); P.quadraticCurveTo(12,1.6,13,0); P.closePath(); }
 // live clouds: NASA GIBS Band 13 clean-infrared tiles from GOES-East, GOES-West and Himawari
 // (10-minute scans). Warm ground is keyed out; satellites cross-fade at their seams and fade at the coverage edge.
-const CL={sats:[]}, CL_IDS=['ge','gw','hi'], CL_LO=135, CL_HI=200, CL_ALPHA=.92;
+const CL={sats:[]}, CL_IDS=['ge','gw','hi'], CL_LO=135, CL_HI=200, CL_ALPHA=.6;
 const clRamp=(a,b,x)=>Math.max(0,Math.min(1,(x-a)/(b-a)));
 function satW(id,lon){ lon=((lon+180)%360+360)%360-180;
   if(id==='ge') return clRamp(-109,-103,lon)*(1-clRamp(-32,-5,lon));
