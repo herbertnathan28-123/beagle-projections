@@ -1547,6 +1547,20 @@ app.post('/api/most-improved/award', async (req, res) => {
       if (preview && result.winner) return res.type('image/gif').send(await mostImprovedGif.render(result));
       return res.json({ ok: true, awarded: false, caption: result.winner ? mostImprovedGif.caption(result) : null, gifSpec: result.winner ? mostImprovedGif.gifSpec(result) : null, result });
     }
+    // { rescore: true } re-applies changed rules to an awarded week; the winner must not change.
+    if (req.body.rescore && trophies.awards[result.weekKey]) {
+      const prev = trophies.awards[result.weekKey];
+      if (!result.winner || result.winner.name !== prev.player) return res.status(409).json({ ok: false, error: 'rescore would change the winner of ' + result.weekKey, award: prev, result });
+      const gif = await mostImprovedGif.render(result);
+      fs.mkdirSync(cfg.MOST_IMPROVED_GIF_DIR, { recursive: true });
+      fs.writeFileSync(miGifFile(result.weekKey), gif);
+      mostImproved.recordAward(trophies, result, prev.sentAt);
+      for (const f of ['messageId', 'channelId']) if (prev[f]) trophies.awards[result.weekKey][f] = prev[f];
+      trophies.awards[result.weekKey].rescoredAt = new Date().toISOString();
+      storage.saveTrophies(trophies);
+      console.log('[MOST-IMPROVED] week ' + result.weekKey + ' rescored — ' + result.eligible.length + ' eligible');
+      return res.json({ ok: true, rescored: true, award: trophies.awards[result.weekKey] });
+    }
     if (trophies.awards[result.weekKey]) return res.status(409).json({ ok: false, error: 'week ' + result.weekKey + ' already awarded', award: trophies.awards[result.weekKey] });
     if (!result.winner) return res.status(422).json({ ok: false, error: 'no eligible player', result });
     await awardMostImproved(result);

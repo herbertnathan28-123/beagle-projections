@@ -48,20 +48,20 @@ test('an interval crossing the window edge is split by time', () => {
 });
 
 test('top 10 raw (game C/D) and Hunter Elite names are excluded, not penalised', () => {
-  const ps = Array.from({ length: 12 }, (_, i) => ({ name: 'P' + i, cd: 1000 - i, rate: jump(20000, 30000 + i) }));
-  ps.push({ name: 'Hunted', cd: 1, rate: jump(20000, 90000) });
+  const ps = Array.from({ length: 12 }, (_, i) => ({ name: 'P' + i, cd: 1000 - i, rate: jump(30000, 45000 + i) }));
+  ps.push({ name: 'Hunted', cd: 1, rate: jump(30000, 90000) });
   const r = MI.computeMostImproved(history(ps), { awardAt: iso(AT), hunterNames: new Set(['hunted']) });
   assert.deepStrictEqual(r.eligible.map(e => e.name), ['P11', 'P10']);
   assert.ok(r.rows.find(x => x.name === 'P0').excluded.includes('top-10 raw'));
   assert.ok(r.rows.find(x => x.name === 'Hunted').excluded.includes('Hunter Elite'));
 });
 
-test('minimum readings, baseline span/coverage and $10k/day floor', () => {
+test('minimum readings, baseline span/coverage and $25k/day floor', () => {
   const rules = { ...MI.RULES, excludeTopRaw: 0 };
   const sparse = MI.computeMostImproved(history([{ name: 'S', rate: flat(20000) }], { step: 4 }), { awardAt: iso(AT), rules });
   assert.ok(sparse.rows[0].excluded.some(w => /this week \d<4|baseline \d<10/.test(w)));
-  const low = MI.computeMostImproved(history([{ name: 'L', rate: jump(9000, 20000) }], { step: 1 }), { awardAt: iso(AT), rules });
-  assert.ok(low.rows[0].excluded.includes('baseline <$10k/day'));
+  const low = MI.computeMostImproved(history([{ name: 'L', rate: jump(24000, 50000) }], { step: 1 }), { awardAt: iso(AT), rules });
+  assert.ok(low.rows[0].excluded.includes('baseline <$25k/day'));
   const late = history([{ name: 'N', rate: flat(20000) }], { step: 1, from: 20 });
   const lr = MI.computeMostImproved(late, { awardAt: iso(AT), rules });
   assert.ok(lr.rows[0].excluded.includes('baseline not fully covered'));
@@ -69,7 +69,7 @@ test('minimum readings, baseline span/coverage and $10k/day floor', () => {
 
 test('strict coverage needs readings on 21 separate days; span needs 21 days first→last', () => {
   const rules = { ...MI.RULES, excludeTopRaw: 0 };
-  const snaps = history([{ name: 'A', rate: jump(20000, 30000) }], { step: 2 });
+  const snaps = history([{ name: 'A', rate: jump(30000, 45000) }], { step: 2 });
   assert.strictEqual(MI.computeMostImproved(snaps, { awardAt: iso(AT), rules, coverage: 'span' }).eligible.length, 1);
   const strict = MI.computeMostImproved(snaps, { awardAt: iso(AT), rules, coverage: 'strict' });
   assert.strictEqual(strict.eligible.length, 0);
