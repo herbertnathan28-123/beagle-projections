@@ -66,7 +66,9 @@ test('index picks the newest available GFS cycle and dates the fronts', async ()
   const d = await createSynoptic({ fetchImpl, now: () => now }).index();
   assert.strictEqual(d.error, null);
   assert.strictEqual(d.analysisAt, '2026-10-04T00:00:00.000Z');
-  assert.ok(asked[0].includes('gfs.20261004%2F00'), 'starts at the newest cycle old enough to be published');
+  assert.strictEqual(d.forecastHour, 9);
+  assert.strictEqual(d.validAt, '2026-10-04T09:00:00.000Z');
+  assert.ok(asked[0].includes('gfs.20261004%2F00') && asked[0].includes('1p00.f009'), 'starts at the newest cycle, step valid nearest now');
   assert.strictEqual(d.frontsAt, '2026-10-04T06:00:00.000Z');
   assert.strictEqual(d.fronts.length, 1);
   assert.ok(d.isobars.length > 0 && d.centres.length === 2);
@@ -76,4 +78,24 @@ test('index reports an error instead of throwing when NOAA is unreachable', asyn
   const d = await createSynoptic({ fetchImpl: async () => { throw new Error('ETIMEDOUT'); } }).index();
   assert.match(d.error, /ETIMEDOUT/);
   assert.deepStrictEqual(d.isobars, []);
+});
+
+test('forecast step is the 3-hourly step nearest now, capped at +12 h', () => {
+  const c = Date.parse('2026-10-04T06:00:00Z');
+  assert.strictEqual(_internal.forecastHour(c, Date.parse('2026-10-04T10:00:00Z')), 3);
+  assert.strictEqual(_internal.forecastHour(c, Date.parse('2026-10-04T12:45:00Z')), 6);
+  assert.strictEqual(_internal.forecastHour(c, Date.parse('2026-10-05T06:00:00Z')), 12);
+  assert.ok(_internal.gfsUrl(c, 6).includes('gfs.t06z.pgrb2.1p00.f006'));
+});
+
+test('falls back to the analysis when the current step is not published yet', async () => {
+  const now = Date.parse('2026-10-04T08:30:00Z'), grib = makeGrib(field);
+  const fetchImpl = async (u) => {
+    if (u.includes('cod.sus')) return { ok: false, text: async () => '' };
+    if (u.includes('gfs.20261004%2F00') && u.includes('f000')) return { ok: true, arrayBuffer: async () => grib };
+    return { ok: false, arrayBuffer: async () => Buffer.from('<html>404') };
+  };
+  const d = await createSynoptic({ fetchImpl, now: () => now }).index();
+  assert.strictEqual(d.forecastHour, 0);
+  assert.strictEqual(d.validAt, '2026-10-04T00:00:00.000Z');
 });

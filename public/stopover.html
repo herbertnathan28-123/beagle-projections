@@ -267,7 +267,7 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
     <button class="replay" id="replay" type="button">Replay flight</button>
     <div class="zoom" role="group" aria-label="Map zoom"><button type="button" id="zIn" aria-label="Zoom in" title="Zoom in (or pinch / scroll)">+</button><button type="button" id="zOut" aria-label="Zoom out" title="Zoom out">&minus;</button><button type="button" id="zWorld" aria-label="Show the whole world" title="Whole world"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6.5"/><ellipse cx="8" cy="8" rx="2.8" ry="6.5"/><path d="M1.5 8h13"/></svg></button></div>
     <div class="mapctl"><div class="wxseg" id="mapSeg" role="group" aria-label="Base map" title="Satellite: NASA Blue Marble imagery. Place names: Natural Earth."><button type="button" id="mapSat" aria-pressed="true">Satellite</button><button type="button" id="mapClassic" aria-pressed="false">Classic</button></div><div class="wxseg" id="wxSeg" role="group" aria-label="Weather layer" hidden><button type="button" id="wxRain" aria-pressed="true">Rain</button><button type="button" id="wxSyn" aria-pressed="false">Synoptic</button></div></div>
-    <div class="wx" id="wx" hidden><span id="wxT"></span><span class="wxk" id="wxkRain"><i class="wxbar"></i>NASA rain</span><span class="wxk" id="wxkSyn" hidden><b style="color:var(--syn-h)">H</b><b style="color:var(--syn-l)">L</b><span class="fk"><i style="background:var(--syn-cold)"></i>cold</span><span class="fk"><i style="background:var(--syn-warm)"></i>warm</span><span class="fk"><i style="background:var(--syn-occ)"></i>occl.</span><span class="fk"><i style="background:linear-gradient(90deg,var(--syn-warm) 50%,var(--syn-cold) 50%)"></i>stat.</span><span class="fk"><i class="dash"></i>trough</span>NOAA</span></div>
+    <div class="wx" id="wx" hidden><span id="wxT"></span><span class="wxk" id="wxkRain"><i class="wxbar"></i>NASA rain · live IR clouds</span><span class="wxk" id="wxkSyn" hidden><b style="color:var(--syn-h)">H</b><b style="color:var(--syn-l)">L</b><span class="fk"><i style="background:var(--syn-cold)"></i>cold</span><span class="fk"><i style="background:var(--syn-warm)"></i>warm</span><span class="fk"><i style="background:var(--syn-occ)"></i>occl.</span><span class="fk"><i style="background:linear-gradient(90deg,var(--syn-warm) 50%,var(--syn-cold) 50%)"></i>stat.</span><span class="fk"><i class="dash"></i>trough</span>NOAA</span></div>
     <div class="legend"><span><i style="background:var(--gold)"></i>Your route</span><span><i style="background:var(--green)"></i>Stopover</span><span><i style="background:var(--muted)"></i>Other options</span></div>
   </div>
 
@@ -522,11 +522,12 @@ function gc(a,b,n=64){ // great-circle points, longitudes unwrapped continuously
 const TILE_DEG=[288,144,72,36,18,9,4.5,2.25], TCOLS=[2,3,5,10,20,40,80,160], TROWS=[1,2,3,5,10,20,40,80];
 const TILES=new Map(); let tilePend=0;
 function wraps(){ const a=[]; for(let k=Math.floor((view.lon0-200)/360);k<=Math.ceil((view.lon1+200)/360);k++){ const o=k*360; if(o+200>view.lon0&&o-200<view.lon1) a.push(o); } return a; }
-function tileImg(url,req){ let e=TILES.get(url); if(e||!req||typeof Image==='undefined') return e||null;
+function tileImg(url,req){ let e=TILES.get(url); if(e&&e.err&&req&&performance.now()-e.at>15000){ TILES.delete(url); e=null; }
+  if(e||!req||typeof Image==='undefined') return e||null;
   if(TILES.size>900){ let n=0; for(const k of TILES.keys()){ TILES.delete(k); if(++n>=200) break; } }
   const img=new Image(); e={img,ok:false,err:false}; img.decoding='async';
   img.onload=()=>{ e.ok=true; if(!tilePend) tilePend=requestAnimationFrame(()=>{ tilePend=0; draw(); }); };
-  img.onerror=()=>{ e.err=true; }; img.src=url; TILES.set(url,e); return e; }
+  img.onerror=()=>{ e.err=true; e.at=performance.now(); }; img.src=url; TILES.set(url,e); return e; }
 function tileZ(maxZ){ const dpp=(view.lon1-view.lon0)/cv.clientWidth/Math.min(2,devicePixelRatio||1); let z=0; while(z<maxZ&&TILE_DEG[z]/512>dpp) z++; return z; }
 function tileSet(z,url,req){ const d=TILE_DEG[z], out=[];
   const r0=Math.max(0,Math.floor((90-view.lat1)/d)), r1=Math.min(TROWS[z]-1,Math.floor((90-view.lat0)/d),Math.ceil(180/d)-1);
@@ -548,7 +549,7 @@ function drawSat(w,h){ const zt=tileZ(7), zb=Math.min(2,zt), settled=performance
   for(let z=zb+1;z<=zt;z++) blitTiles(ctx,z,tileSet(z,bmUrl,z===zt&&settled),1,true);
   ctx.fillStyle='rgba(5,11,24,.2)'; ctx.fillRect(0,0,w,h); return true; }
 function draw(){ drawBase(); paint(performance.now()); }
-function drawBase(){ ctx=bctx; drawLand(); if(wxMode==='syn') drawSynoptic(); ctx=octx; drawRouteLayer(); ctx=bctx; }
+function drawBase(){ ctx=bctx; drawLand(); if(wxMode==='rain') drawClouds(); if(wxMode==='syn') drawSynoptic(); ctx=octx; drawRouteLayer(); ctx=bctx; }
 function drawLand(){
   const w=cv.clientWidth,h=cv.clientHeight; ctx.clearRect(0,0,w,h);
   const span=view.lon1-view.lon0, rDot=Math.max(.8,Math.min(2.4,260/span));
@@ -662,6 +663,55 @@ function planePath(){ const P=mctx; P.beginPath();
   P.lineTo(-9,-1.6); P.lineTo(-11.5,-5.5); P.lineTo(-13,-5.5); P.lineTo(-12,-1.2); P.lineTo(-12.5,0);
   P.lineTo(-12,1.2); P.lineTo(-13,5.5); P.lineTo(-11.5,5.5); P.lineTo(-9,1.6); P.lineTo(-3,1.8); P.lineTo(-6,11); P.lineTo(-3,11); P.lineTo(2,1.8);
   P.lineTo(9,1.8); P.quadraticCurveTo(12,1.6,13,0); P.closePath(); }
+// live clouds: NASA GIBS Band 13 clean-infrared tiles from GOES-East, GOES-West and Himawari
+// (10-minute scans). Warm ground is keyed out; satellites cross-fade at their seams and fade at the coverage edge.
+const CL={sats:[]}, CL_IDS=['ge','gw','hi'], CL_LO=135, CL_HI=200, CL_ALPHA=.6;
+const clRamp=(a,b,x)=>Math.max(0,Math.min(1,(x-a)/(b-a)));
+function satW(id,lon){ lon=((lon+180)%360+360)%360-180;
+  if(id==='ge') return clRamp(-109,-103,lon)*(1-clRamp(-32,-5,lon));
+  if(id==='gw'){ const a=lon>0?lon-360:lon; return clRamp(-185,-179,a)*(1-clRamp(-109,-103,a)); }
+  const b=lon<0?lon+360:lon; return clRamp(68,92,b)*(1-clRamp(175,181,b)); }
+let clTimer=0;
+function loadClouds(){
+  if(typeof Image==='undefined'||typeof fetch==='undefined') return;
+  if(!clTimer) clTimer=setInterval(loadClouds,300000);
+  fetch('/api/stopover/clouds').then(r=>r.ok?r.json():null).then(d=>{
+    if(!d||!Array.isArray(d.sats)) return;
+    const s=d.sats.filter(x=>CL_IDS.includes(x.id)&&Number.isFinite(Date.parse(x.t))).map(x=>({id:x.id,ms:Date.parse(x.t)}));
+    if(s.map(x=>x.id+x.ms).join()===CL.sats.map(x=>x.id+x.ms).join()) return;
+    CL.sats=s; WX.shown=null; if(wxMode==='rain') draw();
+  }).catch(()=>{});
+}
+function clLabel(){ const ms=Math.max(0,...CL.sats.map(s=>s.ms)); if(!ms) return '';
+  const ago=Math.max(0,Math.round((Date.now()-ms)/60000));
+  return narrow()?' · Clouds '+ago+' min':' · Clouds '+new Date(ms).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · '+ago+' min ago'; }
+const narrow=()=>cv.clientWidth<560;
+function rainLabel(t){ return narrow()?'Rain '+Math.max(0,Math.round((Date.now()-new Date(t))/3600000))+' h':'Rain '+wxLabel(t); }
+function cloudTile(e,id,z,r,c){
+  if(e.cl!==undefined) return e.cl; e.cl=null;
+  try{ const d=TILE_DEG[z], N=512, cc=document.createElement('canvas'); cc.width=cc.height=N;
+    const g=cc.getContext('2d',{willReadFrequently:true}); g.drawImage(e.img,0,0);
+    const im=g.getImageData(0,0,N,N), p=im.data, wx=new Float32Array(N), wy=new Float32Array(N);
+    for(let i=0;i<N;i++){ wx[i]=satW(id,-180+(c+(i+.5)/N)*d); wy[i]=1-clRamp(58,72,Math.abs(90-(r+(i+.5)/N)*d)); }
+    for(let y=0,k=0;y<N;y++) for(let x=0;x<N;x++,k+=4){
+      const w=wx[x]*wy[y]; let a=0;
+      if(w>0&&p[k+3]){ const R=p[k],G=p[k+1],B=p[k+2]; a=Math.max(R,G,B)-Math.min(R,G,B)>24?1:clRamp(CL_LO,CL_HI,R); a=a*a*(3-2*a); }
+      p[k]=p[k+1]=200+55*a; p[k+2]=212+43*a; p[k+3]=a*w*CL_ALPHA*255; }
+    g.putImageData(im,0,0); e.cl=cc; }catch(_){}
+  return e.cl; }
+function clCovers(id,z,c){ const d=TILE_DEG[z]; for(let q=0;q<=8;q++) if(satW(id,-180+(c+q/8)*d)>0) return true; return false; }
+function drawClouds(){
+  if(!CL.sats.length) return;
+  const zt=tileZ(5), zb=Math.min(1,zt), settled=performance.now()-lastMove>350;
+  for(const s of CL.sats){
+    const u=(z,r,c)=>`/api/stopover/tiles/${s.id}/${s.ms}/${z}/${r}/${c}.png`;
+    const set=(z,req)=>tileSet(z,u,false).filter(t=>clCovers(s.id,z,t.c)).map(t=>req&&!t.e?{...t,e:tileImg(u(z,t.r,t.c),true)}:t);
+    const blit=(z,ts)=>blitTiles(ctx,z,ts.map(t=>({...t,e:t.e&&t.e.ok&&cloudTile(t.e,s.id,z,t.r,t.c)?{ok:true,img:t.e.cl}:null})),1,false);
+    const coarse=set(zb,true);
+    if(zt>zb){ const fine=set(zt,settled); if(fine.length&&fine.every(t=>t.e&&(t.e.ok||t.e.err))){ blit(zt,fine); continue; } }
+    blit(zb,coarse);
+  }
+}
 // real-world rain: NASA IMERG 30-min frames (global plate carrée, same projection as this map)
 const WX={frames:[],t0:0,shown:null}, WX_FRAME=700, WX_HOLD=1600, WX_ALPHA=.8;
 function loadWeather(){
@@ -673,15 +723,19 @@ function loadWeather(){
     WX.frames[WX.frames.length-1].img.onload=()=>{ wxShow(); if(wxMode==='rain') draw(); };
   }).catch(()=>{});
 }
+function synLabel(d){
+  if(!d.forecastHour) return 'Analysis '+wxLabel(d.analysisAt);
+  return 'Valid '+wxLabel(d.validAt)+' · GFS '+String(new Date(d.analysisAt).getUTCHours()).padStart(2,'0')+'z +'+d.forecastHour+'h';
+}
 function wxLabel(t){
-  const d=new Date(t), ago=Math.max(0,Math.round((Date.now()-d)/3600000));
-  return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · '+(ago?ago+' h ago':'latest');
+  const d=new Date(t), ago=Math.round((Date.now()-d)/3600000);
+  return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · '+(ago>0?ago+' h ago':ago<0?'in '+(-ago)+' h':'now');
 }
 function rain(now,w,h){
   if(wxMode!=='rain') return;
   const fr=WX.frames.filter(f=>f.img.complete&&f.img.naturalWidth); if(!fr.length) return;
   const n=fr.length; let i=n-1,u=0;
-  if(!reduce&&n>1){ const p=Math.min(((now-WX.t0)%((n-1)*WX_FRAME+WX_HOLD))/WX_FRAME,n-1); i=Math.floor(p); u=p-i; }
+  if(!reduce&&n>1){ const p=Math.min((Math.max(0,now-WX.t0)%((n-1)*WX_FRAME+WX_HOLD))/WX_FRAME,n-1); i=Math.floor(p); u=p-i; }
   const a=fr[i], b=fr[Math.min(i+1,n-1)];
   const sx=w/(view.lon1-view.lon0), sy=h/(view.lat1-view.lat0);
   const z=tileZ(3), hi=z>=2, rUrl=f=>(z,r,c)=>`/api/stopover/tiles/rain/${f.ms}/${z}/${r}/${c}.png`;
@@ -691,12 +745,12 @@ function rain(now,w,h){
     mctx.globalAlpha=al;
     for(const off of wraps()){ const x=(-180+off-view.lon0)*sx; if(x>w||x+360*sx<0) continue; mctx.drawImage(f.img,x,(view.lat1-90)*sy,360*sx,180*sy); } };
   blit(a,WX_ALPHA*(1-u)); if(b!==a) blit(b,WX_ALPHA*u); mctx.globalAlpha=1;
-  const cur=u<.5?a:b; if(WX.shown!==cur.t){ WX.shown=cur.t; $('wxT').textContent=wxLabel(cur.t); }
+  const cur=u<.5?a:b; if(WX.shown!==cur.t){ WX.shown=cur.t; $('wxT').textContent=rainLabel(cur.t)+clLabel(); }
 }
 // world synoptic chart: NOAA GFS isobars + H/L, NOAA WPC fronts (/api/stopover/synoptic)
 let wxMode='rain'; const SYN={data:null,loading:false};
 const SYN_TITLE="Isobars every 4 hPa contoured from NOAA's GFS sea-level pressure analysis. Fronts and troughs from NOAA WPC's surface analysis, which covers the North Pacific, North America and the North Atlantic only.";
-const RAIN_TITLE="NASA GPM IMERG satellite precipitation estimate, 30-minute frames (published about 6 hours behind real time)";
+const RAIN_TITLE="Rain: NASA GPM IMERG satellite precipitation estimate, 30-minute frames (published about 6 hours behind real time). Clouds: live GOES-East, GOES-West and Himawari infrared via NASA GIBS, 10-minute scans; no free feed covers Europe, Africa or the Indian Ocean.";
 function loadSynoptic(){
   if(SYN.data||SYN.loading) return; SYN.loading=true;
   fetch('/api/stopover/synoptic').then(r=>r.ok?r.json():null).then(d=>{
@@ -708,7 +762,7 @@ function loadSynoptic(){
 }
 function wxShow(){ $('wx').hidden=false; $('wxSeg').hidden=false; }
 function wxText(){
-  if(wxMode==='syn') $('wxT').textContent = SYN.data ? 'Analysis '+wxLabel(SYN.data.analysisAt) : 'Loading chart…';
+  if(wxMode==='syn') $('wxT').textContent = SYN.data ? synLabel(SYN.data) : 'Loading chart…';
   else WX.shown=null;
 }
 function setMap(m,user){
@@ -1050,7 +1104,7 @@ function applyAcft(name,applySpec){
   if(applySpec){ $('range').value=spec.range; $('rwy').value=spec.rwy; }
 }
 function initAircrafts(){
-  loadWeather();
+  loadWeather(); loadClouds();
   $('mapSat').addEventListener('click',()=>setMap('sat',true)); $('mapClassic').addEventListener('click',()=>setMap('classic',true));
   $('wxRain').addEventListener('click',()=>setWx('rain',true)); $('wxSyn').addEventListener('click',()=>setWx('syn',true));
   fetch('/api/stopover/aircrafts').then(r=>r.json()).then(list=>{
