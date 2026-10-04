@@ -6,13 +6,13 @@ const gif = require('../lib/mostImprovedGif');
 const AT = Date.parse('2026-10-04T12:00:00Z');
 const row = (name, baseline, current) => ({ name, baseline, current, pct: (current - baseline) / baseline * 100 });
 const eligible = [row('Air Sorchy', 41582.4, 74843.2), row('Stihl air', 67081, 119897), row("Sith'ari Airways", 85137, 146335),
-  row('Duck_a_lot', 101597, 147486), row('Blom airlines', 114179, 164214), row('Pablo El Pistons Airline', 12865, 18346), row('Seventh', 20000, 26000)];
+  row('Duck_a_lot', 101597, 147486), row('Blom airlines', 114179, 164214), row('Think Nash Air', 65462, 91489), row('Seventh', 20000, 26000)];
 const result = { weekKey: '2026-10-04', currentWindow: [AT - 7 * 86400e3, AT], eligible, winner: eligible[0] };
 
 test('GIF spec: top 6 eligible, rounded $/day, week-ending + window dates', () => {
   assert.deepStrictEqual(gif.gifSpec(result), {
     data: [['Air Sorchy', 41582, 74843], ['Stihl air', 67081, 119897], ["Sith'ari Airways", 85137, 146335],
-      ['Duck_a_lot', 101597, 147486], ['Blom airlines', 114179, 164214], ['Pablo El Pistons Airline', 12865, 18346]],
+      ['Duck_a_lot', 101597, 147486], ['Blom airlines', 114179, 164214], ['Think Nash Air', 65462, 91489]],
     weekEnding: 'Sun 4 Oct 2026', window: '27 Sep - 4 Oct', dpi: 80,
   });
 });
