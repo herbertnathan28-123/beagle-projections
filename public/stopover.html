@@ -197,6 +197,36 @@ canvas{display:block;width:100%;height:clamp(240px,42vw,440px)}
 .dchip{display:flex;align-items:flex-end;justify-content:center;padding-bottom:13px;min-width:84px}
 #dchip{font:700 15px "Barlow Condensed",sans-serif;color:var(--gold);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;white-space:nowrap}
 #dchip:empty{display:none}
+.airspace{margin-top:22px;padding:20px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(135deg,var(--panel2),var(--panel) 65%)}
+.tv-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.tv-head h2{margin:0;font:700 clamp(28px,3vw,36px) "Barlow Condensed",sans-serif;letter-spacing:.04em}
+.tv-head h2 span{color:var(--gold)}
+.tv-head p{margin:4px 0 0;color:var(--muted);font-size:14px}
+.tv-tag{border:1px solid var(--line);border-radius:6px;padding:4px 8px;color:var(--gold);font-size:12px;font-weight:600;letter-spacing:.06em}
+.tv-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.tv-card{min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.tv-watch{display:block;position:relative;aspect-ratio:16/9;background:var(--tile);color:var(--ink)}
+.tv-watch img{width:100%;height:100%;object-fit:cover;display:block}
+.tv-play{position:absolute;inset:0;display:grid;place-items:center;background:linear-gradient(transparent,rgba(0,0,0,.25))}
+.tv-play::before{content:'\25B6';display:grid;place-items:center;width:50px;height:50px;padding-left:3px;border:1px solid var(--gold);border-radius:50%;background:rgba(8,21,42,.88);color:var(--gold);font-size:20px;transition:transform .15s}
+.tv-watch:hover .tv-play::before{transform:scale(1.12)}
+.tv-watch:focus-visible,.tv-link:focus-visible{outline:2px solid var(--gold);outline-offset:-3px}
+.tv-meta{padding:12px}
+.tv-meta h3{margin:0 0 4px;font:600 20px "Barlow Condensed",sans-serif}
+.tv-meta p{margin:0 0 8px;color:var(--muted);font-size:13px}
+.tv-link{color:var(--gold);font-size:13px;text-underline-offset:3px}
+.tv-dialog{width:min(1100px,calc(100% - 24px));max-height:calc(100dvh - 24px);padding:0;border:1px solid var(--line);border-radius:14px;background:var(--bg);color:var(--ink);overflow:auto}
+.tv-dialog::backdrop{background:rgba(2,8,18,.9)}
+.tv-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px}
+.tv-toolbar h2{flex:1;margin:0;font:600 24px "Barlow Condensed",sans-serif}
+.tv-toolbar button{border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--ink);padding:7px 10px;font:600 14px "Barlow",sans-serif;cursor:pointer}
+.tv-toolbar button[hidden]{display:none}
+.tv-screen{aspect-ratio:16/9;background:#000}
+.tv-screen iframe{display:block;width:100%;height:100%;border:0}
+.tv-screen:fullscreen{width:100%;height:100%;aspect-ratio:auto}
+.tv-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 16px;font-size:13px;color:var(--muted)}
+@media(max-width:700px){.tv-grid{grid-template-columns:minmax(0,1fr)}.airspace{padding:14px}.tv-toolbar h2{flex-basis:100%}}
+
 footer{margin-top:22px;font-size:13px;color:var(--muted)}
 .share{background:none;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;font:inherit;font-size:14px;cursor:pointer;margin-left:8px}
 
@@ -346,12 +376,46 @@ footer{margin-top:22px;font-size:13px;color:var(--muted)}
     </section>
   </div>
 
+  <section class="airspace" aria-labelledby="tvHeading">
+    <div class="tv-head">
+      <div><h2 id="tvHeading">AIRSPACE <span>TV</span></h2><p>Take a break above the clouds. Pick a film, then go fullscreen.</p></div>
+      <span class="tv-tag">NATS · RECORDED VISUALISATIONS · NOT LIVE</span>
+    </div>
+    <div class="tv-grid">
+      <article class="tv-card">
+        <a class="tv-watch" href="https://vimeo.com/1044641347" target="_blank" rel="noopener noreferrer" data-video="1044641347" data-title="North Atlantic Skies" aria-label="Watch North Atlantic Skies" aria-haspopup="dialog">
+          <img src="https://i.vimeocdn.com/video/1968081212-37a325ae16dc90890fa18a4e34fae53123f83abe81c4cb495fd250a08d92dbfe-d_960?region=us" alt="" width="960" height="540" loading="lazy" decoding="async"><span class="tv-play" aria-hidden="true"></span>
+        </a>
+        <div class="tv-meta"><h3>North Atlantic Skies</h3><p>NATS · 1 min 55 sec</p><a class="tv-link" href="https://vimeo.com/1044641347" target="_blank" rel="noopener noreferrer">Watch on Vimeo ↗</a></div>
+      </article>
+      <article class="tv-card">
+        <a class="tv-watch" href="https://vimeo.com/1044641389" target="_blank" rel="noopener noreferrer" data-video="1044641389" data-title="London 24" aria-label="Watch London 24" aria-haspopup="dialog">
+          <img src="https://i.vimeocdn.com/video/1968073990-e1725a92625fa1c2369b617a37507fdd303109293a673f8ac9c03ed230932193-d_960?region=us" alt="" width="960" height="540" loading="lazy" decoding="async"><span class="tv-play" aria-hidden="true"></span>
+        </a>
+        <div class="tv-meta"><h3>London 24</h3><p>NATS · 1 min 52 sec</p><a class="tv-link" href="https://vimeo.com/1044641389" target="_blank" rel="noopener noreferrer">Watch on Vimeo ↗</a></div>
+      </article>
+      <article class="tv-card">
+        <a class="tv-watch" href="https://vimeo.com/290476004" target="_blank" rel="noopener noreferrer" data-video="290476004" data-title="Europe 24" aria-label="Watch Europe 24" aria-haspopup="dialog">
+          <img src="https://i.vimeocdn.com/video/726360296-6362cad8cbccacd701946a6d54385694172af33b3a0c8c86dab6167500d4413f-d_960?region=us" alt="" width="960" height="540" loading="lazy" decoding="async"><span class="tv-play" aria-hidden="true"></span>
+        </a>
+        <div class="tv-meta"><h3>Europe 24</h3><p>NATS · 2 min 7 sec</p><a class="tv-link" href="https://vimeo.com/290476004" target="_blank" rel="noopener noreferrer">Watch on Vimeo ↗</a></div>
+      </article>
+    </div>
+  </section>
+
   <footer>
     Airport data: 3,900+ AM4 airports. Distances are great-circle. All aircraft are assumed to have the +10% speed modification fitted.
     <button class="share" id="share" type="button">Copy link to this route</button>
     <span id="copied" class="sm"></span>
   </footer>
 </div>
+
+<dialog class="tv-dialog" id="tvDialog" aria-labelledby="tvTitle" aria-describedby="tvHelp">
+  <div class="tv-toolbar"><h2 id="tvTitle">Airspace TV</h2><button type="button" id="tvFullscreen">Fullscreen</button><button type="button" id="tvClose" autofocus>Close</button></div>
+  <div class="tv-screen" id="tvScreen"></div>
+  <div class="tv-foot"><span id="tvHelp" role="status">Recorded NATS visualisation. Not live air traffic.</span><a class="tv-link" id="tvVimeo" target="_blank" rel="noopener noreferrer">Not playing? Watch on Vimeo ↗</a></div>
+</dialog>
+<script src="/stopover-tv.js" defer></script>
 
 <script src="/stopover-facts.js"></script>
 <script>
