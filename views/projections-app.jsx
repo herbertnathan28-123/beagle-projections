@@ -309,7 +309,11 @@ function createRenderer(canvas, hooks) {
     // right-hand labels with two-way collision avoidance and leader lines
     const fs = R.mob ? 10.5 : 12.5, gapPx = fs + 3;
     const endX = Math.min(V.x1, m.xMax);
-    const rankMap = m.rankAt ? m.rankAt(endX) : null;
+    // The headline rank is the projected rank at the SELECTED horizon (20D … 12MO) —
+    // never at the visible edge, so zooming or panning cannot drift it back towards
+    // the current rank (ATL-154 defect 9). The current rank only ever sits beside it
+    // in small type as "now #X".
+    const rankMap = m.rankAt ? m.rankAt(m.xMax) : null;
     let labels = m.series.map(s => { const v = valueAt(s.pts, endX); return { s, v, y0: yMap(v) }; })
       .filter(l => l.y0 >= R.t - 40 && l.y0 <= R.b + 40);
     const cap = Math.floor((R.b - R.t) / gapPx);

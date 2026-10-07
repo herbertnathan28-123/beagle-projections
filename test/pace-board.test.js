@@ -104,4 +104,7 @@ test('right-edge labels: projected rank at the horizon, current rank secondary',
   const src = fs.readFileSync(path.join(__dirname, '..', 'views', 'projections-app.jsx'), 'utf8');
   assert.match(src, /const txt = \(pr \? '#' \+ pr \+ ' ' : ''\)/);
   assert.match(src, /'now #' \+ s\.rank/);
+  // Defect 9: the label rank is taken at the selected horizon, not at the visible edge of a zoomed view.
+  assert.match(src, /const rankMap = m\.rankAt \? m\.rankAt\(m\.xMax\) : null/);
+  assert.doesNotMatch(src, /rankAt\(endX\)/);
 });
