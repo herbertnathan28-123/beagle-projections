@@ -285,10 +285,11 @@ function TrendGraph(props) {
 
 /* The ruled columns, under the full-width graph (defect 8). One row per alliance in
    pace-rank order; tap a row to switch its line off or on. Same figures as NUMBERS. */
-function DataBlock({ rows, hidden, onToggle, mob, todayLabel }) {
-  const fs = mob ? 12 : 13.5;
-  const th = { padding: '8px 10px 6px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'bottom', borderBottom: '1px solid rgba(255,196,34,.45)' };
-  const td = { padding: (mob ? 6 : 7) + 'px 10px', textAlign: 'right', whiteSpace: 'nowrap', fontSize: fs, borderBottom: '1px solid #0B1A2B' };
+function DataBlock({ rows, hidden, onToggle, mob, w, todayLabel }) {
+  const dense = mob || w < 1024; // tablet widths: tighter type so every column fits across the page
+  const fs = dense ? 12 : 13.5, px = dense ? 7 : 10;
+  const th = { padding: '8px ' + px + 'px 6px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'bottom', borderBottom: '1px solid rgba(255,196,34,.45)' };
+  const td = { padding: (dense ? 6 : 7) + 'px ' + px + 'px', textAlign: 'right', whiteSpace: 'nowrap', fontSize: fs, borderBottom: '1px solid #0B1A2B' };
   return (<div className="pb-data" style={{ overflowX: 'auto', borderTop: '1px solid #10203A' }}>
     <table style={{ borderCollapse: 'collapse', width: '100%' }}>
       <thead><tr>{COLDEF.map(([k, h, sub]) => (<th key={k} style={{ ...th, textAlign: k === 'name' ? 'left' : 'right' }}>
@@ -299,7 +300,7 @@ function DataBlock({ rows, hidden, onToggle, mob, todayLabel }) {
         style={{ opacity: off ? 0.38 : 1, background: r.isBeagle ? 'rgba(255,196,34,.13)' : 'transparent' }}>
         <td style={{ ...td, textAlign: 'left' }}>
           <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 5, background: r.color, boxShadow: '0 0 8px ' + r.color, marginRight: 8, verticalAlign: 'middle' }} />
-          <span style={{ color: r.color, fontWeight: r.isBeagle ? 800 : 650 }}>{'#' + r.paceRank + ' ' + r.name}</span>
+          <span style={{ color: r.color, fontWeight: r.isBeagle ? 800 : 650 }} title={r.name}>{'#' + r.paceRank + ' ' + (dense ? short(r.name, 15) : r.name)}</span>
           <span style={{ color: DIM, fontSize: fs - 3, fontWeight: 500 }}>{'  SV #' + r.rank}</span>
         </td>
         <td style={{ ...td, color: r.today == null ? FAINT : INK, fontStyle: r.today == null ? 'italic' : 'normal' }}>{fmtP(r.today)}</td>
@@ -425,7 +426,7 @@ function PaceBoard() {
           <div style={{ border: '1px solid #10203A', borderTop: '2px solid ' + GOLD, borderRadius: 8, background: '#03060D', boxShadow: '0 0 60px rgba(13,193,232,.06), inset 0 0 50px rgba(0,0,0,.7)', overflow: 'hidden' }}>
             {w > 0 && <TrendGraph key={half + '-' + range} rows={halfRows} labels={data.hist.labels || []} nilDays={nilDays} hidden={hidden} onToggle={toggle}
               w={w - padX * 2 - 2} mob={mob} range={range} />}
-            <DataBlock rows={halfRows} hidden={hidden} onToggle={toggle} mob={mob} todayLabel={data.hist.end ? dShort(data.hist.end + 'T00:00:00Z') : ''} />
+            <DataBlock rows={halfRows} hidden={hidden} onToggle={toggle} mob={mob} w={w} todayLabel={data.hist.end ? dShort(data.hist.end + 'T00:00:00Z') : ''} />
           </div>
           <div style={{ fontSize: 11.5, color: DIM, marginTop: 8, lineHeight: 1.5 }}>Tap a line for its pace that day (chip left of the playhead) {'\u00b7'} tap the chart for every line {'\u00b7'} tap a name to switch its line off or on {'\u00b7'} wheel or pinch to zoom, drag to pan. Shaded columns are days with no upload from anyone: they read {'\u201c'}nil data{'\u201d'}, lines stay continuous in their own colour, and nothing is smoothed into a value.</div>
           <Numbers rows={halfRows} half={half} />
