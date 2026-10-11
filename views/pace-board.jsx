@@ -1,7 +1,8 @@
 /* ATL-154 rework (3 Oct 2026): the CURRENT PACE tab is the ALLIANCE PACE DAILY TREND
    graph ruled 5-6 Aug, 31 Aug and 5 Sep. Ranks 1-10 and 11-20 sit behind a
-   two-position toggle, each half is full screen on its own y-axis, and the ruled
-   columns sit on the right of the graph. Every figure comes from the canonical board
+   two-position toggle, each half is full screen on its own y-axis. ATL-154 defect 8
+   (4 Oct 2026): the graph spans the full page width and the ruled columns sit in a
+   block beneath it, not beside it. Every figure comes from the canonical board
    (lib/pace.js) or the stored uploads. Nothing is smoothed, interpolated into a
    value, or averaged into a headline. */
 (function () {
@@ -127,45 +128,35 @@ function decollide(items, gap, top, bottom) {
   return a;
 }
 
-const COLDEF = {
-  name: { h: 'ALLIANCE', sub: 'pace # \u00b7 SV rank' },
-  today: { h: 'TODAY', sub: '' },
-  cur: { h: 'CURRENT PACE', sub: 'latest upload \u00b7 h:mm' },
-  avg: { h: 'AVERAGE', sub: 'since 10 Jan 2026' },
-  move: { h: 'LAST MOVE', sub: 'latest reading' },
-  mrank: { h: 'RANK', sub: 'worst = #1' },
-  pass: { h: 'DAYS / DATE TO PASS', sub: 'at today\u2019s pace' },
-};
-const SETS = [
-  [['name', 200], ['today', 84], ['cur', 140], ['avg', 124], ['move', 88], ['mrank', 70], ['pass', 214]],
-  [['name', 190], ['cur', 140], ['avg', 120], ['move', 86], ['mrank', 70], ['pass', 208]],
-  [['name', 180], ['cur', 134], ['move', 86], ['pass', 196]],
-  [['name', 176], ['cur', 128], ['pass', 192]],
-  [['name', 170], ['cur', 120]],
+/* The ruled columns (5-6 Aug, 31 Aug, 5 Sep, defect 4), each with its own heading.
+   They sit in the data block beneath the full-width graph. */
+const COLDEF = [
+  ['name', 'ALLIANCE', 'pace # \u00b7 SV rank'],
+  ['today', 'TODAY', ''],
+  ['cur', 'CURRENT PACE', 'latest upload \u00b7 h:mm'],
+  ['avg', 'AVERAGE', 'since 10 Jan 2026'],
+  ['move', 'LAST MOVE', 'latest reading'],
+  ['mrank', 'RANK', 'worst = #1'],
+  ['pass', 'DAYS / DATE TO PASS', 'at today\u2019s pace'],
 ];
-/* The widest set of ruled columns that still leaves the graph a usable width; every
-   column is always in the NUMBERS view under the graph. */
-function colsFor(w) {
-  if (w < 640) return [['name', 130], ['cur', 62]];
-  for (const s of SETS) { const t = s.reduce((a, c) => a + c[1], 0); if (w - t - 90 >= Math.max(340, w * 0.34)) return s; }
-  return SETS[SETS.length - 1];
-}
 
 const CSS = '@keyframes pbDraw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}' +
   '.pb-line{stroke-dasharray:1;animation:pbDraw 1.7s cubic-bezier(.2,.7,.2,1) both}' +
-  '.pb-seg button{font-family:inherit}';
+  '.pb-seg button{font-family:inherit}' +
+  '.pb-data tr.pb-row{cursor:pointer}.pb-data tr.pb-row:hover td{background:rgba(255,255,255,.035)}';
 
 function TrendGraph(props) {
-  const { rows, labels, nilDays, hidden, onToggle, w, mob, range, todayLabel } = props;
+  const { rows, labels, nilDays, hidden, onToggle, w, mob, range } = props;
   const n = labels.length;
   const clampV = (a, b) => { const span = Math.max(2, Math.min(n - 1, b - a)); const x0 = Math.max(0, Math.min(a, n - 1 - span)); return { x0, x1: x0 + span }; };
   const [view, setView] = useState(() => clampV(n - range, n - 1));
   const [sel, setSel] = useState(null);
   const svgRef = useRef(null), drag = useRef(null), ptrs = useRef(new Map()), pinch = useRef(null);
 
-  const cols = colsFor(w), colsW = cols.reduce((a, c) => a + c[1], 0);
-  const ml = mob ? 44 : 64, mt = mob ? 54 : 70, mb = mob ? 44 : 52, BUF = 19; // BUF ~ 5 mm between line end and name
-  const pr = w - colsW - BUF - 6, plotW = Math.max(60, pr - ml);
+  // The graph spans the page: only the end-of-line names sit to the right of the plot.
+  const labW = mob ? 112 : 188;
+  const ml = mob ? 44 : 64, mt = mob ? 30 : 36, mb = mob ? 44 : 52, BUF = 19; // BUF ~ 5 mm between line end and name
+  const pr = w - labW - BUF - 6, plotW = Math.max(60, pr - ml);
   const H = mob ? 440 : Math.round(Math.max(520, Math.min(window.innerHeight * 0.68, 780)));
   const ch = H - mt - mb;
   const { x0, x1 } = view;
@@ -177,7 +168,7 @@ function TrendGraph(props) {
   const Y = v => mt + ch - (v - y0) / (y1 - y0) * ch;
   const colW = plotW / (x1 - x0);
   const inView = i => i >= x0 - 0.5 && i <= x1 + 0.5;
-  const fsRow = mob ? 11.5 : 13.5, rowGap = mob ? 19 : 25;
+  const fsRow = mob ? 11.5 : 13.5, rowGap = mob ? 18 : 22;
   const chipFs = Math.max(11, Math.min(18, 11.5 * Math.sqrt(14 / (x1 - x0))));
 
   useEffect(() => {
@@ -245,24 +236,6 @@ function TrendGraph(props) {
     }).filter(Boolean), chH + 3, mt + chH / 2, mt + ch - chH / 2);
   }
 
-  const headX = []; { let cx = pr + BUF; cols.forEach(c => { headX.push(cx); cx += c[1]; }); }
-  const cell = (k, cw, r, x, y) => {
-    const ex = x + cw - 8, base = { y: y + fsRow * 0.36, fontSize: fsRow };
-    if (k === 'name') return (<text key={k} x={x} {...base} fill={r.color} fontWeight={r.isBeagle ? 800 : 650}>
-      {'#' + r.paceRank + ' ' + short(r.name, mob ? 10 : cw > 185 ? 17 : 15)}
-      <tspan fill={DIM} fontSize={fsRow - 3} fontWeight="500">{'  SV #' + r.rank}</tspan></text>);
-    if (k === 'today') return (<text key={k} x={ex} {...base} textAnchor="end" fill={r.today == null ? FAINT : INK} fontStyle={r.today == null ? 'italic' : 'normal'}>{fmtP(r.today)}</text>);
-    if (k === 'cur') return (<text key={k} x={ex} {...base} textAnchor="end">
-      <tspan fill={r.color} fontWeight="800">{fmtP(r.pace)}</tspan>
-      {cw > 100 && <tspan fill={DIM} fontSize={fsRow - 2.5}>{'  ' + hmm(r.windowDays)}</tspan>}</text>);
-    if (k === 'avg') return (<text key={k} x={ex} {...base} textAnchor="end" fontWeight="700" fill={r.avg == null ? FAINT : r.pace >= r.avg ? UP : DN}>
-      {r.avg == null ? 'nil data' : (r.pace >= r.avg ? '\u25b2 ' : '\u25bc ') + fmtP(r.avg)}</text>);
-    if (k === 'move') return (<text key={k} x={ex} {...base} textAnchor="end" fontWeight="700" fill={r.move == null ? FAINT : r.move >= 0 ? UP : DN}>{fmtPct(r.move)}</text>);
-    if (k === 'mrank') return (<text key={k} x={ex} {...base} textAnchor="end" fill={INK} fontWeight="700">{r.moveRank ? '#' + r.moveRank : '\u2014'}</text>);
-    if (k === 'pass') return (<text key={k} x={ex} {...base} fontSize={fsRow - 1} textAnchor="end" fill={r.pass.col} fontWeight="700">{r.pass.txt}{r.pass.who ? <title>{r.pass.who}</title> : null}</text>);
-    return null;
-  };
-
   return (<svg ref={svgRef} width={w} height={H} viewBox={'0 0 ' + w + ' ' + H} style={{ display: 'block', userSelect: 'none', touchAction: 'pan-y' }}
     onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
     onClick={e => { if (moved()) return; const r = svgRef.current.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top; if (px >= ml && px <= pr && py >= mt && py <= mt + ch) pick(e, null); }}>
@@ -300,17 +273,45 @@ function TrendGraph(props) {
     </g>)}
     <line x1={ml} y1={mt} x2={ml} y2={mt + ch} stroke="#2C4A6E" />
     <line x1={ml} y1={mt + ch} x2={pr} y2={mt + ch} stroke="#2C4A6E" />
-    {cols.map((c, k) => { const end = c[0] !== 'name', tx = end ? headX[k] + c[1] - 8 : headX[k], d = COLDEF[c[0]]; return (<g key={'h' + c[0]}>
-      <text x={tx} y={mt - 34} textAnchor={end ? 'end' : 'start'} fill={GOLD} fontSize={mob ? 10 : 11.5} fontWeight="800" letterSpacing=".08em">{mob && c[0] === 'cur' ? 'CURRENT' : d.h}</text>
-      <text x={tx} y={mt - 20} textAnchor={end ? 'end' : 'start'} fill={DIM} fontSize={mob ? 9 : 10}>{c[0] === 'today' ? todayLabel : mob && c[0] === 'cur' ? '$/day' : d.sub}</text>
-    </g>); })}
-    <line x1={pr + BUF} x2={w - 4} y1={mt - 12} y2={mt - 12} stroke={GOLD} opacity=".45" />
     {ends.map(e => { const r = e.r, off = !!hidden[r.name]; return (<g key={'row' + r.name} opacity={off ? 0.32 : 1} style={{ cursor: 'pointer' }} onClick={ev => { ev.stopPropagation(); onToggle(r.name); }}>
-      <rect x={pr + BUF - 6} y={e.y - rowGap / 2} width={colsW + 8} height={rowGap} fill={r.isBeagle ? 'rgba(255,196,34,.13)' : 'transparent'} rx="3" />
+      <rect x={pr + BUF - 6} y={e.y - rowGap / 2} width={labW + 8} height={rowGap} fill={r.isBeagle ? 'rgba(255,196,34,.13)' : 'transparent'} rx="3" />
       {!off && e.ax != null && <path d={'M' + e.ax + ',' + e.ay + ' L' + (pr + 4) + ',' + e.ay + ' L' + (pr + BUF - 8) + ',' + e.y} stroke={r.color} strokeWidth="1.2" opacity=".75" fill="none" />}
-      {cols.map((c, k) => cell(c[0], c[1], r, headX[k], e.y))}
+      <text x={pr + BUF} y={e.y + fsRow * 0.36} fontSize={fsRow} fill={r.color} fontWeight={r.isBeagle ? 800 : 650}>
+        {'#' + r.paceRank + ' ' + short(r.name, mob ? 10 : 16)}
+        {!mob && <tspan fill={DIM} fontSize={fsRow - 3} fontWeight="500">{'  SV #' + r.rank}</tspan>}</text>
     </g>); })}
   </svg>);
+}
+
+/* The ruled columns, under the full-width graph (defect 8). One row per alliance in
+   pace-rank order; tap a row to switch its line off or on. Same figures as NUMBERS. */
+function DataBlock({ rows, hidden, onToggle, mob, w, todayLabel }) {
+  const dense = mob || w < 1024; // tablet widths: tighter type so every column fits across the page
+  const fs = dense ? 12 : 13.5, px = dense ? 7 : 10;
+  const th = { padding: '8px ' + px + 'px 6px', textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'bottom', borderBottom: '1px solid rgba(255,196,34,.45)' };
+  const td = { padding: (dense ? 6 : 7) + 'px ' + px + 'px', textAlign: 'right', whiteSpace: 'nowrap', fontSize: fs, borderBottom: '1px solid #0B1A2B' };
+  return (<div className="pb-data" style={{ overflowX: 'auto', borderTop: '1px solid #10203A' }}>
+    <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+      <thead><tr>{COLDEF.map(([k, h, sub]) => (<th key={k} style={{ ...th, textAlign: k === 'name' ? 'left' : 'right' }}>
+        <div style={{ color: GOLD, fontSize: mob ? 10 : 11.5, fontWeight: 800, letterSpacing: '.08em' }}>{h}</div>
+        <div style={{ color: DIM, fontSize: mob ? 9 : 10, fontWeight: 500, marginTop: 2 }}>{k === 'today' ? todayLabel : sub}</div>
+      </th>))}</tr></thead>
+      <tbody>{rows.map(r => { const off = !!hidden[r.name]; return (<tr key={r.name} className="pb-row" onClick={() => onToggle(r.name)} title={off ? 'Line off \u00b7 tap to show' : 'Tap to hide this line'}
+        style={{ opacity: off ? 0.38 : 1, background: r.isBeagle ? 'rgba(255,196,34,.13)' : 'transparent' }}>
+        <td style={{ ...td, textAlign: 'left' }}>
+          <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 5, background: r.color, boxShadow: '0 0 8px ' + r.color, marginRight: 8, verticalAlign: 'middle' }} />
+          <span style={{ color: r.color, fontWeight: r.isBeagle ? 800 : 650 }} title={r.name}>{'#' + r.paceRank + ' ' + (dense ? short(r.name, 15) : r.name)}</span>
+          <span style={{ color: DIM, fontSize: fs - 3, fontWeight: 500 }}>{'  SV #' + r.rank}</span>
+        </td>
+        <td style={{ ...td, color: r.today == null ? FAINT : INK, fontStyle: r.today == null ? 'italic' : 'normal' }}>{fmtP(r.today)}</td>
+        <td style={td}><span style={{ color: r.color, fontWeight: 800 }}>{fmtP(r.pace)}</span><span style={{ color: DIM, fontSize: fs - 2.5 }}>{'  ' + hmm(r.windowDays)}</span></td>
+        <td style={{ ...td, fontWeight: 700, color: r.avg == null ? FAINT : r.pace >= r.avg ? UP : DN }}>{r.avg == null ? 'nil data' : (r.pace >= r.avg ? '\u25b2 ' : '\u25bc ') + fmtP(r.avg)}</td>
+        <td style={{ ...td, fontWeight: 700, color: r.move == null ? FAINT : r.move >= 0 ? UP : DN }}>{fmtPct(r.move)}</td>
+        <td style={{ ...td, fontWeight: 700, color: INK }}>{r.moveRank ? '#' + r.moveRank : '\u2014'}</td>
+        <td style={{ ...td, fontWeight: 700, color: r.pass.col }} title={r.pass.who || ''}>{r.pass.txt}</td>
+      </tr>); })}</tbody>
+    </table>
+  </div>);
 }
 
 function Seg({ options, value, onChange, big }) {
@@ -424,7 +425,8 @@ function PaceBoard() {
         {mode === 'graph' ? (<div>
           <div style={{ border: '1px solid #10203A', borderTop: '2px solid ' + GOLD, borderRadius: 8, background: '#03060D', boxShadow: '0 0 60px rgba(13,193,232,.06), inset 0 0 50px rgba(0,0,0,.7)', overflow: 'hidden' }}>
             {w > 0 && <TrendGraph key={half + '-' + range} rows={halfRows} labels={data.hist.labels || []} nilDays={nilDays} hidden={hidden} onToggle={toggle}
-              w={w - padX * 2 - 2} mob={mob} range={range} todayLabel={data.hist.end ? dShort(data.hist.end + 'T00:00:00Z') : ''} />}
+              w={w - padX * 2 - 2} mob={mob} range={range} />}
+            <DataBlock rows={halfRows} hidden={hidden} onToggle={toggle} mob={mob} w={w} todayLabel={data.hist.end ? dShort(data.hist.end + 'T00:00:00Z') : ''} />
           </div>
           <div style={{ fontSize: 11.5, color: DIM, marginTop: 8, lineHeight: 1.5 }}>Tap a line for its pace that day (chip left of the playhead) {'\u00b7'} tap the chart for every line {'\u00b7'} tap a name to switch its line off or on {'\u00b7'} wheel or pinch to zoom, drag to pan. Shaded columns are days with no upload from anyone: they read {'\u201c'}nil data{'\u201d'}, lines stay continuous in their own colour, and nothing is smoothed into a value.</div>
           <Numbers rows={halfRows} half={half} />
@@ -435,5 +437,5 @@ function PaceBoard() {
 }
 
 window.PaceBoard = PaceBoard;
-window.PaceBoardLib = { buildRows, passOf, lastMove, colsFor, nilDaysOf, hmm, DATUM_T, DATUM_SV, NEON, GOLD };
+window.PaceBoardLib = { buildRows, passOf, lastMove, nilDaysOf, hmm, DATUM_T, DATUM_SV, NEON, GOLD };
 })();
