@@ -25,15 +25,23 @@ const C = {
 // No yellows or ambers: gold is Beagle's alone.
 const PALETTE = ['#00E36B','#19D9C6','#FF6B18','#3B93FF','#FF3D63','#A855F7','#00C9A7','#FF4D9D','#4ADE80',
   '#818CF8','#38BDF8','#E879F9','#67E8F9','#F87171','#C084FC','#94A3B8','#F43F8E','#A3E635','#60A5FA'];
+// Horizons (Nathan, 14 Oct 2026): 2 weeks, 20 days, every month to 24 months,
+// then every year to 50 years. 9951bfc (ATL-131) had cut this to six tabs
+// ending at 12MO without sign-off; do not shorten it again.
 const PERIODS = [
-  { k: '20D', d: 20 }, { k: '1MO', d: 30.4 }, { k: '2MO', d: 60.8 },
-  { k: '3MO', d: 91.3 }, { k: '6MO', d: 182.6 }, { k: '12MO', d: 365 },
+  { k: '2W', d: 14, g: 'DAYS' }, { k: '20D', d: 20, g: 'DAYS' },
+  ...Array.from({ length: 24 }, (_, i) => ({ k: (i + 1) + 'MO', d: Math.round((i + 1) * 3650 / 12) / 10, g: 'MONTHS' })),
+  ...Array.from({ length: 48 }, (_, i) => ({ k: (i + 3) + 'Y', d: (i + 3) * 365, g: 'YEARS' })),
 ];
+const PERIOD_GROUPS = ['DAYS', 'MONTHS', 'YEARS'];
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function fmtMoney(v, dp) { if (v == null || !isFinite(v)) return '—'; return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: dp == null ? 2 : dp, maximumFractionDigits: dp == null ? 2 : dp }); }
 function fmtDate(d) { return d.getUTCDate() + ' ' + MON[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); }
 function fmtShortDate(d) { return d.getUTCDate() + ' ' + MON[d.getUTCMonth()]; }
+// Day + month, with the year once the date leaves the current year — long horizons
+// put overtakes years out, and "26 Aug" alone would not say which August.
+function fmtWhen(d) { return d.getUTCFullYear() === new Date().getUTCFullYear() ? fmtShortDate(d) : fmtDate(d); }
 function fmtUtc(ts) {
   if (!ts) return '—';
   const d = new Date(ts), p = n => String(n).padStart(2, '0');
@@ -118,7 +126,7 @@ function buildModel(board, opts) {
         endFmt: v => (v >= 0 ? '+' : '−') + fmtMoney(Math.abs(v)),
       });
       const cd = catchFor(r, trend);
-      if (!r.isBeagle && cd != null && cd > 0 && cd <= days) base.markers.push({ x: cd, y: svAt(beagle, cd, trend) - b0, color: colorOf(r), text: fmtShortDate(new Date(Date.parse(board.asOf) + cd * DAY_MS)), name: r.name });
+      if (!r.isBeagle && cd != null && cd > 0 && cd <= days) base.markers.push({ x: cd, y: svAt(beagle, cd, trend) - b0, color: colorOf(r), text: fmtWhen(new Date(Date.parse(board.asOf) + cd * DAY_MS)), name: r.name });
     }
     const all = base.series.flatMap(s => s.pts.concat(s.lin || []).map(p => p[1]));
     const lo = Math.min(0, ...all), hi = Math.max(0, ...all), pad = (hi - lo) * 0.06 || 10;
@@ -138,7 +146,7 @@ function buildModel(board, opts) {
     });
     const cd = catchFor(r, trend);
     if (!r.isBeagle && cd != null && cd > 0 && cd <= days) {
-      base.markers.push({ x: cd, y: svAt(beagle, cd, trend), color: colorOf(r), text: fmtShortDate(new Date(Date.parse(board.asOf) + cd * DAY_MS)), name: r.name });
+      base.markers.push({ x: cd, y: svAt(beagle, cd, trend), color: colorOf(r), text: fmtWhen(new Date(Date.parse(board.asOf) + cd * DAY_MS)), name: r.name });
     }
   }
   const all = base.series.flatMap(s => s.pts.concat(s.lin || []).map(p => p[1]));
@@ -246,6 +254,15 @@ function createRenderer(canvas, hooks) {
     const dayStep = [1, 2, 3, 7, 14].find(s => span / s <= want);
     if (dayStep) {
       for (let d = Math.ceil(V.x0 / dayStep) * dayStep; d <= V.x1 + 1e-6; d += dayStep) xt.push([d, d < 0.5 ? 'NOW' : fmtShortDate(new Date(asOf + d * DAY_MS))]);
+    } else if (span / (12 * 30.44) > want) {
+      // Multi-year spans (up to 50Y) tick on 1 Jan every n years.
+      const n = [1, 2, 5, 10, 20].find(q => span / (q * 365.25) <= want) || 20;
+      const y0 = new Date(asOf + V.x0 * DAY_MS).getUTCFullYear(), y1 = new Date(asOf + V.x1 * DAY_MS).getUTCFullYear();
+      for (let y = Math.ceil(y0 / n) * n; y <= y1; y += n) {
+        const d = (Date.UTC(y, 0, 1) - asOf) / DAY_MS;
+        if (d >= V.x0 && d <= V.x1) xt.push([d, String(y)]);
+      }
+      if (V.x0 < 0.5) xt.unshift([0, 'NOW']);
     } else {
       const k = [1, 2, 3, 6, 12].find(n => span / (n * 30.44) <= want) || 12;
       const start = new Date(asOf + V.x0 * DAY_MS);
@@ -309,7 +326,7 @@ function createRenderer(canvas, hooks) {
     // right-hand labels with two-way collision avoidance and leader lines
     const fs = R.mob ? 10.5 : 12.5, gapPx = fs + 3;
     const endX = Math.min(V.x1, m.xMax);
-    // The headline rank is the projected rank at the SELECTED horizon (20D … 12MO) —
+    // The headline rank is the projected rank at the SELECTED horizon (2W … 50Y) —
     // never at the visible edge, so zooming or panning cannot drift it back towards
     // the current rank (ATL-154 defect 9). The current rank only ever sits beside it
     // in small type as "now #X".
@@ -366,7 +383,7 @@ function createRenderer(canvas, hooks) {
         ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(x, R.t); ctx.lineTo(x, R.b); ctx.stroke(); ctx.setLineDash([]);
         ctx.fillStyle = s.isBeagle ? C.beagle : s.color; ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
         const dt = new Date((Date.parse(m.asOf) || Date.now()) + d * DAY_MS);
-        const text = shortName(s.name, 20) + ' · ' + fmtShortDate(dt) + ' · ' + s.endFmt(v);
+        const text = shortName(s.name, 20) + ' · ' + fmtWhen(dt) + ' · ' + s.endFmt(v);
         ctx.font = font(600, 12); const tw = ctx.measureText(text).width + 14;
         let bx = x + 10; if (bx + tw > R.r) bx = x - 10 - tw; const by = Math.max(R.t + 2, y - 30);
         ctx.fillStyle = 'rgba(5,13,26,.94)'; ctx.strokeStyle = s.isBeagle ? C.beagle : s.color; ctx.lineWidth = 1;
@@ -520,7 +537,7 @@ function App() {
   }, []);
 
   const board = data && data.canonical;
-  const days = (PERIODS.find(p => p.k === period) || PERIODS[4]).d;
+  const days = (PERIODS.find(p => p.k === period) || PERIODS.find(p => p.k === '6MO')).d;
   const trend = proj === 'trend';
   const colorOf = useMemo(() => {
     const m = new Map(); if (!board) return () => '#888';
@@ -600,7 +617,12 @@ function App() {
 
     {/* Controls */}
     <div style={{ display: 'flex', gap: 8, padding: '8px 10px', background: '#040C18', borderBottom: '1px solid #0A1E30', alignItems: 'center', flexWrap: 'wrap' }}>
-      <Seg small={mob} value={period} onChange={setPeriod} options={PERIODS.map(p => [p.k, p.k])} />
+      <select aria-label="Projection horizon" title="Projection horizon" value={period} onChange={e => setPeriod(e.target.value)} style={{
+        background: '#1A3050', color: C.gold, border: '1px solid #1E3A5F', borderRadius: 4, padding: mob ? '6px 8px' : '7px 10px',
+        fontSize: mob ? 12 : 13, fontWeight: 700, letterSpacing: .6, cursor: 'pointer', fontFamily: 'inherit', minHeight: 34, flexShrink: 0,
+      }}>
+        {PERIOD_GROUPS.map(g => <optgroup key={g} label={g}>{PERIODS.filter(p => p.g === g).map(p => <option key={p.k} value={p.k}>{p.k}</option>)}</optgroup>)}
+      </select>
       <Seg small={mob} value={view} onChange={setView} options={[['sv', mob ? 'SV' : 'SV LINES'], ['gap', mob ? 'GAP' : 'OVERTAKE'], ['rank', 'RANK']]} />
       <Seg small={mob} value={focus} onChange={setFocus} options={[['pack', mob ? 'PACK' : 'CATCHING PACK', 'Beagle, everyone Beagle reaches or who reaches Beagle in the period, and two ranks either side'], ['all', mob ? 'ALL' : 'ALL 20']]} />
       <Seg small={mob} value={proj} onChange={setProj} options={[['trend', 'TREND', 'Curved: 7-day vs 30-day pace change carried forward'], ['straight', 'STRAIGHT', 'Straight line at the current pace']]} />
